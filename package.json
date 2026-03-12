@@ -1,0 +1,14 @@
+{
+  "name": "pi-extensions",
+  "version": "0.1.0",
+  "license": "MIT",
+  "private": true,
+  "keywords": [
+    "pi-package"
+  ],
+  "pi": {
+    "extensions": [
+      "./secrets/index.ts"
+    ]
+  }
+}
