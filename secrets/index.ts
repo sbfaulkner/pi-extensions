@@ -13,7 +13,7 @@
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 import { createBashTool } from "@mariozechner/pi-coding-agent";
 import { Type } from "@sinclair/typebox";
-import { execSync } from "node:child_process";
+import { execFileSync } from "node:child_process";
 import { existsSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 
@@ -34,15 +34,16 @@ function loadSecretsFromEjson(name: string): Record<string, string> {
     );
   }
 
-  const output = execSync(`ejson2env "${ejsonPath}"`, {
+  const output = execFileSync("ejson", ["decrypt", ejsonPath], {
     encoding: "utf-8",
   });
 
+  const parsed = JSON.parse(output);
+  const env = parsed.environment ?? {};
   const vars: Record<string, string> = {};
-  for (const line of output.split("\n")) {
-    const match = line.match(/^export\s+([^=]+)=(.*)/);
-    if (match) {
-      vars[match[1]] = match[2];
+  for (const [key, value] of Object.entries(env)) {
+    if (key !== "_public_key" && typeof value === "string") {
+      vars[key] = value;
     }
   }
   return vars;
