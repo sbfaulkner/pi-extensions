@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.3.0
+
+- Add `system-theme` extension — syncs pi theme with macOS/Linux dark/light mode
+- Replaces external `npm:pi-system-theme` dependency with a self-contained implementation
+
 ## 0.2.0
 
 - Switch from `ejson2env` to `ejson decrypt` for clean JSON output

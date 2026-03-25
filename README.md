@@ -7,6 +7,7 @@ Personal extensions for the [Pi coding agent](https://buildwithpi.com).
 | Extension | Description |
 |-----------|-------------|
 | [secrets](./secrets/) | Load environment variables from ejson secret files into all bash commands. `/secrets` command + `load_secrets` tool. |
+| [system-theme](./system-theme/) | Sync pi's theme with macOS/Linux system appearance (dark/light mode). `/system-theme` command to configure. |
 
 ## Install
 
@@ -27,7 +28,7 @@ To enable only a subset:
   "packages": [
     {
       "source": "git:github.com/sbfaulkner/pi-extensions",
-      "extensions": ["secrets/index.ts"]
+      "extensions": ["secrets/index.ts", "system-theme/index.ts"]
     }
   ]
 }
@@ -40,7 +41,8 @@ If you keep a local clone, add to settings:
 ```json
 {
   "extensions": [
-    "~/src/github.com/sbfaulkner/pi-extensions/secrets"
+    "~/src/github.com/sbfaulkner/pi-extensions/secrets",
+    "~/src/github.com/sbfaulkner/pi-extensions/system-theme"
   ]
 }
 ```
