@@ -1,6 +1,6 @@
 {
   "name": "pi-extensions",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "license": "MIT",
   "private": true,
   "keywords": [
@@ -9,7 +9,8 @@
   "pi": {
     "extensions": [
       "./secrets/index.ts",
-      "./system-theme/index.ts"
+      "./system-theme/index.ts",
+      "./vim/index.ts"
     ]
   }
 }
