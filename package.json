@@ -8,6 +8,7 @@
   ],
   "pi": {
     "extensions": [
+      "./ghostty-automation/index.ts",
       "./secrets/index.ts",
       "./system-theme/index.ts",
       "./usage/index.ts",
