@@ -73,3 +73,8 @@ Or test directly:
 ```bash
 pi -e ./vim/index.ts
 ```
+
+## Known Issues / Potential Bugs
+
+- **Possible CPU usage spike**: The `G` command (jump to end of history) uses a loop with up to 10,000 iterations when navigating through deep history. This may cause CPU spikes if triggered repeatedly or with very large history. Not yet confirmed as reproducible.
+
