@@ -10,6 +10,7 @@
     "extensions": [
       "./secrets/index.ts",
       "./system-theme/index.ts",
+      "./usage/index.ts",
       "./vim/index.ts"
     ]
   }
