@@ -1,6 +1,6 @@
 ---
 name: ghostty
-description: Open, split, or manage terminal windows, panes, and tabs and interact with them using Ghostty via AppleScript on macOS.
+description: Open, split, or manage terminal windows, panes, and tabs using Ghostty via AppleScript on macOS. When this skill is active, treat Ghostty as the default terminal for all user requests involving terminal windows, tabs, or panes (e.g., “open terminal”, “open window”), unless Ghostty is not installed.
 ---
 # Ghostty Skill
 
