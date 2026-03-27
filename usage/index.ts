@@ -15,23 +15,45 @@ function getStatusText() {
     .join(" | ");
 }
 
-function updateUsage(provider: string) {
+async function updateUsage(provider: string) {
   const info = usageByProvider.get(provider)!;
 
   switch (provider) {
     case "github-copilot":
-      // TODO: fetch actual usage data from the provider's API instead of incrementing locally
-      // gh api /users/sbfaulkner/settings/billing/premium_request/usage
-
-      // Increment usage for the matched provider
-      
-      info.usage += 1;
+      try {
+        // Get authenticated user
+        const { exec } = await import("child_process");
+        const { promisify } = await import("util");
+        const execAsync = promisify(exec);
+        
+        const { stdout: username } = await execAsync("gh api /user --jq '.login'");
+        const user = username.trim();
+        
+        // Fetch current usage for Copilot Pro
+        const { stdout: usageData } = await execAsync(
+          `gh api "/users/${user}/settings/billing/usage/summary?product=copilot&sku=copilot_premium_request"`
+        );
+        
+        const data = JSON.parse(usageData);
+        if (data.usageItems && data.usageItems.length > 0) {
+          info.usage = Math.floor(data.usageItems[0].grossQuantity);
+        }
+      } catch (error) {
+        // Silently fail if we can't fetch usage (e.g., gh not authenticated)
+        console.error("Failed to fetch GitHub Copilot usage:", error);
+      }
       break;
   }
 }
 
 export default function (pi: ExtensionAPI) {
   pi.on("session_start", async (_event, ctx) => {
+    const provider = ctx.model?.provider;
+    
+    if (provider && usageByProvider.has(provider)) {
+      await updateUsage(provider);
+    }
+    
     ctx.ui.setStatus("provider-usage", ctx.ui.theme.fg("dim", getStatusText()));
   });
 
@@ -40,7 +62,7 @@ export default function (pi: ExtensionAPI) {
     
     if (!provider || !usageByProvider.has(provider)) return;
 
-    updateUsage(provider);
+    await updateUsage(provider);
 
     ctx.ui.setStatus("provider-usage", ctx.ui.theme.fg("dim", getStatusText()));
   });
