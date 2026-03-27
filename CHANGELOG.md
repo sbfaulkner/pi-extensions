@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.6.0
+
+- Add skills to automate ghostty (e.g. open window, new tab, split pane)
+
+## 0.5.0
+
+- Add `usage` extension to add provider usage information to the status bar (initially only github-copilot pro supported)
+
 ## 0.4.0
 
 - Add `vim` extension — vi/readline-style modal editing for pi's input editor
