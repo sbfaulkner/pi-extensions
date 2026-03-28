@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.6.1
+
+- Support running arbitrary command in a new window/tab/pane
+
 ## 0.6.0
 
 - Add skills to automate ghostty (e.g. open window, new tab, split pane)
