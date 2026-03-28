@@ -3,6 +3,7 @@
 ## 0.6.1
 
 - Support running arbitrary command in a new window/tab/pane
+- Support providing initial working direction for new window/tab/pane
 
 ## 0.6.0
 
