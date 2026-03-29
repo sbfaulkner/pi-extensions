@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.6.2
+
+- Extract Ghostty AppleScript logic to standalone .applescript files
+- Use --flag style options (--cmd, --dir, --direction) instead of positional arguments
+- Each script only accepts flags relevant to its action (e.g. --direction is pane-only)
+- Remove inline AppleScript from SKILL.md files; skills now invoke .applescript files via osascript
+
 ## 0.6.1
 
 - Support running arbitrary command in a new window/tab/pane
