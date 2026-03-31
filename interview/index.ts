@@ -6,7 +6,7 @@
  */
 
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
-import { Editor, type EditorTheme, Key, matchesKey, Text, truncateToWidth } from "@mariozechner/pi-tui";
+import { Editor, type EditorTheme, Key, matchesKey, Text, truncateToWidth, wrapTextWithAnsi } from "@mariozechner/pi-tui";
 import { Type } from "@sinclair/typebox";
 
 interface InterviewAnswer {
@@ -150,9 +150,13 @@ export default function (pi: ExtensionAPI) {
 
 					// Current question
 					const q = questions[currentIndex];
-					add(theme.fg("text", theme.bold(` ${currentIndex + 1}/${questions.length}: ${q.question}`)));
+					for (const line of wrapTextWithAnsi(theme.fg("text", theme.bold(` ${currentIndex + 1}/${questions.length}: ${q.question}`)), width)) {
+						lines.push(line);
+					}
 					if (q.context) {
-						add(theme.fg("dim", `   ${q.context}`));
+						for (const line of wrapTextWithAnsi(theme.fg("dim", `   ${q.context}`), width)) {
+							lines.push(line);
+						}
 					}
 					lines.push("");
 
