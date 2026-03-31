@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.7.0
+
+- Add `interview` extension — batch multiple questions into one interactive form
+  - `interview` tool callable by the model to collect answers in one shot
+  - One question at a time with progress dots and per-question editors
+  - Enter to advance, Shift+Enter for newlines, Tab/Shift+Tab to navigate, Esc to cancel
+  - Reduces conversation round-trips from ~2N to 2
+
 ## 0.6.2
 
 - Extract Ghostty AppleScript logic to standalone .applescript files
