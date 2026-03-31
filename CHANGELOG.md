@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.7.1
+
+- Fix interview extension truncating long question and context text with "..."
+  - Now wraps text across multiple lines using `wrapTextWithAnsi`
+
 ## 0.7.0
 
 - Add `interview` extension — batch multiple questions into one interactive form
