@@ -31,7 +31,7 @@ const InterviewParams = Type.Object({
 			context: Type.Optional(Type.String({ description: "Background/rationale shown as dim text" })),
 			default: Type.Optional(Type.String({ description: "Pre-filled answer" })),
 		}),
-		{ description: "Questions to ask the user" },
+		{ description: "Questions to ask the user", minItems: 1 },
 	),
 });
 
@@ -85,7 +85,7 @@ export default function (pi: ExtensionAPI) {
 					const answers: InterviewAnswer[] = questions.map((q, i) => ({
 						id: q.id,
 						question: q.question,
-						answer: editors[i].getText().trim() || "(no answer)",
+						answer: editors[i].getText().trim(),
 					}));
 					done({ title: params.title, answers, cancelled });
 				}
@@ -157,7 +157,7 @@ export default function (pi: ExtensionAPI) {
 					lines.push("");
 
 					// Editor
-					for (const line of editors[currentIndex].render(width - 4)) {
+					for (const line of editors[currentIndex].render(Math.max(1, width - 4))) {
 						add(`  ${line}`);
 					}
 
@@ -189,13 +189,14 @@ export default function (pi: ExtensionAPI) {
 				};
 			}
 
-			const answerText = result.answers.map((a) => `Q: ${a.question}\nA: ${a.answer}`).join("\n\n");
+			const answeredCount = result.answers.filter((a) => a.answer !== "").length;
+			const answerText = result.answers.map((a) => `Q: ${a.question}\nA: ${a.answer || "(skipped)"}`).join("\n\n");
 
 			return {
 				content: [
 					{
 						type: "text",
-						text: `User answered ${result.answers.length}/${questions.length} questions:\n\n${answerText}`,
+						text: `User answered ${answeredCount}/${questions.length} questions:\n\n${answerText}`,
 					},
 				],
 				details: result,
