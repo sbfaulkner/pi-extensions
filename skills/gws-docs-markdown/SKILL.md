@@ -105,6 +105,20 @@ echo "https://docs.google.com/document/d/${DOC_ID}/edit"
 rm /tmp/doc.md
 ```
 
+## Shared Drives
+
+Files on shared (team) drives require `supportsAllDrives: true` in the params,
+otherwise the API returns a 404 even if the authenticated user has access.
+
+```bash
+# Update a doc on a shared drive
+gws drive files update \
+  --params '{"fileId": "DOCUMENT_ID", "supportsAllDrives": true}' \
+  --upload content.md
+```
+
+This also applies to `files get`, `files create` (with `parents` on a shared drive), etc.
+
 ## Limitations
 
 - **Update replaces entirely** — there's no way to update a section; the whole doc body is replaced.
