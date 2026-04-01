@@ -3,13 +3,13 @@
  *
  * Uses `/answer` command to:
  * 1. Find the last assistant message
- * 2. Extract questions via a cheap isolated LLM call (no context pollution)
+ * 2. Extract questions via an isolated LLM call (no context pollution)
  * 3. Present a TUI form to answer them all at once
  * 4. Send answers back as a clean message
  */
 
-import { complete, type Model, type Api, type UserMessage } from "@mariozechner/pi-ai";
-import type { ExtensionAPI, ExtensionContext, ModelRegistry } from "@mariozechner/pi-coding-agent";
+import { complete, type UserMessage } from "@mariozechner/pi-ai";
+import type { ExtensionAPI, ExtensionContext } from "@mariozechner/pi-coding-agent";
 import { BorderedLoader } from "@mariozechner/pi-coding-agent";
 import { Editor, type EditorTheme, Key, matchesKey, truncateToWidth, wrapTextWithAnsi } from "@mariozechner/pi-tui";
 
@@ -24,7 +24,7 @@ interface ExtractionResult {
 
 const EXTRACTION_PROMPT = `You are a question extractor. Given text from a conversation, extract any questions that need answering.
 
-Output a JSON object with this structure:
+Output ONLY a JSON object with this structure:
 {
   "questions": [
     {
@@ -41,30 +41,13 @@ Rules:
 - Include context only when it provides essential information for answering
 - If no questions are found, return {"questions": []}`;
 
-const CHEAP_MODELS: [string, string][] = [
-	["openai-codex", "gpt-5.1-codex-mini"],
-	["anthropic", "claude-haiku-4-5"],
-];
-
-async function selectExtractionModel(
-	currentModel: Model<Api>,
-	modelRegistry: ModelRegistry,
-): Promise<Model<Api>> {
-	for (const [provider, id] of CHEAP_MODELS) {
-		const model = modelRegistry.find(provider, id);
-		if (model) {
-			const auth = await modelRegistry.getApiKeyAndHeaders(model);
-			if (auth.ok) return model;
-		}
-	}
-	return currentModel;
-}
-
 function parseExtractionResult(text: string): ExtractionResult | null {
 	try {
 		let json = text;
 		const match = text.match(/```(?:json)?\s*([\s\S]*?)```/);
 		if (match) json = match[1].trim();
+		const objMatch = json.match(/\{[\s\S]*\}/);
+		if (objMatch) json = objMatch[0];
 		const parsed = JSON.parse(json);
 		if (parsed && Array.isArray(parsed.questions)) return parsed as ExtractionResult;
 		return null;
@@ -110,16 +93,21 @@ export default function (pi: ExtensionAPI) {
 				return;
 			}
 
-			// Extract questions using a cheap model (isolated call — no context pollution)
-			const extractionModel = await selectExtractionModel(ctx.model, ctx.modelRegistry);
+			// Extract questions using the current model (isolated call — no context pollution)
+			let extractionError: string | undefined;
 
 			const extractionResult = await ctx.ui.custom<ExtractionResult | null>((tui, theme, _kb, done) => {
-				const loader = new BorderedLoader(tui, theme, `Extracting questions using ${extractionModel.id}...`);
+				const loader = new BorderedLoader(tui, theme, `Extracting questions using ${ctx.model!.id}...`);
 				loader.onAbort = () => done(null);
 
 				const doExtract = async () => {
-					const auth = await ctx.modelRegistry.getApiKeyAndHeaders(extractionModel);
-					if (!auth.ok) throw new Error(auth.error);
+					const auth = await ctx.modelRegistry.getApiKeyAndHeaders(ctx.model!);
+					if (!auth.ok) {
+						throw new Error(auth.error || `Authentication failed for ${ctx.model!.provider}/${ctx.model!.id}`);
+					}
+					if (!auth.apiKey) {
+						throw new Error(`No API key for ${ctx.model!.provider}/${ctx.model!.id}`);
+					}
 
 					const userMessage: UserMessage = {
 						role: "user",
@@ -128,9 +116,9 @@ export default function (pi: ExtensionAPI) {
 					};
 
 					const response = await complete(
-						extractionModel,
+						ctx.model!,
 						{ systemPrompt: EXTRACTION_PROMPT, messages: [userMessage] },
-						{ apiKey: auth.apiKey!, headers: auth.headers, signal: loader.signal },
+						{ apiKey: auth.apiKey, headers: auth.headers, signal: loader.signal },
 					);
 
 					if (response.stopReason === "aborted") return null;
@@ -140,18 +128,25 @@ export default function (pi: ExtensionAPI) {
 						.map((c) => c.text)
 						.join("\n");
 
-					return parseExtractionResult(responseText);
+					const parsed = parseExtractionResult(responseText);
+					if (!parsed) {
+						throw new Error(`Failed to parse extraction: ${responseText.slice(0, 200)}`);
+					}
+					return parsed;
 				};
 
 				doExtract()
 					.then(done)
-					.catch(() => done(null));
+					.catch((e) => {
+						extractionError = e?.message || String(e);
+						done(null);
+					});
 
 				return loader;
 			});
 
 			if (!extractionResult) {
-				ctx.ui.notify("Cancelled", "info");
+				ctx.ui.notify(extractionError ?? "Cancelled", extractionError ? "error" : "info");
 				return;
 			}
 
@@ -182,10 +177,6 @@ export default function (pi: ExtensionAPI) {
 					tui.requestRender();
 				}
 
-				function submit() {
-					done(editors.map((ed) => ed.getText().trim()));
-				}
-
 				function handleInput(data: string) {
 					if (matchesKey(data, Key.escape)) {
 						done(null);
@@ -207,7 +198,7 @@ export default function (pi: ExtensionAPI) {
 						if (currentIndex < questions.length - 1) {
 							currentIndex++;
 						} else {
-							submit();
+							done(editors.map((ed) => ed.getText().trim()));
 							return;
 						}
 						refresh();
@@ -228,7 +219,6 @@ export default function (pi: ExtensionAPI) {
 					add(theme.fg("accent", theme.bold(` Answer Questions`)));
 					lines.push("");
 
-					// Progress dots
 					const dots = questions.map((_, i) => {
 						const answered = editors[i].getText().trim().length > 0;
 						if (i === currentIndex) return theme.fg("accent", "●");
@@ -238,7 +228,6 @@ export default function (pi: ExtensionAPI) {
 					add(` ${dots.join(" ")}`);
 					lines.push("");
 
-					// Current question
 					const q = questions[currentIndex];
 					for (const line of wrapTextWithAnsi(theme.fg("text", theme.bold(` ${currentIndex + 1}/${questions.length}: ${q.question}`)), width)) {
 						lines.push(line);
@@ -274,7 +263,6 @@ export default function (pi: ExtensionAPI) {
 				return;
 			}
 
-			// Build clean answer text and send as a message (no tool result overhead)
 			const parts: string[] = [];
 			for (let i = 0; i < questions.length; i++) {
 				const a = answers[i] || "(skipped)";
