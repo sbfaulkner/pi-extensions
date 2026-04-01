@@ -6,7 +6,7 @@ Personal extensions for the [Pi coding agent](https://buildwithpi.com).
 
 | Extension | Description |
 |-----------|-------------|
-| [interview](./interview/) | Batch multiple questions into one interactive form to reduce round-trips. `interview` tool. |
+| [interview](./interview/) | Answer assistant questions in batch via `/answer` command. Extracts questions cheaply, presents a form, sends all answers at once. |
 | [secrets](./secrets/) | Load environment variables from ejson secret files into all bash commands. `/secrets` command + `load_secrets` tool. |
 | [system-theme](./system-theme/) | Sync pi's theme with macOS/Linux system appearance (dark/light mode). `/system-theme` command to configure. |
 | [usage](./usage/) | Display provider usage information (e.g., GitHub Copilot usage/limits) in the status bar. Requires `gh` CLI for GitHub Copilot. |

@@ -1,32 +1,38 @@
 # interview
 
-Batch multiple questions into a single interactive form, reducing conversation round-trips from ~2N to 2.
+Answer assistant questions in a batch using an interactive form.
 
 ## Why
 
-Each back-and-forth turn re-sends the full conversation as input. A 14-point review at ~100k context costs ~5-10× more than asking everything at once. This tool gives the model a way to batch questions and collect all answers in one shot.
+When the model asks multiple questions, answering them one at a time means N round-trips that each re-send the full growing context — expensive. This extension extracts questions from the last assistant message using a cheap isolated LLM call (Codex mini or Haiku), presents them in a form, and sends all answers back at once.
+
+Unlike a tool-based approach, this adds zero schema overhead to the main model's system prompt and keeps the extraction out of the main conversation context entirely.
 
 ## Usage
 
-The model calls the `interview` tool automatically when it has multiple questions. You can also nudge it:
+When the assistant asks you several questions:
 
-> review my planning doc and ask me about any gaps
+```
+/answer
+```
 
-The tool shows one question at a time with a progress indicator:
+The extension will:
+1. Extract questions from the last assistant message (using a cheap model)
+2. Show them one at a time with a progress indicator
+3. Send all your answers back in one shot
 
 ```
 ──────────────────────────────────────
- Planning Review
- 14 questions about your architecture
+ Answer Questions
 
- ● ● ○ ○ ○ ○ ○ ○ ○ ○ ○ ○ ○ ○
+ ● ● ○ ○ ○
 
- 2/14: What's the CDN cache invalidation strategy?
+ 2/5: What's the CDN cache invalidation strategy?
    We currently use 60s TTL globally
 
-  ┌──────────────────────────────┐
-  │                              │
-  └──────────────────────────────┘
+  ┌──────────────────────────────────┐
+  │                                  │
+  └──────────────────────────────────┘
 
  Enter next • Shift+Enter newline • Tab/Shift+Tab navigate • Esc cancel
 ──────────────────────────────────────

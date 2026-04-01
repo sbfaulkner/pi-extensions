@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.1.0
+
+- Rework `interview` extension from tool-based to command-based (`/answer`)
+  - Removes tool schema overhead from system prompt (was taxing every turn)
+  - Extracts questions via cheap isolated LLM call (Codex mini or Haiku) — no context pollution
+  - Sends answers as a clean message instead of a tool result
+  - Same TUI form UX (progress dots, per-question editors, wrapping)
+
 ## 1.0.0
 
 - Add `gws-docs-markdown` skill — create and update Google Docs from markdown
