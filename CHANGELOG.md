@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.0.0
+
+- Add `gws-docs-markdown` skill — create and update Google Docs from markdown
+  - Create docs via `drive files create --upload content.md` with Google Docs mimeType
+  - Update docs via `drive files update --upload content.md` (full content replace)
+  - Documents `--upload-content-type` flag for non-`.md` files
+  - Covers conversion quality, workflow patterns, and limitations
+- Release 1.0.0 — the package is in active use
+
 ## 0.7.1
 
 - Fix interview extension truncating long question and context text with "..."
