@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.1.1
+
+- Fix `/answer` extraction: use current model instead of unavailable cheap models
+  - Removes fragile cheap model selection (Codex mini/Haiku auth failures)
+  - Surfaces extraction errors instead of silent "Cancelled"
+
 ## 1.1.0
 
 - Rework `interview` extension from tool-based to command-based (`/answer`)
