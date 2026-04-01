@@ -12,7 +12,8 @@
       "./secrets/index.ts",
       "./system-theme/index.ts",
       "./usage/index.ts",
-      "./vim/index.ts"
+      "./vim/index.ts",
+      "./vendor-docs/index.ts"
     ],
     "skills": [
       "./skills"
