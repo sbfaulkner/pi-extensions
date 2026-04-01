@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.1.2
+
+- Add shared drive guidance to `gws-docs-markdown` skill
+  - Documents `supportsAllDrives` param required for shared/team drive files
+
 ## 1.1.1
 
 - Fix `/answer` extraction: use current model instead of unavailable cheap models
