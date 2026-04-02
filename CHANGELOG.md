@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.2.0
+
+- Add `vendor-docs` extension — status bar showing cache size and source count
+  - Displays source count, cache usage, and budget percentage
+  - Shows "No sources cached" when cache is empty (instead of hiding)
+  - Polls every 60s for updates
+- Add `vendor-docs` skill — search, add, refresh, list, and remove local vendor documentation caches
+
 ## 1.1.2
 
 - Add shared drive guidance to `gws-docs-markdown` skill
