@@ -1,34 +1,12 @@
 # Changelog
 
-## 1.5.0
+## 1.6.0
 
-- Add `git-workflow` extension — auto-detect git workflow based on repo org
-  - Detects Graphite vs standard PR workflow using `gt` availability + configured GitHub orgs
-  - Injects one-line context hint so the agent defaults to the right tools (`gt` or `git`/`gh`)
-  - `/git-workflow` TUI command to add/remove/list orgs and detect current repo
-  - Config stored in `~/.config/pi/git-workflow.json`
-  - Guidance only — does not block git commands
-  - Respects repo-level overrides (AGENTS.md)
-  - Defers to built-in `graphite` skill for detailed `gt` reference
-- Add `git-workflow` skill — standard PR-based git workflow reference
-  - Branching, commits, `gh` CLI usage, conventional commit format
-  - Loaded on demand to avoid context bloat
-
-## 1.4.0
-
-- Add `codeowners` skill — identify code owners for any file path in a repository
-  - Locates CODEOWNERS file (`.github/`, root, `docs/` — first found wins)
-  - Last-match-wins evaluation with step-by-step procedure
-  - Full pattern syntax reference including anchoring, wildcards, and directory matching
-  - Documents gitignore features not supported in CODEOWNERS (`\`, `!`, `[ ]`)
-
-## 1.3.2
-
-- Fix `delegate` skill to use `$SHELL -lic` instead of `bash -lc` when opening new Ghostty surfaces
-  - Uses the user's actual shell instead of hardcoding bash
-  - Interactive flag (`-i`) ensures shell config (`.zshrc`, `.bashrc`, `config.fish`) is sourced
-  - New surface gets the full interactive login environment (PATH, env vars, Nix, etc.) — same as a normal terminal
-  - Works across bash, zsh, and fish
+- Add `vendor-docs` extension — status bar showing cache size and source count
+  - Displays source count, cache usage, and budget percentage
+  - Shows "No sources cached" when cache is empty (instead of hiding)
+  - Polls every 60s for updates
+- Add `vendor-docs` skill — search, add, refresh, list, and remove local vendor documentation caches
 
 ## 1.3.1
 

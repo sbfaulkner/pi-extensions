@@ -22,7 +22,7 @@ then search it with ripgrep. Fetch once, search many times, refresh when needed.
 ```
 ~/.pi/vendor-docs/
 ├── config.yaml       # registered sources
-├── state.yaml        # last refresh/search times, fetch stats
+├── state.yaml        # last refresh times, fetch stats
 └── sources/
     ├── <name>/       # one directory per source
     └── ...
@@ -44,21 +44,38 @@ then search it with ripgrep. Fetch once, search many times, refresh when needed.
 
 Use for Terraform providers, open-source project docs, or any docs in a Git repo.
 
+**Step 1:** Shallow clone the repo skeleton (no file contents yet):
+
 ```bash
-# Ensure directories exist
 mkdir -p ~/.pi/vendor-docs/sources
 
-# Shallow clone with path filtering
 git clone --depth 1 --filter=blob:none --sparse \
   <REPO_URL> ~/.pi/vendor-docs/sources/<NAME>
+```
 
-# Scope to specific paths (if needed)
+**Step 2:** Discover where docs live. List top-level directories and look for
+common doc paths (`docs/`, `website/docs/`, `documentation/`, `doc/`, etc.):
+
+```bash
 cd ~/.pi/vendor-docs/sources/<NAME>
+git ls-tree --name-only -d HEAD
+# Then drill into likely candidates:
+git ls-tree --name-only -d HEAD website/
+```
+
+Also check the README for pointers to documentation paths.
+
+**Step 3:** Set sparse checkout to only fetch the doc paths:
+
+```bash
 git sparse-checkout set <PATH1> <PATH2> ...
 ```
 
-Then update `~/.pi/vendor-docs/config.yaml` — read the existing file first, then
-write back with the new source appended:
+**Step 4:** Extract a description from the repo (first line of README, repo
+description, or similar) for use in config.
+
+**Step 5:** Update `~/.pi/vendor-docs/config.yaml` — read the existing file first,
+then write back with the new source appended:
 
 ```yaml
 budget_mb: 500
@@ -66,6 +83,7 @@ sources:
   - name: <NAME>
     type: git
     repo: <REPO_URL>
+    description: "Short description of what this source covers"
     paths:
       - <PATH1>
       - <PATH2>
@@ -77,7 +95,6 @@ And update `~/.pi/vendor-docs/state.yaml`:
 sources:
   <NAME>:
     last_fetched: "2025-01-15T10:30:00Z"
-    last_searched: null
 ```
 
 After cloning, check the size:
@@ -121,6 +138,7 @@ sources:
   - name: <NAME>
     type: sitemap
     sitemap: <SITEMAP_URL>
+    description: "Short description of what this source covers"
     include:
       - <URL_PREFIX_1>
 ```
@@ -133,11 +151,11 @@ Search across all sources (or a specific source) using ripgrep:
 
 ```bash
 # Search all sources
-rg --type-add 'docs:*.md' --type-add 'docs:*.txt' --type-add 'docs:*.html' \
+rg --type-add 'docs:*.md' --type-add 'docs:*.markdown' --type-add 'docs:*.txt' --type-add 'docs:*.html' \
    --type docs -l -i --max-count 5 '<QUERY>' ~/.pi/vendor-docs/sources/
 
 # Search a specific source
-rg --type-add 'docs:*.md' --type-add 'docs:*.txt' --type-add 'docs:*.html' \
+rg --type-add 'docs:*.md' --type-add 'docs:*.markdown' --type-add 'docs:*.txt' --type-add 'docs:*.html' \
    --type docs -i --max-count 5 -C 2 '<QUERY>' ~/.pi/vendor-docs/sources/<NAME>/
 ```
 
@@ -145,11 +163,8 @@ rg --type-add 'docs:*.md' --type-add 'docs:*.txt' --type-add 'docs:*.html' \
 - Case-insensitive (`-i`)
 - Max 5 matches per file (`--max-count 5`)
 - 2 lines of context (`-C 2`)
-- Only search doc file types (md, txt, html)
+- Only search doc file types (md, markdown, txt, html)
 - Limit output: pipe through `head -100` to avoid flooding context
-
-**After searching**, update `state.yaml` to record `last_searched` timestamp for
-each source that had results.
 
 If search returns too many results, suggest the user narrow the query or scope to
 a specific source. If no results, suggest alternative terms or checking if the
@@ -167,7 +182,7 @@ Read `config.yaml` and get size info for each source:
 for dir in ~/.pi/vendor-docs/sources/*/; do
   name=$(basename "$dir")
   size=$(du -sh "$dir" 2>/dev/null | cut -f1)
-  count=$(find "$dir" -type f \( -name '*.md' -o -name '*.txt' -o -name '*.html' \) | wc -l)
+  count=$(find "$dir" -type f \( -name '*.md' -o -name '*.markdown' -o -name '*.txt' -o -name '*.html' \) | wc -l)
   echo "$name  $size  $count files"
 done
 
@@ -176,9 +191,8 @@ du -sh ~/.pi/vendor-docs/sources/ 2>/dev/null
 ```
 
 Present as a formatted table including:
-- Source name, type, size, age (from `state.yaml` `last_fetched`), file count
+- Source name, type, description, size, age (from `state.yaml` `last_fetched`), file count
 - Total size vs budget
-- Flag any sources not searched in 30+ days as stale
 
 ### 5. Refresh
 
