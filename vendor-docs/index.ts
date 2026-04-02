@@ -64,7 +64,7 @@ export default function (pi: ExtensionAPI) {
         const text = `📚 ${info.sourceCount} ${s} · ${info.sizeMb}/${info.budgetMb}MB ${pct}%`;
         ctx.ui.setStatus(STATUS_KEY, ctx.ui.theme.fg("dim", text));
       } else {
-        ctx.ui.setStatus(STATUS_KEY, undefined);
+        ctx.ui.setStatus(STATUS_KEY, ctx.ui.theme.fg("dim", "📚 No sources cached"));
       }
     };
 
