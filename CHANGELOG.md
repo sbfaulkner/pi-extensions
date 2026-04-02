@@ -8,6 +8,22 @@
   - Polls every 60s for updates
 - Add `vendor-docs` skill — search, add, refresh, list, and remove local vendor documentation caches
 
+## 1.4.0
+
+- Add `codeowners` skill — identify code owners for any file path in a repository
+  - Locates CODEOWNERS file (`.github/`, root, `docs/` — first found wins)
+  - Last-match-wins evaluation with step-by-step procedure
+  - Full pattern syntax reference including anchoring, wildcards, and directory matching
+  - Documents gitignore features not supported in CODEOWNERS (`\`, `!`, `[ ]`)
+
+## 1.3.2
+
+- Fix `delegate` skill to use `$SHELL -lic` instead of `bash -lc` when opening new Ghostty surfaces
+  - Uses the user's actual shell instead of hardcoding bash
+  - Interactive flag (`-i`) ensures shell config (`.zshrc`, `.bashrc`, `config.fish`) is sourced
+  - New surface gets the full interactive login environment (PATH, env vars, Nix, etc.) — same as a normal terminal
+  - Works across bash, zsh, and fish
+
 ## 1.3.1
 
 - Improve `web-search` error handling — catch errors in `execute()` and return structured results
