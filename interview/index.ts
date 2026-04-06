@@ -185,8 +185,10 @@ export default function (pi: ExtensionAPI) {
 							done(null);
 							return;
 						}
-						confirmingDiscard = false;
-						refresh();
+						if (data === "n" || data === "N" || matchesKey(data, Key.escape)) {
+							confirmingDiscard = false;
+							refresh();
+						}
 						return;
 					}
 
