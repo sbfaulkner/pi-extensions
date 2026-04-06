@@ -4,7 +4,7 @@
 
 - Add confirmation prompt when pressing Escape in interview with non-empty answers
   - Prevents accidental discard of in-progress answers
-  - Shows "Discard all answers? (y/n)" prompt; any other key resumes editing
+  - Shows "Discard all answers? (y/n)" prompt; press n or Escape to resume editing
 
 ## 1.1.2
 
