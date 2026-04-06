@@ -177,8 +177,26 @@ export default function (pi: ExtensionAPI) {
 					tui.requestRender();
 				}
 
+				let confirmingDiscard = false;
+
 				function handleInput(data: string) {
+					if (confirmingDiscard) {
+						if (data === "y" || data === "Y") {
+							done(null);
+							return;
+						}
+						confirmingDiscard = false;
+						refresh();
+						return;
+					}
+
 					if (matchesKey(data, Key.escape)) {
+						const hasContent = editors.some((ed) => ed.getText().trim().length > 0);
+						if (hasContent) {
+							confirmingDiscard = true;
+							refresh();
+							return;
+						}
 						done(null);
 						return;
 					}
@@ -244,11 +262,15 @@ export default function (pi: ExtensionAPI) {
 					}
 
 					lines.push("");
-					const isLast = currentIndex === questions.length - 1;
-					const hint = isLast
-						? " Enter submit • Shift+Enter newline • Shift+Tab prev • Esc cancel"
-						: " Enter next • Shift+Enter newline • Tab/Shift+Tab navigate • Esc cancel";
-					add(theme.fg("dim", hint));
+					if (confirmingDiscard) {
+						add(theme.fg("warning", " Discard all answers? (y/n)"));
+					} else {
+						const isLast = currentIndex === questions.length - 1;
+						const hint = isLast
+							? " Enter submit • Shift+Enter newline • Shift+Tab prev • Esc cancel"
+							: " Enter next • Shift+Enter newline • Tab/Shift+Tab navigate • Esc cancel";
+						add(theme.fg("dim", hint));
+					}
 					add(theme.fg("accent", "─".repeat(width)));
 
 					cachedLines = lines;

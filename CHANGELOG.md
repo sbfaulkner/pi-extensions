@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.1.3
+
+- Add confirmation prompt when pressing Escape in interview with non-empty answers
+  - Prevents accidental discard of in-progress answers
+  - Shows "Discard all answers? (y/n)" prompt; any other key resumes editing
+
 ## 1.1.2
 
 - Add shared drive guidance to `gws-docs-markdown` skill
