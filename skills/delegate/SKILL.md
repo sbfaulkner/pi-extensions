@@ -13,6 +13,11 @@ description: |
 Use this skill to spin up a new pi session in a separate Ghostty pane (default) or tab,
 targeting a specific directory, with a task prompt pre-loaded.
 
+> **⚠️ Do NOT research the task before delegating.** Your job is to write a task file with
+> important context you already have including any relevant references (file paths, branch names,
+> repo URLs) — not to pre-read or analyze those files. The receiving session will do its
+> own exploration. Delegate immediately so interaction can continue in the original session.
+
 ## Steps
 
 1. **Create the task file**: Use `mktemp` to create a temporary markdown file, then write the
