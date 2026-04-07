@@ -20,7 +20,7 @@ targeting a specific directory, with a task prompt pre-loaded.
    the receiving pi session won't have your current conversation context.
 
    ```bash
-   mktemp /tmp/pi-delegate-XXXXXX
+   mktemp "${TMPDIR:-/tmp}/pi-delegate-XXXXXX"
    ```
 
    The first line of the task file must instruct the receiving session to clean up:
@@ -56,7 +56,7 @@ User says: "Delegate to edgey: add a new `alibaba_origin` block type that suppor
 
 1. Create the task file and write it:
    ```bash
-   mktemp /tmp/pi-delegate-XXXXXX
+   mktemp "${TMPDIR:-/tmp}/pi-delegate-XXXXXX"
    # e.g. returns /tmp/pi-delegate-a1b2c3
    ```
    ```markdown

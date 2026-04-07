@@ -2,10 +2,9 @@
 
 ## 1.2.1
 
-- Fix `delegate` skill: remove `.md` suffix from `mktemp` template
-  - macOS (BSD) `mktemp` requires templates to end with `X` characters
-  - The `.md` suffix after the `X`s caused `mktemp` to fail
-  - New template (`/tmp/pi-delegate-XXXXXX`) is portable across macOS and Linux
+- Fix `delegate` skill: portable `mktemp` template
+  - Remove `.md` suffix — macOS (BSD) `mktemp` requires templates to end with `X` characters
+  - Use `${TMPDIR:-/tmp}` instead of hard-coded `/tmp` to respect the system temp directory
 
 ## 1.2.0
 
