@@ -4,13 +4,14 @@ description: |
   Delegate a task to a new pi session in a different directory/repo. Use when the user says
   "delegate this to X", "run this in the edgey repo", "send this task to ...", or when you
   identify work that should be done in another repo as part of a multi-repo workflow.
-  Opens a new Ghostty tab with pi running in the target directory, pre-loaded with the task.
+  Opens a new Ghostty pane (default) or tab with pi running in the target directory,
+  pre-loaded with the task.
 ---
 
 # Delegate a Task to a New Pi Session
 
-Use this skill to spin up a new pi session in a separate Ghostty tab, targeting a specific
-directory, with a task prompt pre-loaded.
+Use this skill to spin up a new pi session in a separate Ghostty pane (default) or tab,
+targeting a specific directory, with a task prompt pre-loaded.
 
 ## Steps
 
@@ -39,17 +40,15 @@ directory, with a task prompt pre-loaded.
 
    **Default — split pane (right):**
 
-       osascript scripts/ghostty-pane.applescript --direction right --cmd "bash -lc 'pi @<taskfile>'" --dir "<target_directory>"
+       osascript ../ghostty-pane/scripts/ghostty-pane.applescript --direction right --cmd "bash -lc 'pi @<taskfile>'" --dir "<target_directory>"
 
    **If the user asks for a tab instead:**
 
-       osascript scripts/ghostty-tab.applescript --cmd "bash -lc 'pi @<taskfile>'" --dir "<target_directory>"
+       osascript ../ghostty-tab/scripts/ghostty-tab.applescript --cmd "bash -lc 'pi @<taskfile>'" --dir "<target_directory>"
 
-   The `scripts/` paths are relative to the sibling skill directories:
-   - `/Users/sbfaulkner/src/github.com/sbfaulkner/pi-extensions/skills/ghostty-pane/scripts/ghostty-pane.applescript`
-   - `/Users/sbfaulkner/src/github.com/sbfaulkner/pi-extensions/skills/ghostty-tab/scripts/ghostty-tab.applescript`
+   These paths are relative to this skill's directory — pi resolves them automatically.
 
-3. **Inform the user** which tab was opened and what task was delegated.
+3. **Inform the user** which pane/tab was opened and what task was delegated.
 
 ## Example
 
@@ -81,7 +80,7 @@ User says: "Delegate to edgey: add a new `alibaba_origin` block type that suppor
 
 2. Run:
    ```
-   osascript /Users/sbfaulkner/src/github.com/sbfaulkner/pi-extensions/skills/ghostty-pane/scripts/ghostty-pane.applescript \
+   osascript ../ghostty-pane/scripts/ghostty-pane.applescript \
      --direction right \
      --cmd "bash -lc 'pi @/tmp/pi-delegate-a1b2c3.md'" \
      --dir ~/src/github.com/Shopify/edgey
