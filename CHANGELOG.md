@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.2.2
+
+- Fix `delegate` skill: avoid double slash in temp file paths
+  - `$TMPDIR` may or may not include a trailing slash depending on platform
+  - Use `${tmpdir%/}` to strip any trailing slash before appending `/pi-delegate-XXXXXX`
+
 ## 1.2.1
 
 - Fix `delegate` skill: portable `mktemp` template
