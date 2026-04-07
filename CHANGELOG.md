@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.2.1
+
+- Fix `delegate` skill: remove `.md` suffix from `mktemp` template
+  - macOS (BSD) `mktemp` requires templates to end with `X` characters
+  - The `.md` suffix after the `X`s caused `mktemp` to fail
+  - New template (`/tmp/pi-delegate-XXXXXX`) is portable across macOS and Linux
+
 ## 1.2.0
 
 - Add `delegate` skill — delegate tasks to new pi sessions in other repos via Ghostty panes/tabs
