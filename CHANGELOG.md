@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.2.1
+
+- Fix `delegate` skill: portable `mktemp` template
+  - Remove `.md` suffix — macOS (BSD) `mktemp` requires templates to end with `X` characters
+  - Use `${TMPDIR:-/tmp}` instead of hard-coded `/tmp` to respect the system temp directory
+
 ## 1.2.0
 
 - Add `delegate` skill — delegate tasks to new pi sessions in other repos via Ghostty panes/tabs
