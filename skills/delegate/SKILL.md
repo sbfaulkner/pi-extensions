@@ -14,11 +14,20 @@ directory, with a task prompt pre-loaded.
 
 ## Steps
 
-1. **Write the task file**: Create a markdown task file at `/tmp/pi-delegate-<timestamp>.md`
-   containing the full task description, context, and acceptance criteria. The file should be
-   self-contained — the receiving pi session won't have your current conversation context.
+1. **Create the task file**: Use `mktemp` to create a temporary markdown file, then write the
+   task description, context, and acceptance criteria into it. The file should be self-contained —
+   the receiving pi session won't have your current conversation context.
+
+   ```bash
+   mktemp /tmp/pi-delegate-XXXXXX.md
+   ```
+
+   The first line of the task file must instruct the receiving session to clean up:
+
+   > **Before starting, delete this task file:** `rm <taskfile>`
 
    Good task files include:
+   - **Cleanup instruction** (first line, as above)
    - **What** to do (clear, specific)
    - **Why** (enough context to make good decisions)
    - **Acceptance criteria** (how to know it's done)
@@ -46,8 +55,14 @@ directory, with a task prompt pre-loaded.
 
 User says: "Delegate to edgey: add a new `alibaba_origin` block type that supports region and bucket fields"
 
-1. Write `/tmp/pi-delegate-1711800000.md`:
+1. Create the task file and write it:
+   ```bash
+   mktemp /tmp/pi-delegate-XXXXXX.md
+   # e.g. returns /tmp/pi-delegate-a1b2c3.md
+   ```
    ```markdown
+   **Before starting, delete this task file:** `rm /tmp/pi-delegate-a1b2c3.md`
+
    # Task: Add `alibaba_origin` block type
 
    ## Context
@@ -68,7 +83,7 @@ User says: "Delegate to edgey: add a new `alibaba_origin` block type that suppor
    ```
    osascript /Users/sbfaulkner/src/github.com/sbfaulkner/pi-extensions/skills/ghostty-pane/scripts/ghostty-pane.applescript \
      --direction right \
-     --cmd "bash -lc 'pi @/tmp/pi-delegate-1711800000.md'" \
+     --cmd "bash -lc 'pi @/tmp/pi-delegate-a1b2c3.md'" \
      --dir ~/src/github.com/Shopify/edgey
    ```
 
