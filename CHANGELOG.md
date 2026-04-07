@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.2.5
+
+- Update `delegate` skill: clarify not to research target repo before delegating
+  - The delegating session should write the task file using only context already in the conversation
+  - The receiving session handles all research into the target repo
+
 ## 1.2.4
 
 - Update `delegate` skill description to mention passing context/research to the new session
