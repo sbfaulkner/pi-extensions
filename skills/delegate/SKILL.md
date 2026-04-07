@@ -1,22 +1,17 @@
 ---
 name: delegate
 description: |
-  Delegate a task to a new pi session in a different directory/repo. Use when the user says
-  "delegate this to X", "run this in the edgey repo", "send this task to ...", or when you
-  identify work that should be done in another repo as part of a multi-repo workflow.
-  Opens a new Ghostty pane (default) or tab with pi running in the target directory,
-  pre-loaded with the task.
+  Delegate a task (and any initially required missing context or research) to a new pi session
+  in a different directory/repo. Use when the user says "delegate this to X", "run this in the
+  edgey repo", "send this task to ...", or when you identify work that should be done in another
+  repo as part of a multi-repo workflow. Opens a new Ghostty pane (default) or tab with pi
+  running in the target directory, pre-loaded with the task.
 ---
 
 # Delegate a Task to a New Pi Session
 
 Use this skill to spin up a new pi session in a separate Ghostty pane (default) or tab,
 targeting a specific directory, with a task prompt pre-loaded.
-
-> **⚠️ Do NOT research the task before delegating.** Your job is to write a task file with
-> important context you already have including any relevant references (file paths, branch names,
-> repo URLs) — not to pre-read or analyze those files. The receiving session will do its
-> own exploration. Delegate immediately so interaction can continue in the original session.
 
 ## Steps
 

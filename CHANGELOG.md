@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.2.4
+
+- Update `delegate` skill description to mention passing context/research to the new session
+- Remove overly restrictive "do NOT research before delegating" guardrail
+  - The receiving session benefits from relevant context passed in the task file
+
 ## 1.2.3
 
 - Add guardrail to `delegate` skill: don't research before delegating
