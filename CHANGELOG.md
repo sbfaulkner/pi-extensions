@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.2.3
+
+- Add guardrail to `delegate` skill: don't research before delegating
+  - Prevents over-preparation that delays delegation and blocks the original session
+  - Task files should contain context already available and relevant references, not pre-digested analysis
+
 ## 1.2.2
 
 - Fix `delegate` skill: avoid double slash in temp file paths
