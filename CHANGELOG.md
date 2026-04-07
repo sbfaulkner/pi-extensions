@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.2.0
+
+- Add `delegate` skill — delegate tasks to new pi sessions in other repos via Ghostty panes/tabs
+  - Writes self-contained task files and opens pi in the target directory
+  - Supports both split panes (default) and tabs
+  - Enables multi-repo workflows by spinning up parallel pi sessions
+
 ## 1.1.3
 
 - Add confirmation prompt when pressing Escape in interview with non-empty answers
