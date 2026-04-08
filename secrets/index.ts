@@ -49,6 +49,8 @@ function loadSecretsFromEjson(name: string): Record<string, string> {
   return vars;
 }
 
+const loadedEnvVarNames = new Set<string>();
+
 export default function (pi: ExtensionAPI) {
   const cwd = process.cwd();
 
@@ -94,6 +96,10 @@ export default function (pi: ExtensionAPI) {
       try {
         const vars = loadSecretsFromEjson(params.name);
         loadedSecrets = { ...loadedSecrets, ...vars };
+        for (const [key, value] of Object.entries(vars)) {
+          process.env[key] = value!;
+          loadedEnvVarNames.add(key);
+        }
         if (!loadedNames.includes(params.name)) {
           loadedNames.push(params.name);
         }
@@ -132,6 +138,10 @@ export default function (pi: ExtensionAPI) {
       if (name === "clear") {
         loadedSecrets = {};
         loadedNames = [];
+        for (const key of loadedEnvVarNames) {
+          delete process.env[key];
+        }
+        loadedEnvVarNames.clear();
         ctx.ui.notify("Secrets cleared", "info");
         return;
       }
@@ -139,6 +149,10 @@ export default function (pi: ExtensionAPI) {
       try {
         const vars = loadSecretsFromEjson(name);
         loadedSecrets = { ...loadedSecrets, ...vars };
+        for (const [key, value] of Object.entries(vars)) {
+          process.env[key] = value!;
+          loadedEnvVarNames.add(key);
+        }
         if (!loadedNames.includes(name)) {
           loadedNames.push(name);
         }
@@ -166,6 +180,10 @@ export default function (pi: ExtensionAPI) {
           try {
             const vars = loadSecretsFromEjson(name);
             loadedSecrets = { ...loadedSecrets, ...vars };
+            for (const [key, value] of Object.entries(vars)) {
+              process.env[key] = value!;
+              loadedEnvVarNames.add(key);
+            }
             if (!loadedNames.includes(name)) {
               loadedNames.push(name);
             }
