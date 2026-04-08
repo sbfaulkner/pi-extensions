@@ -326,11 +326,19 @@ export default function (pi: ExtensionAPI) {
       query: Type.String({ description: "Search query" }),
     }),
     async execute(_id, params, signal) {
-      const { text, sources } = await callGemini(params.query, false, signal);
-      return {
-        content: [{ type: "text", text: text + formatSources(sources) }],
-        details: { sources: sources.length },
-      };
+      try {
+        const { text, sources } = await callGemini(params.query, false, signal);
+        return {
+          content: [{ type: "text", text: text + formatSources(sources) }],
+          details: { sources: sources.length },
+        };
+      } catch (err: any) {
+        if (err?.name === "AbortError") throw err;
+        return {
+          content: [{ type: "text", text: err?.message || String(err) }],
+          details: { error: true },
+        };
+      }
     },
     renderCall(args, theme, context) {
       const text = (context.lastComponent as Text | undefined) ?? new Text("", 0, 0);
@@ -340,7 +348,7 @@ export default function (pi: ExtensionAPI) {
     renderResult(result, _opts, theme, context) {
       const text = (context.lastComponent as Text | undefined) ?? new Text("", 0, 0);
       text.setText(
-        context.isError
+        context.isError || result.details?.error
           ? theme.fg("error", "✗")
           : theme.fg("success", `✓ ${result.details?.sources ?? 0} sources`),
       );
@@ -356,11 +364,19 @@ export default function (pi: ExtensionAPI) {
       query: Type.String({ description: "Search query" }),
     }),
     async execute(_id, params, signal) {
-      const { text, sources } = await callGemini(params.query, true, signal);
-      return {
-        content: [{ type: "text", text: text + formatSources(sources) }],
-        details: { sources: sources.length },
-      };
+      try {
+        const { text, sources } = await callGemini(params.query, true, signal);
+        return {
+          content: [{ type: "text", text: text + formatSources(sources) }],
+          details: { sources: sources.length },
+        };
+      } catch (err: any) {
+        if (err?.name === "AbortError") throw err;
+        return {
+          content: [{ type: "text", text: err?.message || String(err) }],
+          details: { error: true },
+        };
+      }
     },
     renderCall(args, theme, context) {
       const text = (context.lastComponent as Text | undefined) ?? new Text("", 0, 0);
@@ -372,7 +388,7 @@ export default function (pi: ExtensionAPI) {
     renderResult(result, _opts, theme, context) {
       const text = (context.lastComponent as Text | undefined) ?? new Text("", 0, 0);
       text.setText(
-        context.isError
+        context.isError || result.details?.error
           ? theme.fg("error", "✗")
           : theme.fg("success", `✓ ${result.details?.sources ?? 0} sources`),
       );
@@ -388,11 +404,25 @@ export default function (pi: ExtensionAPI) {
       url: Type.String({ description: "URL to fetch" }),
     }),
     async execute(_id, params, signal) {
-      const extracted = await fetchPageText(params.url, signal);
-      return {
-        content: [{ type: "text", text: extracted }],
-        details: { chars: extracted.length, url: params.url },
-      };
+      try {
+        const extracted = await fetchPageText(params.url, signal);
+        return {
+          content: [{ type: "text", text: extracted }],
+          details: { chars: extracted.length, url: params.url },
+        };
+      } catch (err: any) {
+        if (err?.name === "AbortError") throw err;
+        if (err instanceof BlockedDomainError) {
+          return {
+            content: [{ type: "text", text: `Domain "${err.domain}" is not in the network allowlist. Add it to continue.` }],
+            details: { error: true },
+          };
+        }
+        return {
+          content: [{ type: "text", text: err?.message || String(err) }],
+          details: { error: true },
+        };
+      }
     },
     renderCall(args, theme, context) {
       const text = (context.lastComponent as Text | undefined) ?? new Text("", 0, 0);
@@ -402,7 +432,7 @@ export default function (pi: ExtensionAPI) {
     renderResult(result, _opts, theme, context) {
       const text = (context.lastComponent as Text | undefined) ?? new Text("", 0, 0);
       text.setText(
-        context.isError
+        context.isError || result.details?.error
           ? theme.fg("error", "✗")
           : theme.fg("success", `✓ ${result.details?.chars ? result.details.chars + " chars" : ""}`),
       );

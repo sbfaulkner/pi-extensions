@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.3.1
+
+- Improve `web-search` error handling — catch errors in `execute()` and return structured results
+  - `web_search`, `web_search_summary`, and `web_fetch` now return clean error messages instead of throwing
+  - `renderResult` correctly shows ✗ on failure via `details.error`
+
 ## 1.3.0
 
 - Add `web-search` extension — web search and page fetching via Gemini API with Google Search grounding
