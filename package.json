@@ -1,6 +1,6 @@
 {
   "name": "pi-extensions",
-  "version": "1.2.6",
+  "version": "1.3.0",
   "license": "MIT",
   "private": true,
   "keywords": [
@@ -12,7 +12,8 @@
       "./secrets/index.ts",
       "./system-theme/index.ts",
       "./usage/index.ts",
-      "./vim/index.ts"
+      "./vim/index.ts",
+      "./web-search/index.ts"
     ],
     "skills": [
       "./skills"
