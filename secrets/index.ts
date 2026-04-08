@@ -49,14 +49,13 @@ function loadSecretsFromEjson(name: string): Record<string, string> {
   return vars;
 }
 
-const loadedEnvVarNames = new Set<string>();
-
 export default function (pi: ExtensionAPI) {
   const cwd = process.cwd();
 
   // In-memory store of loaded secrets
   let loadedSecrets: Record<string, string> = {};
   let loadedNames: string[] = [];
+  const loadedEnvVarNames = new Set<string>();
 
   // Override bash tool to inject secrets via spawnHook
   const bashTool = createBashTool(cwd, {
@@ -142,6 +141,7 @@ export default function (pi: ExtensionAPI) {
           delete process.env[key];
         }
         loadedEnvVarNames.clear();
+        ctx.ui.setStatus("secrets", undefined);
         ctx.ui.notify("Secrets cleared", "info");
         return;
       }
@@ -193,6 +193,10 @@ export default function (pi: ExtensionAPI) {
           }
         }
       }
+    }
+
+    if (loadedNames.length > 0) {
+      ctx.ui.setStatus("secrets", `🔑 ${loadedNames.join(", ")}`);
     }
   });
 
