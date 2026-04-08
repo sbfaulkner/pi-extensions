@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.2.6
+
+- Update secrets: status bar now updates immediately after loading or clearing secrets
+- Inject/remove secrets into both process.env and bash environments
+
 ## 1.2.5
 
 - Update `delegate` skill: clarify not to research target repo before delegating

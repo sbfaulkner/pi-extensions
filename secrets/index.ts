@@ -55,6 +55,7 @@ export default function (pi: ExtensionAPI) {
   // In-memory store of loaded secrets
   let loadedSecrets: Record<string, string> = {};
   let loadedNames: string[] = [];
+  const loadedEnvVarNames = new Set<string>();
 
   // Override bash tool to inject secrets via spawnHook
   const bashTool = createBashTool(cwd, {
@@ -94,6 +95,10 @@ export default function (pi: ExtensionAPI) {
       try {
         const vars = loadSecretsFromEjson(params.name);
         loadedSecrets = { ...loadedSecrets, ...vars };
+        for (const [key, value] of Object.entries(vars)) {
+          process.env[key] = value!;
+          loadedEnvVarNames.add(key);
+        }
         if (!loadedNames.includes(params.name)) {
           loadedNames.push(params.name);
         }
@@ -132,6 +137,11 @@ export default function (pi: ExtensionAPI) {
       if (name === "clear") {
         loadedSecrets = {};
         loadedNames = [];
+        for (const key of loadedEnvVarNames) {
+          delete process.env[key];
+        }
+        loadedEnvVarNames.clear();
+        ctx.ui.setStatus("secrets", undefined);
         ctx.ui.notify("Secrets cleared", "info");
         return;
       }
@@ -139,9 +149,14 @@ export default function (pi: ExtensionAPI) {
       try {
         const vars = loadSecretsFromEjson(name);
         loadedSecrets = { ...loadedSecrets, ...vars };
+        for (const [key, value] of Object.entries(vars)) {
+          process.env[key] = value!;
+          loadedEnvVarNames.add(key);
+        }
         if (!loadedNames.includes(name)) {
           loadedNames.push(name);
         }
+        ctx.ui.setStatus("secrets", `🔑 ${loadedNames.join(", ")}`);
         ctx.ui.notify(
           `Loaded ${Object.keys(vars).length} secret(s) from ${name}: ${Object.keys(vars).join(", ")}`,
           "success",
@@ -166,6 +181,10 @@ export default function (pi: ExtensionAPI) {
           try {
             const vars = loadSecretsFromEjson(name);
             loadedSecrets = { ...loadedSecrets, ...vars };
+            for (const [key, value] of Object.entries(vars)) {
+              process.env[key] = value!;
+              loadedEnvVarNames.add(key);
+            }
             if (!loadedNames.includes(name)) {
               loadedNames.push(name);
             }
@@ -174,6 +193,10 @@ export default function (pi: ExtensionAPI) {
           }
         }
       }
+    }
+
+    if (loadedNames.length > 0) {
+      ctx.ui.setStatus("secrets", `🔑 ${loadedNames.join(", ")}`);
     }
   });
 
