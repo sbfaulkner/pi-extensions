@@ -1,5 +1,10 @@
 # Changelog
 
+## [Unreleased]
+### Changed
+- Secrets extension status bar now updates immediately after secrets are loaded or cleared, not just at turn start. This ensures secret status is always visible and up-to-date regardless of session resume or command usage.
+- (Also included in this release: secrets injected/removed from both process.env and bash, robust env management)
+
 ## 1.2.5
 
 - Update `delegate` skill: clarify not to research target repo before delegating

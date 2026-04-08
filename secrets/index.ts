@@ -156,6 +156,7 @@ export default function (pi: ExtensionAPI) {
         if (!loadedNames.includes(name)) {
           loadedNames.push(name);
         }
+        ctx.ui.setStatus("secrets", `🔑 ${loadedNames.join(", ")}`);
         ctx.ui.notify(
           `Loaded ${Object.keys(vars).length} secret(s) from ${name}: ${Object.keys(vars).join(", ")}`,
           "success",

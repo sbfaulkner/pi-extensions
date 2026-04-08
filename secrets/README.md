@@ -4,10 +4,11 @@ Loads environment variables from encrypted ejson files (`~/.secrets.d/`) and inj
 
 ## Features
 
+- **Immediate status updates** — status bar shows 🔑 with loaded secret names instantly when secrets are loaded or cleared (no need to wait for the next user turn)
 - **`load_secrets` tool** — LLM can load secrets by name when a command needs API tokens
 - **`/secrets` command** — manually load, list, or clear secrets
 - **Session restore** — secrets are automatically reloaded when resuming a session
-- **Status indicator** — shows 🔑 with loaded secret names in the footer
+- **Robust process environment injection** — secrets are available in both bash commands and Node.js (process.env), cleared from both with `/secrets clear`
 
 ## Usage
 
