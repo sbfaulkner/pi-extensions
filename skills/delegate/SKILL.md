@@ -38,16 +38,16 @@ targeting a specific directory, with a task prompt pre-loaded.
    - **References** to specific files/patterns if relevant
 
 2. **Open a Ghostty pane** (default) or tab with pi running in the target directory, passing the task file.
-   Wrap the command in `bash -lc "..."` so the new surface gets a full login shell environment
-   (PATH, Nix, etc.) before running pi.
+   Wrap the command in `$SHELL -lic "..."` so the new surface gets the user's full interactive
+   login shell environment (PATH, environment variables, Nix, etc.) — the same as a normal terminal.
 
    **Default — split pane (right):**
 
-       osascript ../ghostty-pane/scripts/ghostty-pane.applescript --direction right --cmd "bash -lc 'pi @<taskfile>'" --dir "<target_directory>"
+       osascript ../ghostty-pane/scripts/ghostty-pane.applescript --direction right --cmd "$SHELL -lic 'pi @<taskfile>'" --dir "<target_directory>"
 
    **If the user asks for a tab instead:**
 
-       osascript ../ghostty-tab/scripts/ghostty-tab.applescript --cmd "bash -lc 'pi @<taskfile>'" --dir "<target_directory>"
+       osascript ../ghostty-tab/scripts/ghostty-tab.applescript --cmd "$SHELL -lic 'pi @<taskfile>'" --dir "<target_directory>"
 
    These paths are relative to this skill's directory — pi resolves them automatically.
 
@@ -86,7 +86,7 @@ User says: "Delegate to edgey: add a new `alibaba_origin` block type that suppor
    ```
    osascript ../ghostty-pane/scripts/ghostty-pane.applescript \
      --direction right \
-     --cmd "bash -lc 'pi @/tmp/pi-delegate-a1b2c3'" \
+     --cmd "$SHELL -lic 'pi @/tmp/pi-delegate-a1b2c3'" \
      --dir ~/src/github.com/Shopify/edgey
    ```
 

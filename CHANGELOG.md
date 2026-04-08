@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.3.2
+
+- Fix `delegate` skill to use `$SHELL -lic` instead of `bash -lc` when opening new Ghostty surfaces
+  - Uses the user's actual shell instead of hardcoding bash
+  - Interactive flag (`-i`) ensures shell config (`.zshrc`, `.bashrc`, `config.fish`) is sourced
+  - New surface gets the full interactive login environment (PATH, env vars, Nix, etc.) — same as a normal terminal
+  - Works across bash, zsh, and fish
+
 ## 1.3.1
 
 - Improve `web-search` error handling — catch errors in `execute()` and return structured results
