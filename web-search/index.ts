@@ -333,6 +333,7 @@ export default function (pi: ExtensionAPI) {
           details: { sources: sources.length },
         };
       } catch (err: any) {
+        if (err?.name === "AbortError") throw err;
         return {
           content: [{ type: "text", text: err?.message || String(err) }],
           details: { error: true },
@@ -370,6 +371,7 @@ export default function (pi: ExtensionAPI) {
           details: { sources: sources.length },
         };
       } catch (err: any) {
+        if (err?.name === "AbortError") throw err;
         return {
           content: [{ type: "text", text: err?.message || String(err) }],
           details: { error: true },
@@ -409,6 +411,7 @@ export default function (pi: ExtensionAPI) {
           details: { chars: extracted.length, url: params.url },
         };
       } catch (err: any) {
+        if (err?.name === "AbortError") throw err;
         if (err instanceof BlockedDomainError) {
           return {
             content: [{ type: "text", text: `Domain "${err.domain}" is not in the network allowlist. Add it to continue.` }],
