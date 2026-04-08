@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.3.0
+
+- Add `web-search` extension — web search and page fetching via Gemini API with Google Search grounding
+  - `web_search` tool — concise search results with source URLs
+  - `web_search_summary` tool — detailed summaries per result
+  - `web_fetch` tool — fetch a URL and extract readable text content (HTML-to-text)
+  - Redirect URL resolution for grounding sources
+  - Proper timeout handling with `AbortSignal.timeout()` + `AbortSignal.any()`
+  - Binary content type rejection for images, audio, video, etc.
+  - Sandbox allowlist detection with helpful error messages
+  - Requires `GEMINI_API_KEY` environment variable (free tier from Google AI Studio)
+
 ## 1.2.6
 
 - Update secrets: status bar now updates immediately after loading or clearing secrets
