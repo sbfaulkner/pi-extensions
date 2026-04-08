@@ -55,3 +55,11 @@ If pi uses a sandbox with domain restrictions, allow these domains:
 - `generativelanguage.googleapis.com` — Gemini API
 - `vertexaisearch.cloud.google.com` — redirect resolution for grounding source URLs
 - Any domains users want to `web_fetch`
+
+## Limitations
+
+- **API key read at load time** — if `GEMINI_API_KEY` is set after pi starts (e.g. via the `secrets` extension), the extension won't pick it up until `/reload`
+- **No usage tracking** — no visibility into how many searches have been used against the free tier quota
+- **Model hardcoded** — uses `gemini-2.5-flash`; switching models requires editing the extension
+- **HTML extraction is regex-based** — works well for most pages but may miss content in complex SPAs or heavily nested markup
+- **No image support** — `web_fetch` rejects binary content types; terminals that support inline images could display them instead
