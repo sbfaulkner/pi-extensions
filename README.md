@@ -10,6 +10,7 @@ Personal extensions for the [Pi coding agent](https://buildwithpi.com).
 | [secrets](./secrets/) | Load environment variables from ejson secret files into all bash commands. `/secrets` command + `load_secrets` tool. |
 | [system-theme](./system-theme/) | Sync pi's theme with macOS/Linux system appearance (dark/light mode). `/system-theme` command to configure. |
 | [usage](./usage/) | Display provider usage information (e.g., GitHub Copilot usage/limits) in the status bar. Requires `gh` CLI for GitHub Copilot. |
+| [vendor-docs](./vendor-docs/) | Status bar showing vendor documentation cache size and budget usage. Companion to the vendor-docs skill. |
 | [vim](./vim/) | Vi/readline-style modal editing for pi's input editor. Escape for normal mode, `hjkl` navigation, `d/c/y` operators, counts, and more. |
 | [web-search](./web-search/) | Web search and page fetching via Gemini API with Google Search grounding. Provides `web_search`, `web_search_summary`, and `web_fetch` tools. Requires `GEMINI_API_KEY`. |
 
@@ -18,6 +19,7 @@ Personal extensions for the [Pi coding agent](https://buildwithpi.com).
 | Skill | Description |
 |-------|-------------|
 | [ghostty](./skills/ghostty) | Open, split, or manage terminal windows, panes, and tabs and interact with them using Ghostty via AppleScript on macOS. |
+| [vendor-docs](./skills/vendor-docs) | Fetch vendor documentation into a local searchable cache and search it with ripgrep. Fetch once, search many times, refresh when needed. |
 
 ## Install
 
