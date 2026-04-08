@@ -90,7 +90,9 @@ async function resolveRedirects(
           redirect: "follow",
           signal: withTimeout(REDIRECT_TIMEOUT_MS, signal),
         });
-        return { title: src.title, uri: res.url };
+        const resolvedUri = res.url;
+        await res.body?.cancel();
+        return { title: src.title, uri: resolvedUri };
       } catch {
         return src; // keep original on failure
       }
@@ -141,7 +143,15 @@ async function callGemini(
     },
   );
 
-  const data = await response.json();
+  let data: any;
+  try {
+    data = await response.json();
+  } catch {
+    const text = await response.text().catch(() => "");
+    throw new Error(
+      `Gemini API returned non-JSON response (${response.status} ${response.statusText}): ${text.slice(0, 200)}`,
+    );
+  }
 
   if (data.error) {
     if (isAuthError(data.error.code, data.error.message)) {
@@ -175,8 +185,14 @@ function htmlToText(html: string): string {
   // Decode entities
   text = text.replace(ENTITY_RE, (m) => ENTITIES[m.toLowerCase()] || m);
   // Decode numeric entities
-  text = text.replace(/&#(\d+);/g, (_, n) => String.fromCharCode(Number(n)));
-  text = text.replace(/&#x([0-9a-f]+);/gi, (_, h) => String.fromCharCode(parseInt(h, 16)));
+  text = text.replace(/&#(\d+);/g, (_, n) => {
+    const cp = Number(n);
+    return cp > 0 && cp <= 0x10ffff ? String.fromCodePoint(cp) : "";
+  });
+  text = text.replace(/&#x([0-9a-f]+);/gi, (_, h) => {
+    const cp = parseInt(h, 16);
+    return cp > 0 && cp <= 0x10ffff ? String.fromCodePoint(cp) : "";
+  });
   // Collapse whitespace
   text = text.replace(/[ \t]+/g, " ");
   text = text.replace(/\n{3,}/g, "\n\n");
@@ -195,7 +211,46 @@ class BlockedDomainError extends Error {
   }
 }
 
+const MAX_DOWNLOAD_BYTES = 2 * 1024 * 1024; // 2MB max download
+
+async function readWithLimit(response: Response, maxBytes: number): Promise<string> {
+  const reader = response.body?.getReader();
+  if (!reader) return await response.text();
+
+  const chunks: Uint8Array[] = [];
+  let totalBytes = 0;
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      totalBytes += value.byteLength;
+      if (totalBytes > maxBytes) {
+        chunks.push(value.slice(0, value.byteLength - (totalBytes - maxBytes)));
+        break;
+      }
+      chunks.push(value);
+    }
+  } finally {
+    await reader.cancel();
+  }
+
+  const decoder = new TextDecoder();
+  return chunks.map((c) => decoder.decode(c, { stream: true })).join("") + decoder.decode();
+}
+
 async function fetchPageText(url: string, signal?: AbortSignal): Promise<string> {
+  // Validate URL scheme
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    throw new Error(`Invalid URL: ${url}`);
+  }
+  if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+    throw new Error(`Unsupported protocol: ${parsed.protocol} (only http and https are supported)`);
+  }
+
   // Check fetch guard hook
   const hook = (globalThis as any).__piFetchReviewHook;
   if (typeof hook === "function") {
@@ -210,6 +265,10 @@ async function fetchPageText(url: string, signal?: AbortSignal): Promise<string>
     signal: combinedSignal,
   });
 
+  if (!response.ok) {
+    throw new Error(`HTTP ${response.status} ${response.statusText} fetching ${url}`);
+  }
+
   const contentType = response.headers.get("content-type") || "";
   const lowerCT = contentType.toLowerCase();
 
@@ -220,7 +279,7 @@ async function fetchPageText(url: string, signal?: AbortSignal): Promise<string>
     }
   }
 
-  const html = await response.text();
+  const html = await readWithLimit(response, MAX_DOWNLOAD_BYTES);
 
   // Detect sandbox allowlist blocks
   if (html.includes("blocked-by-allowlist") || html.includes("domain is not allowed")) {
