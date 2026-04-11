@@ -17,7 +17,9 @@ Personal extensions for the [Pi coding agent](https://buildwithpi.com).
 
 | Skill | Description |
 |-------|-------------|
-| [ghostty](./skills/ghostty) | Open, split, or manage terminal windows, panes, and tabs and interact with them using Ghostty via AppleScript on macOS. |
+| [delegate](./skills/delegate/) | Delegate tasks to new pi sessions in other repos via Ghostty panes/tabs. |
+| [ghostty](./skills/ghostty/) | Open, split, or manage terminal windows, panes, and tabs using Ghostty via AppleScript on macOS. |
+| [gws-docs-markdown](./skills/gws-docs-markdown/) | Create and update Google Docs from markdown content. |
 
 ## Install
 
