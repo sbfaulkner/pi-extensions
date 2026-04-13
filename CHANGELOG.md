@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.4.0
+
+- Add `codeowners` skill — identify code owners for any file path in a repository
+  - Locates CODEOWNERS file (`.github/`, root, `docs/` — first found wins)
+  - Last-match-wins evaluation with step-by-step procedure
+  - Full pattern syntax reference including anchoring, wildcards, and directory matching
+  - Documents gitignore features not supported in CODEOWNERS (`\`, `!`, `[ ]`)
+
 ## 1.3.2
 
 - Fix `delegate` skill to use `$SHELL -lic` instead of `bash -lc` when opening new Ghostty surfaces
