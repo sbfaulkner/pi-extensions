@@ -95,9 +95,33 @@ function detectWorkflow(cwd: string): WorkflowType {
   return config.graphiteOrgs.some((o) => o.toLowerCase() === org) ? "graphite" : "git";
 }
 
-// --- Extension ---
+// --- Context injection ---
+
+const GRAPHITE_CONTEXT = "This is a Graphite repo. Use `gt` instead of `git` for all mutating operations. Load the graphite skill for the full command reference. Note: if the repo's AGENTS.md or project docs specify a different workflow, follow those instead.";
+const GIT_CONTEXT = "This repo uses standard git PRs. Use `git` and `gh` for branching, pushing, and creating PRs. Load the git-workflow skill for best practices. Note: if the repo's AGENTS.md or project docs specify a different workflow, follow those instead.";
 
 let lastInjectedCwd: string | undefined;
+
+function injectWorkflowContext(cwd: string, session: { sendMessage: Function }): void {
+  lastInjectedCwd = cwd;
+  const workflow = detectWorkflow(cwd);
+  const content = workflow === "graphite" ? GRAPHITE_CONTEXT
+    : workflow === "git" ? GIT_CONTEXT
+    : undefined;
+
+  if (content) {
+    session.sendMessage(
+      {
+        customType: "git-workflow-context",
+        content,
+        display: "hidden",
+      },
+      { triggerTurn: false },
+    );
+  }
+}
+
+// --- Extension ---
 
 export { detectWorkflow, getRemoteOrg, isGtInstalled, loadConfig, saveConfig };
 
@@ -139,7 +163,7 @@ export default function (pi: ExtensionAPI) {
 
         config.graphiteOrgs.push(trimmed);
         saveConfig(config);
-        lastInjectedCwd = undefined; // force re-injection
+        if (ctx.cwd) injectWorkflowContext(ctx.cwd, ctx.session);
         ctx.ui.notify(`Added "${trimmed}".`, "info");
       } else if (action === "Remove an org") {
         if (config.graphiteOrgs.length === 0) {
@@ -152,7 +176,7 @@ export default function (pi: ExtensionAPI) {
 
         config.graphiteOrgs = config.graphiteOrgs.filter((o) => o !== org);
         saveConfig(config);
-        lastInjectedCwd = undefined;
+        if (ctx.cwd) injectWorkflowContext(ctx.cwd, ctx.session);
         ctx.ui.notify(`Removed "${org}".`, "info");
       } else if (action === "Detect current repo") {
         const cwd = ctx.cwd;
@@ -179,30 +203,9 @@ export default function (pi: ExtensionAPI) {
     const cwd = ctx.cwd;
     if (!cwd) return undefined;
 
-    // Inject a short workflow hint when cwd changes
+    // Inject workflow context when cwd changes
     if (cwd !== lastInjectedCwd) {
-      lastInjectedCwd = cwd;
-      const workflow = detectWorkflow(cwd);
-
-      if (workflow === "graphite") {
-        ctx.session.sendMessage(
-          {
-            customType: "git-workflow-context",
-            content: "This is a Graphite repo. Use `gt` instead of `git` for all mutating operations. Load the graphite skill for the full command reference. Note: if the repo's AGENTS.md or project docs specify a different workflow, follow those instead.",
-            display: "hidden",
-          },
-          { triggerTurn: false },
-        );
-      } else if (workflow === "git") {
-        ctx.session.sendMessage(
-          {
-            customType: "git-workflow-context",
-            content: "This repo uses standard git PRs. Use `git` and `gh` for branching, pushing, and creating PRs. Load the git-workflow skill for best practices. Note: if the repo's AGENTS.md or project docs specify a different workflow, follow those instead.",
-            display: "hidden",
-          },
-          { triggerTurn: false },
-        );
-      }
+      injectWorkflowContext(cwd, ctx.session);
     }
 
     return undefined;
