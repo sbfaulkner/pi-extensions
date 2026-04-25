@@ -137,7 +137,7 @@ function updateStatus(workflow: WorkflowType): void {
   const label = statusText(workflow);
   currentUI.setStatus(
     "git-workflow",
-    label ? currentUI.theme.fg("dim", `\u2387 ${label}`) : undefined,
+    label ? currentUI.theme.fg("dim", `\u2387 ${label} `) : undefined,
   );
 }
 
