@@ -33,7 +33,7 @@ function loadConfig(): Config {
     const parsed = JSON.parse(data);
     return {
       graphiteOrgs: Array.isArray(parsed.graphiteOrgs)
-        ? parsed.graphiteOrgs.map((o: string) => o.toLowerCase())
+        ? parsed.graphiteOrgs
         : [],
     };
   } catch {
@@ -92,7 +92,7 @@ function detectWorkflow(cwd: string): WorkflowType {
   if (!org) return "unknown";
 
   const config = loadConfig();
-  return config.graphiteOrgs.includes(org) ? "graphite" : "git";
+  return config.graphiteOrgs.some((o) => o.toLowerCase() === org) ? "graphite" : "git";
 }
 
 // --- Extension ---
@@ -131,13 +131,13 @@ export default function (pi: ExtensionAPI) {
         const org = await ctx.ui.input("GitHub org to use Graphite workflow", "e.g. shopify");
         if (!org) return;
 
-        const normalized = org.toLowerCase().trim();
-        if (config.graphiteOrgs.includes(normalized)) {
-          ctx.ui.notify(`"${normalized}" is already configured.`, "info");
+        const trimmed = org.trim();
+        if (config.graphiteOrgs.some((o) => o.toLowerCase() === trimmed.toLowerCase())) {
+          ctx.ui.notify(`"${trimmed}" is already configured.`, "info");
           return;
         }
 
-        config.graphiteOrgs.push(normalized);
+        config.graphiteOrgs.push(trimmed);
         saveConfig(config);
         lastInjectedCwd = undefined; // force re-injection
         ctx.ui.notify(`Added "${normalized}".`, "info");
