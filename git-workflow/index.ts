@@ -5,9 +5,9 @@
  * - If `gt` is installed and the repo belongs to a configured org → Graphite
  * - Otherwise → standard PR-based git workflow
  *
- * Injects a one-line context hint so the agent knows which workflow to use.
- * Detailed Graphite reference lives in the built-in graphite skill.
- * Standard git workflow reference lives in the git-workflow skill.
+ * Injects a one-line context hint via the context event so the agent knows
+ * which workflow to use. Detailed Graphite reference lives in the built-in
+ * graphite skill. Standard git workflow reference lives in the git-workflow skill.
  *
  * Config: ~/.config/pi/git-workflow.json
  * Command: /git-workflow (add/remove/list orgs, detect current repo)
@@ -92,34 +92,17 @@ function detectWorkflow(cwd: string): WorkflowType {
   if (!org) return "unknown";
 
   const config = loadConfig();
-  return config.graphiteOrgs.some((o) => o.toLowerCase() === org) ? "graphite" : "git";
+  return config.graphiteOrgs.some((o) => o.toLowerCase() === org)
+    ? "graphite"
+    : "git";
 }
 
-// --- Context injection ---
+// --- Context messages ---
 
-const GRAPHITE_CONTEXT = "This is a Graphite repo. Use `gt` instead of `git` for all mutating operations. Load the graphite skill for the full command reference. Note: if the repo's AGENTS.md or project docs specify a different workflow, follow those instead.";
-const GIT_CONTEXT = "This repo uses standard git PRs. Use `git` and `gh` for branching, pushing, and creating PRs. Load the git-workflow skill for best practices. Note: if the repo's AGENTS.md or project docs specify a different workflow, follow those instead.";
-
-let lastInjectedCwd: string | undefined;
-
-function injectWorkflowContext(cwd: string, session: { sendMessage: Function }): void {
-  lastInjectedCwd = cwd;
-  const workflow = detectWorkflow(cwd);
-  const content = workflow === "graphite" ? GRAPHITE_CONTEXT
-    : workflow === "git" ? GIT_CONTEXT
-    : undefined;
-
-  if (content) {
-    session.sendMessage(
-      {
-        customType: "git-workflow-context",
-        content,
-        display: "hidden",
-      },
-      { triggerTurn: false },
-    );
-  }
-}
+const GRAPHITE_CONTEXT =
+  "This is a Graphite repo. Use `gt` instead of `git` for all mutating operations. Load the graphite skill for the full command reference. Note: if the repo's AGENTS.md or project docs specify a different workflow, follow those instead.";
+const GIT_CONTEXT =
+  "This repo uses standard git PRs. Use `git` and `gh` for branching, pushing, and creating PRs. Load the git-workflow skill for best practices. Note: if the repo's AGENTS.md or project docs specify a different workflow, follow those instead.";
 
 // --- Extension ---
 
@@ -147,23 +130,35 @@ export default function (pi: ExtensionAPI) {
 
       if (action === "List configured orgs") {
         if (config.graphiteOrgs.length === 0) {
-          ctx.ui.notify("No orgs configured. Use /git-workflow to add one.", "info");
+          ctx.ui.notify(
+            "No orgs configured. Use /git-workflow to add one.",
+            "info",
+          );
         } else {
-          ctx.ui.notify(`Graphite orgs: ${config.graphiteOrgs.join(", ")}`, "info");
+          ctx.ui.notify(
+            `Graphite orgs: ${config.graphiteOrgs.join(", ")}`,
+            "info",
+          );
         }
       } else if (action === "Add an org") {
-        const org = await ctx.ui.input("GitHub org to use Graphite workflow", "e.g. shopify");
+        const org = await ctx.ui.input(
+          "GitHub org to use Graphite workflow",
+          "e.g. Shopify",
+        );
         if (!org) return;
 
         const trimmed = org.trim();
-        if (config.graphiteOrgs.some((o) => o.toLowerCase() === trimmed.toLowerCase())) {
+        if (
+          config.graphiteOrgs.some(
+            (o) => o.toLowerCase() === trimmed.toLowerCase(),
+          )
+        ) {
           ctx.ui.notify(`"${trimmed}" is already configured.`, "info");
           return;
         }
 
         config.graphiteOrgs.push(trimmed);
         saveConfig(config);
-        if (ctx.cwd) injectWorkflowContext(ctx.cwd, ctx.session);
         ctx.ui.notify(`Added "${trimmed}".`, "info");
       } else if (action === "Remove an org") {
         if (config.graphiteOrgs.length === 0) {
@@ -171,12 +166,14 @@ export default function (pi: ExtensionAPI) {
           return;
         }
 
-        const org = await ctx.ui.select("Select org to remove", config.graphiteOrgs);
+        const org = await ctx.ui.select(
+          "Select org to remove",
+          config.graphiteOrgs,
+        );
         if (!org) return;
 
         config.graphiteOrgs = config.graphiteOrgs.filter((o) => o !== org);
         saveConfig(config);
-        if (ctx.cwd) injectWorkflowContext(ctx.cwd, ctx.session);
         ctx.ui.notify(`Removed "${org}".`, "info");
       } else if (action === "Detect current repo") {
         const cwd = ctx.cwd;
@@ -197,41 +194,31 @@ export default function (pi: ExtensionAPI) {
     },
   });
 
-  // --- Context injection + git command hints ---
+  // --- Inject workflow context into every LLM call ---
 
-  pi.on("tool_call", async (event, ctx) => {
+  pi.on("context", async (_event, ctx) => {
     const cwd = ctx.cwd;
     if (!cwd) return undefined;
 
-    // Inject workflow context when cwd changes
-    if (cwd !== lastInjectedCwd) {
-      injectWorkflowContext(cwd, ctx.session);
-    }
+    const workflow = detectWorkflow(cwd);
+    const content =
+      workflow === "graphite"
+        ? GRAPHITE_CONTEXT
+        : workflow === "git"
+          ? GIT_CONTEXT
+          : undefined;
 
-    return undefined;
-  });
-
-  // Keep only the most recent workflow context message
-  pi.on("context", async (event) => {
-    let lastContextIdx = -1;
-    const messages = event.messages;
-
-    for (let i = messages.length - 1; i >= 0; i--) {
-      const msg = messages[i] as typeof messages[number] & { customType?: string };
-      if (msg.customType === "git-workflow-context") {
-        lastContextIdx = i;
-        break;
-      }
-    }
-
-    if (lastContextIdx === -1) return undefined;
+    if (!content) return undefined;
 
     return {
-      messages: messages.filter((m, i) => {
-        const msg = m as typeof m & { customType?: string };
-        if (msg.customType === "git-workflow-context" && i !== lastContextIdx) return false;
-        return true;
-      }),
+      messages: [
+        {
+          role: "user" as const,
+          content: [{ type: "text" as const, text: content }],
+          customType: "git-workflow-context",
+        },
+        ..._event.messages,
+      ],
     };
   });
 }
