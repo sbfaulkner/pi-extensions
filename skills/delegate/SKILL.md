@@ -43,13 +43,11 @@ targeting a specific directory, with a task prompt pre-loaded.
 
    **Default — split pane (right):**
 
-       osascript ../ghostty-pane/scripts/ghostty-pane.applescript --direction right --cmd "$SHELL -lic 'pi @<taskfile>'" --dir "<target_directory>"
+       osascript scripts/ghostty-pane.applescript --direction right --cmd "$SHELL -lic 'pi @<taskfile>'" --dir "<target_directory>"
 
    **If the user asks for a tab instead:**
 
-       osascript ../ghostty-tab/scripts/ghostty-tab.applescript --cmd "$SHELL -lic 'pi @<taskfile>'" --dir "<target_directory>"
-
-   These paths are relative to this skill's directory — pi resolves them automatically.
+       osascript scripts/ghostty-tab.applescript --cmd "$SHELL -lic 'pi @<taskfile>'" --dir "<target_directory>"
 
 3. **Inform the user** which pane/tab was opened and what task was delegated.
 
@@ -84,7 +82,7 @@ User says: "Delegate to edgey: add a new `alibaba_origin` block type that suppor
 
 2. Run:
    ```
-   osascript ../ghostty-pane/scripts/ghostty-pane.applescript \
+   osascript scripts/ghostty-pane.applescript \
      --direction right \
      --cmd "$SHELL -lic 'pi @/tmp/pi-delegate-a1b2c3'" \
      --dir ~/src/github.com/Shopify/edgey

@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.0.0
+
+- **BREAKING:** Remove standalone `ghostty-pane`, `ghostty-tab`, and `ghostty-window` skills
+  - AppleScript files moved into `delegate/scripts/` — delegate is now fully self-contained
+  - If you relied on these skills directly (e.g. "open a pane", "split the window"), those
+    natural-language triggers no longer work; use `delegate` instead
+
 ## 1.5.1
 
 - Add status bar indicator to `git-workflow` extension
