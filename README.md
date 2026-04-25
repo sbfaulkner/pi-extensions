@@ -19,8 +19,7 @@ Personal extensions for the [Pi coding agent](https://buildwithpi.com).
 | Skill | Description |
 |-------|-------------|
 | [codeowners](./skills/codeowners/) | Identify code owners for a given file path by locating and evaluating the repository's CODEOWNERS file. |
-| [delegate](./skills/delegate/) | Delegate tasks to new pi sessions in other repos via Ghostty panes/tabs. |
-| [ghostty](./skills/ghostty/) | Open, split, or manage terminal windows, panes, and tabs using Ghostty via AppleScript on macOS. |
+| [delegate](./skills/delegate/) | Delegate tasks to new pi sessions in other repos via Ghostty panes/tabs. Includes AppleScript for pane, tab, and window management. |
 | [git-workflow](./skills/git-workflow/) | Standard PR-based git workflow reference (branching, commits, `gh` CLI, conventional commits). |
 | [gws-docs-markdown](./skills/gws-docs-markdown/) | Create and update Google Docs from markdown content. |
 
