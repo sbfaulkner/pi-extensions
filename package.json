@@ -13,7 +13,13 @@
       "./system-theme/index.ts",
       "./usage/index.ts",
       "./vim/index.ts",
+<<<<<<< Updated upstream
       "./web-search/index.ts"
+=======
+      "./vendor-docs/index.ts",
+      "./web-search/index.ts",
+      "./git-workflow/index.ts"
+>>>>>>> Stashed changes
     ],
     "skills": [
       "./skills"
