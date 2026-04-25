@@ -12,6 +12,7 @@ Personal extensions for the [Pi coding agent](https://buildwithpi.com).
 | [usage](./usage/) | Display provider usage information (e.g., GitHub Copilot usage/limits) in the status bar. Requires `gh` CLI for GitHub Copilot. |
 | [vim](./vim/) | Vi/readline-style modal editing for pi's input editor. Escape for normal mode, `hjkl` navigation, `d/c/y` operators, counts, and more. |
 | [web-search](./web-search/) | Web search and page fetching via Gemini API with Google Search grounding. Provides `web_search`, `web_search_summary`, and `web_fetch` tools. Requires `GEMINI_API_KEY`. |
+| [git-workflow](./git-workflow/) | Auto-detect git workflow (Graphite vs standard PRs) based on repo org and inject context hints. `/git-workflow` command to manage configured orgs. |
 
 ## Skills
 
@@ -20,6 +21,7 @@ Personal extensions for the [Pi coding agent](https://buildwithpi.com).
 | [codeowners](./skills/codeowners/) | Identify code owners for a given file path by locating and evaluating the repository's CODEOWNERS file. |
 | [delegate](./skills/delegate/) | Delegate tasks to new pi sessions in other repos via Ghostty panes/tabs. |
 | [ghostty](./skills/ghostty/) | Open, split, or manage terminal windows, panes, and tabs using Ghostty via AppleScript on macOS. |
+| [git-workflow](./skills/git-workflow/) | Standard PR-based git workflow reference (branching, commits, `gh` CLI, conventional commits). |
 | [gws-docs-markdown](./skills/gws-docs-markdown/) | Create and update Google Docs from markdown content. |
 
 ## Install
