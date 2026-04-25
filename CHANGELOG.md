@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.5.1
+
+- Add status bar indicator to `git-workflow` extension
+  - Shows `⎇ git` or `⎇ gt` in the footer so you can see the active workflow at a glance
+  - Status updates immediately when the workflow decision is made (session start, org add/remove, detect)
+  - Clears on session shutdown
+
 ## 1.5.0
 
 - Add `git-workflow` extension — auto-detect git workflow based on repo org
