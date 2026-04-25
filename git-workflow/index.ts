@@ -108,11 +108,37 @@ function detectWorkflow(cwd: string): WorkflowType {
   }
 
   workflowCache.set(cwd, workflow);
+  updateStatus(workflow);
   return workflow;
 }
 
 function clearCache(): void {
   workflowCache.clear();
+}
+
+// --- Status ---
+
+/** Stored reference to the UI so detectWorkflow can update status at decision time. */
+let currentUI: { setStatus: (id: string, text: string | undefined) => void; theme: { fg: (style: string, text: string) => string } } | undefined;
+
+function statusText(workflow: WorkflowType): string | undefined {
+  switch (workflow) {
+    case "graphite":
+      return "gt";
+    case "git":
+      return "git";
+    default:
+      return undefined;
+  }
+}
+
+function updateStatus(workflow: WorkflowType): void {
+  if (!currentUI) return;
+  const label = statusText(workflow);
+  currentUI.setStatus(
+    "git-workflow",
+    label ? currentUI.theme.fg("dim", `\u2387 ${label} `) : undefined,
+  );
 }
 
 // --- Context messages ---
@@ -178,6 +204,8 @@ export default function (pi: ExtensionAPI) {
         config.graphiteOrgs.push(trimmed);
         saveConfig(config);
         clearCache();
+        // Re-detect so the status reflects the new config immediately
+        if (ctx.cwd) detectWorkflow(ctx.cwd);
         ctx.ui.notify(`Added "${trimmed}".`, "info");
       } else if (action === "Remove an org") {
         if (config.graphiteOrgs.length === 0) {
@@ -194,6 +222,8 @@ export default function (pi: ExtensionAPI) {
         config.graphiteOrgs = config.graphiteOrgs.filter((o) => o !== org);
         saveConfig(config);
         clearCache();
+        // Re-detect so the status reflects the new config immediately
+        if (ctx.cwd) detectWorkflow(ctx.cwd);
         ctx.ui.notify(`Removed "${org}".`, "info");
       } else if (action === "Detect current repo") {
         const cwd = ctx.cwd;
@@ -203,6 +233,7 @@ export default function (pi: ExtensionAPI) {
         }
 
         const org = getRemoteOrg(cwd);
+        clearCache();
         const workflow = detectWorkflow(cwd);
         const gt = isGtInstalled();
 
@@ -212,6 +243,19 @@ export default function (pi: ExtensionAPI) {
         );
       }
     },
+  });
+
+  // --- Track UI reference for status updates ---
+
+  pi.on("session_start", async (_event, ctx) => {
+    currentUI = ctx.ui;
+    const cwd = ctx.cwd;
+    if (cwd) detectWorkflow(cwd);
+  });
+
+  pi.on("session_shutdown", async (_event, ctx) => {
+    ctx.ui.setStatus("git-workflow", undefined);
+    currentUI = undefined;
   });
 
   // --- Inject workflow context into every LLM call ---
