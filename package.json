@@ -1,6 +1,6 @@
 {
   "name": "pi-extensions",
-  "version": "1.4.0",
+  "version": "1.5.0",
   "license": "MIT",
   "private": true,
   "keywords": [
@@ -13,13 +13,8 @@
       "./system-theme/index.ts",
       "./usage/index.ts",
       "./vim/index.ts",
-<<<<<<< Updated upstream
-      "./web-search/index.ts"
-=======
-      "./vendor-docs/index.ts",
       "./web-search/index.ts",
       "./git-workflow/index.ts"
->>>>>>> Stashed changes
     ],
     "skills": [
       "./skills"

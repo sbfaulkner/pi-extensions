@@ -1,5 +1,19 @@
 # Changelog
 
+## 1.5.0
+
+- Add `git-workflow` extension — auto-detect git workflow based on repo org
+  - Detects Graphite vs standard PR workflow using `gt` availability + configured GitHub orgs
+  - Injects one-line context hint so the agent defaults to the right tools (`gt` or `git`/`gh`)
+  - `/git-workflow` TUI command to add/remove/list orgs and detect current repo
+  - Config stored in `~/.config/pi/git-workflow.json`
+  - Guidance only — does not block git commands
+  - Respects repo-level overrides (AGENTS.md)
+  - Defers to built-in `graphite` skill for detailed `gt` reference
+- Add `git-workflow` skill — standard PR-based git workflow reference
+  - Branching, commits, `gh` CLI usage, conventional commit format
+  - Loaded on demand to avoid context bloat
+
 ## 1.4.0
 
 - Add `codeowners` skill — identify code owners for any file path in a repository
