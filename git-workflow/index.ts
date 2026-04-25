@@ -85,16 +85,34 @@ function getRemoteOrg(cwd: string): string | undefined {
   }
 }
 
+/** Cache: cwd → workflow type (avoids shelling out on every LLM call) */
+const workflowCache = new Map<string, WorkflowType>();
+
 function detectWorkflow(cwd: string): WorkflowType {
-  if (!isGtInstalled()) return "git";
+  const cached = workflowCache.get(cwd);
+  if (cached !== undefined) return cached;
 
-  const org = getRemoteOrg(cwd);
-  if (!org) return "unknown";
+  let workflow: WorkflowType;
+  if (!isGtInstalled()) {
+    workflow = "git";
+  } else {
+    const org = getRemoteOrg(cwd);
+    if (!org) {
+      workflow = "unknown";
+    } else {
+      const config = loadConfig();
+      workflow = config.graphiteOrgs.some((o) => o.toLowerCase() === org)
+        ? "graphite"
+        : "git";
+    }
+  }
 
-  const config = loadConfig();
-  return config.graphiteOrgs.some((o) => o.toLowerCase() === org)
-    ? "graphite"
-    : "git";
+  workflowCache.set(cwd, workflow);
+  return workflow;
+}
+
+function clearCache(): void {
+  workflowCache.clear();
 }
 
 // --- Context messages ---
@@ -159,6 +177,7 @@ export default function (pi: ExtensionAPI) {
 
         config.graphiteOrgs.push(trimmed);
         saveConfig(config);
+        clearCache();
         ctx.ui.notify(`Added "${trimmed}".`, "info");
       } else if (action === "Remove an org") {
         if (config.graphiteOrgs.length === 0) {
@@ -174,6 +193,7 @@ export default function (pi: ExtensionAPI) {
 
         config.graphiteOrgs = config.graphiteOrgs.filter((o) => o !== org);
         saveConfig(config);
+        clearCache();
         ctx.ui.notify(`Removed "${org}".`, "info");
       } else if (action === "Detect current repo") {
         const cwd = ctx.cwd;
