@@ -140,7 +140,7 @@ export default function (pi: ExtensionAPI) {
         config.graphiteOrgs.push(trimmed);
         saveConfig(config);
         lastInjectedCwd = undefined; // force re-injection
-        ctx.ui.notify(`Added "${normalized}".`, "info");
+        ctx.ui.notify(`Added "${trimmed}".`, "info");
       } else if (action === "Remove an org") {
         if (config.graphiteOrgs.length === 0) {
           ctx.ui.notify("No orgs configured.", "info");
