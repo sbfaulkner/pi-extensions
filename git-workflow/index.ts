@@ -115,6 +115,19 @@ function clearCache(): void {
   workflowCache.clear();
 }
 
+// --- Status labels ---
+
+function statusText(workflow: WorkflowType): string | undefined {
+  switch (workflow) {
+    case "graphite":
+      return "gt";
+    case "git":
+      return "git";
+    default:
+      return undefined;
+  }
+}
+
 // --- Context messages ---
 
 const GRAPHITE_CONTEXT =
@@ -206,12 +219,40 @@ export default function (pi: ExtensionAPI) {
         const workflow = detectWorkflow(cwd);
         const gt = isGtInstalled();
 
+        const label = statusText(workflow);
+        if (label) {
+          ctx.ui.setStatus(
+            "git-workflow",
+            ctx.ui.theme.fg("dim", `\u2387 ${label}`),
+          );
+        }
+
         ctx.ui.notify(
           `org: ${org ?? "none"} | gt: ${gt ? "yes" : "no"} | workflow: ${workflow}`,
           "info",
         );
       }
     },
+  });
+
+  // --- Show workflow status ---
+
+  pi.on("session_start", async (_event, ctx) => {
+    const cwd = ctx.cwd;
+    if (!cwd) return;
+
+    const workflow = detectWorkflow(cwd);
+    const label = statusText(workflow);
+    if (label) {
+      ctx.ui.setStatus(
+        "git-workflow",
+        ctx.ui.theme.fg("dim", `⎇ ${label}`),
+      );
+    }
+  });
+
+  pi.on("session_shutdown", async (_event, ctx) => {
+    ctx.ui.setStatus("git-workflow", undefined);
   });
 
   // --- Inject workflow context into every LLM call ---
