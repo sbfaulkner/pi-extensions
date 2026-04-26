@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.1.0
+
+- Add non-interactive guidance to `git-workflow` context messages
+  - Both Graphite and standard git contexts now advise the agent to use non-interactive
+    flags and explicit arguments (e.g. `gt checkout <branch>`, `gh pr create --fill`) to
+    avoid hanging on interactive prompts
+
 ## 2.0.0
 
 - **BREAKING:** Remove standalone `ghostty-pane`, `ghostty-tab`, and `ghostty-window` skills
