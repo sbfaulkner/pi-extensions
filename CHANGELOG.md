@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.1.0
+
+- Add non-interactive guidance to `git-workflow` context messages
+  - Both Graphite and standard git contexts now advise the agent to provide explicit
+    arguments and messages inline to avoid hanging on interactive prompts or opening
+    an editor (e.g. `git commit -m "message"`, `gt create -am "message"`,
+    `gh pr create --fill`, `gt submit --no-edit`)
+
 ## 2.0.0
 
 - **BREAKING:** Remove standalone `ghostty-pane`, `ghostty-tab`, and `ghostty-window` skills

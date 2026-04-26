@@ -144,9 +144,9 @@ function updateStatus(workflow: WorkflowType): void {
 // --- Context messages ---
 
 const GRAPHITE_CONTEXT =
-  "This is a Graphite repo. Use `gt` instead of `git` for all mutating operations. Load the graphite skill for the full command reference. Note: if the repo's AGENTS.md or project docs specify a different workflow, follow those instead.";
+  "This is a Graphite repo. Use `gt` instead of `git` for all mutating operations. Load the graphite skill for the full command reference. Always provide explicit arguments and messages inline to avoid opening interactive prompts or an editor (e.g. `gt checkout <branch>` instead of bare `gt checkout`, `gt create -am "message"`, `gt submit --no-edit`). Note: if the repo's AGENTS.md or project docs specify a different workflow, follow those instead.";
 const GIT_CONTEXT =
-  "This repo uses standard git PRs. Use `git` and `gh` for branching, pushing, and creating PRs. Load the git-workflow skill for best practices. Note: if the repo's AGENTS.md or project docs specify a different workflow, follow those instead.";
+  "This repo uses standard git PRs. Use `git` and `gh` for branching, pushing, and creating PRs. Load the git-workflow skill for best practices. Always provide explicit arguments and messages inline to avoid opening interactive prompts or an editor (e.g. `git commit -m "message"`, `gh pr create --fill`, `git rebase --no-edit`). Note: if the repo's AGENTS.md or project docs specify a different workflow, follow those instead.";
 
 // --- Extension ---
 
