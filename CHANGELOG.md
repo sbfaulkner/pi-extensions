@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.1.1
+
+- Fix parse error from unescaped double quotes in `git-workflow` context messages
+
 ## 2.1.0
 
 - Add non-interactive guidance to `git-workflow` context messages
