@@ -3,9 +3,10 @@
 ## 2.1.0
 
 - Add non-interactive guidance to `git-workflow` context messages
-  - Both Graphite and standard git contexts now advise the agent to use non-interactive
-    flags and explicit arguments (e.g. `gt checkout <branch>`, `gh pr create --fill`) to
-    avoid hanging on interactive prompts
+  - Both Graphite and standard git contexts now advise the agent to provide explicit
+    arguments and messages inline to avoid hanging on interactive prompts or opening
+    an editor (e.g. `git commit -m "message"`, `gt create -am "message"`,
+    `gh pr create --fill`, `gt submit --no-edit`)
 
 ## 2.0.0
 
