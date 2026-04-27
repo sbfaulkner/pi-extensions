@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
 # pi-delegate: Launch pi with the correct environment for a delegated session.
 #
-# Re-execs under a login shell with per-directory environment (shadowenv)
-# activated — both concerns handled in a single pass.
+# Re-execs under a login shell so rc files are sourced (PATH, nix, etc.),
+# then activates per-directory environment (shadowenv) before running pi.
 
-if command -v shadowenv &>/dev/null; then
-  exec "$SHELL" -lc "$(printf '%q ' shadowenv exec -- pi "$@")"
-fi
-
-exec "$SHELL" -lc "$(printf '%q ' pi "$@")"
+exec "$SHELL" -lc '
+  if command -v shadowenv &>/dev/null; then
+    exec shadowenv exec -- pi "$@"
+  fi
+  exec pi "$@"
+' -- "$@"
