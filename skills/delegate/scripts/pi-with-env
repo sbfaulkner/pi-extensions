@@ -1,10 +1,15 @@
 #!/usr/bin/env bash
-# pi-with-env: Activate per-directory environment, then exec pi.
+# pi-with-env: Launch pi with the correct environment.
 #
-# In normal terminals, shadowenv hooks fire on every prompt. But when
-# launching pi non-interactively (e.g. via the delegate skill), no prompt is
-# drawn so hooks never fire. This wrapper uses `shadowenv exec` to apply the
-# environment before running pi.
+# 1. Re-exec under a login shell so .zshrc/.bashrc are sourced (PATH, nix, etc.)
+# 2. Activate per-directory environment (shadowenv) which otherwise won't fire
+#    without a prompt being drawn.
+
+# Guard against infinite recursion: if we're already in the login shell, skip.
+if [[ "$__PI_WITH_ENV" != 1 ]]; then
+  export __PI_WITH_ENV=1
+  exec "$SHELL" -lc "$(printf '%q ' "$0" "$@")"
+fi
 
 if command -v shadowenv &>/dev/null; then
   exec shadowenv exec -- pi "$@"
