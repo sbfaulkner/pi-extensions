@@ -1,5 +1,17 @@
 # Changelog
 
+## 2.2.0
+
+- Fix delegated sessions missing per-directory environment (shadowenv)
+  - Add `pi-delegate` wrapper script that execs into a login shell (for PATH, nix,
+    etc.) then uses `shadowenv exec` to activate the directory's environment before
+    launching pi
+  - Delegated panes/tabs now get the same PATH, env vars, and tool versions as
+    a normal terminal — LSP servers, language runtimes, etc. all resolve correctly
+  - No-op passthrough when shadowenv is not installed
+  - Simplifies SKILL.md command templates — `scripts/pi-delegate` replaces
+    `$SHELL -lic 'pi ...'`
+
 ## 2.1.1
 
 - Fix parse error from unescaped double quotes in `git-workflow` context messages
