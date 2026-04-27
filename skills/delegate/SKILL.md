@@ -51,6 +51,8 @@ targeting a specific directory, with a task prompt pre-loaded.
 
        osascript scripts/ghostty-tab.applescript --cmd "$SHELL -lic 'scripts/pi-with-env @<taskfile>'" --dir "<target_directory>"
 
+   Note: `scripts/pi-with-env` is resolved relative to this skill's directory (same as the AppleScript files).
+
 3. **Inform the user** which pane/tab was opened and what task was delegated.
 
 ## Example
@@ -86,7 +88,7 @@ User says: "Delegate to edgey: add a new `alibaba_origin` block type that suppor
    ```
    osascript scripts/ghostty-pane.applescript \
      --direction right \
-     --cmd "$SHELL -lic 'scripts/pi-with-env @/tmp/pi-delegate-a1b2c3'" \
+     --cmd "$SHELL -lic 'scripts/pi-with-env @/tmp/pi-delegate-a1b2c3'" \  # scripts/pi-with-env resolves to absolute path
      --dir ~/src/github.com/Shopify/edgey
    ```
 
