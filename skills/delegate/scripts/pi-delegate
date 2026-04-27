@@ -4,7 +4,7 @@
 # Re-execs under a login shell so rc files are sourced (PATH, nix, etc.),
 # then activates per-directory environment (shadowenv) before running pi.
 
-exec "$SHELL" -lc '
+exec "$SHELL" -lic '
   if command -v shadowenv &>/dev/null; then
     exec shadowenv exec -- pi "$@"
   fi
