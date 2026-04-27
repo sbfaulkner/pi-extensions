@@ -38,19 +38,19 @@ targeting a specific directory, with a task prompt pre-loaded.
    - **References** to specific files/patterns if relevant
 
 2. **Open a Ghostty pane** (default) or tab with pi running in the target directory, passing the task file.
-   Use the `pi-with-env` wrapper instead of calling `pi` directly — it re-execs under a login
+   Use the `pi-delegate` wrapper instead of calling `pi` directly — it re-execs under a login
    shell (for PATH, nix, etc.) and activates per-directory environment managers (e.g. shadowenv)
    that otherwise won't fire without a prompt.
 
    **Default — split pane (right):**
 
-       osascript scripts/ghostty-pane.applescript --direction right --cmd "scripts/pi-with-env @<taskfile>" --dir "<target_directory>"
+       osascript scripts/ghostty-pane.applescript --direction right --cmd "scripts/pi-delegate @<taskfile>" --dir "<target_directory>"
 
    **If the user asks for a tab instead:**
 
-       osascript scripts/ghostty-tab.applescript --cmd "scripts/pi-with-env @<taskfile>" --dir "<target_directory>"
+       osascript scripts/ghostty-tab.applescript --cmd "scripts/pi-delegate @<taskfile>" --dir "<target_directory>"
 
-   Note: `scripts/pi-with-env` is resolved relative to this skill's directory (same as the AppleScript files).
+   Note: `scripts/pi-delegate` is resolved relative to this skill's directory (same as the AppleScript files).
 
 3. **Inform the user** which pane/tab was opened and what task was delegated.
 
@@ -87,7 +87,7 @@ User says: "Delegate to edgey: add a new `alibaba_origin` block type that suppor
    ```
    osascript scripts/ghostty-pane.applescript \
      --direction right \
-     --cmd "scripts/pi-with-env @/tmp/pi-delegate-a1b2c3" \
+     --cmd "scripts/pi-delegate @/tmp/pi-delegate-a1b2c3" \
      --dir ~/src/github.com/Shopify/edgey
    ```
 

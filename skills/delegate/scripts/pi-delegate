@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# pi-with-env: Launch pi with the correct environment.
+# pi-delegate: Launch pi with the correct environment for a delegated session.
 #
 # 1. Re-exec under a login shell so .zshrc/.bashrc are sourced (PATH, nix, etc.)
 # 2. Activate per-directory environment (shadowenv) which otherwise won't fire
