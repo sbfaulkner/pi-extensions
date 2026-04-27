@@ -42,6 +42,10 @@ targeting a specific directory, with a task prompt pre-loaded.
    shell (for PATH, nix, etc.) and activates per-directory environment managers (e.g. shadowenv)
    that otherwise won't fire without a prompt.
 
+   The `--cmd` string is executed by Ghostty in the target directory, so `scripts/pi-delegate`
+   must be expanded to its **absolute path** before being passed. Resolve it relative to this
+   skill's directory (the same directory that contains the AppleScript files).
+
    **Default — split pane (right):**
 
        osascript scripts/ghostty-pane.applescript --direction right --cmd "scripts/pi-delegate @<taskfile>" --dir "<target_directory>"
@@ -49,8 +53,6 @@ targeting a specific directory, with a task prompt pre-loaded.
    **If the user asks for a tab instead:**
 
        osascript scripts/ghostty-tab.applescript --cmd "scripts/pi-delegate @<taskfile>" --dir "<target_directory>"
-
-   Note: `scripts/pi-delegate` is resolved relative to this skill's directory (same as the AppleScript files).
 
 3. **Inform the user** which pane/tab was opened and what task was delegated.
 
