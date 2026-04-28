@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.3.0
+
+- Add `gh-cli` skill for safe GitHub CLI body/comment handling
+  - Teaches `--body-file` as the default over fragile `--body "..."` interpolation
+  - Covers heredocs, temp files, stdin piping, and the one safe inline case
+  - Standalone skill — applies regardless of whether `git-workflow` or `graphite` is active
+
 ## 2.2.0
 
 - Fix delegated sessions missing per-directory environment (shadowenv)
