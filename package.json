@@ -1,6 +1,6 @@
 {
   "name": "pi-extensions",
-  "version": "2.3.0",
+  "version": "2.4.0",
   "license": "MIT",
   "private": true,
   "keywords": [
@@ -14,8 +14,7 @@
       "./usage/index.ts",
       "./vim/index.ts",
       "./web-search/index.ts",
-      "./git-workflow/index.ts",
-      "./workflow/index.ts"
+      "./git-workflow/index.ts"
     ],
     "skills": [
       "./skills"
