@@ -14,7 +14,8 @@
       "./usage/index.ts",
       "./vim/index.ts",
       "./web-search/index.ts",
-      "./git-workflow/index.ts"
+      "./git-workflow/index.ts",
+      "./workflow/index.ts"
     ],
     "skills": [
       "./skills"
