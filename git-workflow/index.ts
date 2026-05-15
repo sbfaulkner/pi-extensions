@@ -2,12 +2,13 @@
  * Git Workflow Extension
  *
  * Detects the appropriate git workflow for the current repo:
- * - If `gt` is installed and the repo belongs to a configured org → Graphite
- * - Otherwise → standard PR-based git workflow
+ * - If no remote is configured → local git workflow (no PRs)
+ * - If a remote is configured → GitHub PR-based workflow or Graphite (if configured)
  *
  * Injects a one-line context hint via the context event so the agent knows
  * which workflow to use. Detailed Graphite reference lives in the built-in
- * graphite skill. Standard git workflow reference lives in the git-workflow skill.
+ * graphite skill. Local git guidance lives in the git-workflow skill. GitHub
+ * PR guidance lives in the github-workflow skill.
  *
  * Config: ~/.config/pi/git-workflow.json
  * Command: /git-workflow (add/remove/list orgs, detect current repo)
@@ -153,7 +154,7 @@ function updateStatus(workflow: WorkflowType): void {
 const GRAPHITE_CONTEXT =
   "This is a Graphite repo. Use `gt` instead of `git` for all mutating operations. Load the graphite skill for the full command reference. Always provide explicit arguments and messages inline to avoid opening interactive prompts or an editor (e.g. `gt checkout <branch>` instead of bare `gt checkout`, `gt create -am \"message\"`, `gt submit --no-edit`). Note: if the repo's AGENTS.md or project docs specify a different workflow, follow those instead.";
 const GITHUB_CONTEXT =
-  "This repo uses standard GitHub PRs. Use `git` and `gh` for branching, pushing, and creating PRs. Load the git-workflow skill for best practices. Always provide explicit arguments and messages inline to avoid opening interactive prompts or an editor (e.g. `git commit -m \"message\"`, `gh pr create --fill`, `git rebase --no-edit`). Note: if the repo's AGENTS.md or project docs specify a different workflow, follow those instead.";
+  "This repo uses standard GitHub PRs. Use `git` and `gh` for branching, pushing, and creating PRs. Load the github-workflow skill for best practices. Always provide explicit arguments and messages inline to avoid opening interactive prompts or an editor (e.g. `git commit -m \"message\"`, `gh pr create --fill`, `git rebase --no-edit`). Note: if the repo's AGENTS.md or project docs specify a different workflow, follow those instead.";
 const GIT_CONTEXT =
   "This repo has no remote configured. Use local `git` workflows (branches, commits) — there is no remote GitHub PR workflow available. Load the git-workflow skill for best practices and use explicit arguments (e.g. `git commit -m \"message\"`).";
 
