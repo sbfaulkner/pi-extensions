@@ -12,7 +12,7 @@ Personal extensions for the [Pi coding agent](https://buildwithpi.com).
 | [usage](./usage/) | Display provider usage information (e.g., GitHub Copilot usage/limits) in the status bar. Requires `gh` CLI for GitHub Copilot. |
 | [vim](./vim/) | Vi/readline-style modal editing for pi's input editor. Escape for normal mode, `hjkl` navigation, `d/c/y` operators, counts, and more. |
 | [web-search](./web-search/) | Web search and page fetching via Gemini API with Google Search grounding. Provides `web_search`, `web_search_summary`, and `web_fetch` tools. Requires `GEMINI_API_KEY`. |
-| [git-workflow](./git-workflow/) | Auto-detect git workflow (Graphite vs standard PRs) based on repo org and inject context hints. `/git-workflow` command to manage configured orgs. |
+| [git-workflow](./git-workflow/) | Auto-detect git workflow (Graphite vs standard PRs) based on repo org and inject context hints. `/workflow` command to manage configured orgs. |
 
 ## Skills
 

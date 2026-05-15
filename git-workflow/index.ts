@@ -11,7 +11,7 @@
  * PR guidance lives in the github-workflow skill.
  *
  * Config: ~/.config/pi/git-workflow.json
- * Command: /git-workflow (add/remove/list orgs, detect current repo)
+ * Command: /workflow (add/remove/list orgs, detect current repo)
  */
 
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
@@ -163,9 +163,9 @@ const GIT_CONTEXT =
 export { detectWorkflow, getRemoteOrg, isGtInstalled, loadConfig, saveConfig };
 
 export default function (pi: ExtensionAPI) {
-  // --- /git-workflow command ---
+  // --- /workflow command ---
 
-  pi.registerCommand("git-workflow", {
+  pi.registerCommand("workflow", {
     description: "Manage git workflow configuration (Graphite orgs)",
     handler: async (_args, ctx) => {
       const config = loadConfig();
@@ -185,7 +185,7 @@ export default function (pi: ExtensionAPI) {
       if (action === "List configured orgs") {
         if (config.graphiteOrgs.length === 0) {
           ctx.ui.notify(
-            "No orgs configured. Use /git-workflow to add one.",
+            "No orgs configured. Use /workflow to add one.",
             "info",
           );
         } else {
