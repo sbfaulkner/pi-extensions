@@ -1,23 +1,23 @@
 ---
 name: git-workflow
-description: Standard PR-based git workflow reference. Use when working in a non-Graphite repo and needing guidance on branching, commits, PRs, and best practices.
+description: Local git workflow guidance for repositories with no remote configured. Use when there is no origin remote and PRs are not possible.
 ---
 
-# Standard Git PR Workflow
+# Local Git Workflow (no remote)
+
+This skill documents safe, local git workflows for repositories that do not have a remote configured. It intentionally omits PR instructions to avoid accidental remote operations.
 
 ## Core Principles
 
-- **Never commit directly to main** — always use feature branches
-- **Small, focused PRs** — easier to review, faster to merge
-- **Clear commit messages** — describe what and why, not how
+- Work locally using branches and commits.
+- Keep changes small and focused.
+- Write clear commit messages describing what and why.
 
 ## Workflow
 
-### Start a feature
+### Start a feature (local)
 
 ```bash
-git checkout main
-git pull origin main
 git checkout -b feature-name
 ```
 
@@ -28,27 +28,28 @@ git add <files>           # stage specific files
 git commit -m "feat: description of change"
 ```
 
-### Push and create PR
+### If you later add a remote
+
+If you configure an origin remote later (e.g., `git remote add origin <url>`), follow the GitHub PR guidance in the `github-workflow` skill.
+
+### Update from main (local)
+
+When working locally, you can rebase or merge as appropriate for your workflow. If a remote is later added, prefer rebasing onto the remote `main` for a clean history:
 
 ```bash
-git push -u origin feature-name
-gh pr create --fill        # or gh pr create --title "..." --body "..."
-```
-
-### Update from main
-
-```bash
+# If a remote exists later:
 git fetch origin
-git rebase origin/main     # preferred over merge for clean history
+git rebase origin/main
 ```
 
-### Address review feedback
+### Address review feedback (local)
+
+Collect feedback outside of GitHub (e.g., chat), then:
 
 ```bash
 # make changes...
 git add <files>
 git commit -m "fix: address review feedback"
-git push
 ```
 
 ## Commit Message Conventions
@@ -62,13 +63,5 @@ Use [Conventional Commits](https://www.conventionalcommits.org/) format:
 - `test:` — adding or updating tests
 - `chore:` — maintenance tasks
 
-## Useful `gh` Commands
 
-| Command | Description |
-|---------|-------------|
-| `gh pr create` | Create a pull request |
-| `gh pr view` | View PR details |
-| `gh pr checks` | Check CI status |
-| `gh pr merge` | Merge a PR |
-| `gh pr list` | List open PRs |
-| `gh pr checkout <number>` | Check out a PR locally |
+This skill intentionally avoids any `gh` or PR commands to prevent accidental pushes or PR creation.

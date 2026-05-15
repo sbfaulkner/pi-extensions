@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.4.0
+
+- Split `git-workflow` skill into local (no-remote) guidance and a new `github-workflow` skill for GitHub PR-based guidance. The extension (`./git-workflow/index.ts`) now detects no-remote vs remote repos and injects the appropriate context message.
+- Rename the TUI command from `/git-workflow` to `/workflow` while keeping the extension path `./git-workflow/index.ts` for backward compatibility.
+- Bump package version to `2.4.0`.
+
 ## 2.3.0
 
 - Add `gh-cli` skill for safe GitHub CLI body/comment handling

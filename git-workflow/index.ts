@@ -2,15 +2,16 @@
  * Git Workflow Extension
  *
  * Detects the appropriate git workflow for the current repo:
- * - If `gt` is installed and the repo belongs to a configured org → Graphite
- * - Otherwise → standard PR-based git workflow
+ * - If no remote is configured → local git workflow (no PRs)
+ * - If a remote is configured → GitHub PR-based workflow or Graphite (if configured)
  *
  * Injects a one-line context hint via the context event so the agent knows
  * which workflow to use. Detailed Graphite reference lives in the built-in
- * graphite skill. Standard git workflow reference lives in the git-workflow skill.
+ * graphite skill. Local git guidance lives in the git-workflow skill. GitHub
+ * PR guidance lives in the github-workflow skill.
  *
  * Config: ~/.config/pi/git-workflow.json
- * Command: /git-workflow (add/remove/list orgs, detect current repo)
+ * Command: /workflow (add/remove/list orgs, detect current repo)
  */
 
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
@@ -67,7 +68,7 @@ function isGtInstalled(): boolean {
 
 // --- Repo detection ---
 
-type WorkflowType = "graphite" | "git" | "unknown";
+type WorkflowType = "graphite" | "github" | "git" | "unknown";
 
 function getRemoteOrg(cwd: string): string | undefined {
   try {
@@ -93,17 +94,22 @@ function detectWorkflow(cwd: string): WorkflowType {
   if (cached !== undefined) return cached;
 
   let workflow: WorkflowType;
-  if (!isGtInstalled()) {
+  // First check whether a remote org is configured. If no remote exists,
+  // fall back to the local git workflow. If a remote exists, then decide
+  // between Graphite and GitHub PR workflows.
+  const org = getRemoteOrg(cwd);
+  if (!org) {
+    // No remote configured → local git workflow
     workflow = "git";
   } else {
-    const org = getRemoteOrg(cwd);
-    if (!org) {
-      workflow = "unknown";
+    // Remote exists → choose between Graphite and GitHub PR-based workflow
+    if (!isGtInstalled()) {
+      workflow = "github";
     } else {
       const config = loadConfig();
       workflow = config.graphiteOrgs.some((o) => o.toLowerCase() === org)
         ? "graphite"
-        : "git";
+        : "github";
     }
   }
 
@@ -125,6 +131,8 @@ function statusText(workflow: WorkflowType): string | undefined {
   switch (workflow) {
     case "graphite":
       return "gt";
+    case "github":
+      return "github";
     case "git":
       return "git";
     default:
@@ -145,17 +153,19 @@ function updateStatus(workflow: WorkflowType): void {
 
 const GRAPHITE_CONTEXT =
   "This is a Graphite repo. Use `gt` instead of `git` for all mutating operations. Load the graphite skill for the full command reference. Always provide explicit arguments and messages inline to avoid opening interactive prompts or an editor (e.g. `gt checkout <branch>` instead of bare `gt checkout`, `gt create -am \"message\"`, `gt submit --no-edit`). Note: if the repo's AGENTS.md or project docs specify a different workflow, follow those instead.";
+const GITHUB_CONTEXT =
+  "This repo uses standard GitHub PRs. Use `git` and `gh` for branching, pushing, and creating PRs. Load the github-workflow skill for best practices. Always provide explicit arguments and messages inline to avoid opening interactive prompts or an editor (e.g. `git commit -m \"message\"`, `gh pr create --fill`, `git rebase --no-edit`). Note: if the repo's AGENTS.md or project docs specify a different workflow, follow those instead.";
 const GIT_CONTEXT =
-  "This repo uses standard git PRs. Use `git` and `gh` for branching, pushing, and creating PRs. Load the git-workflow skill for best practices. Always provide explicit arguments and messages inline to avoid opening interactive prompts or an editor (e.g. `git commit -m \"message\"`, `gh pr create --fill`, `git rebase --no-edit`). Note: if the repo's AGENTS.md or project docs specify a different workflow, follow those instead.";
+  "This repo has no remote configured. Use local `git` workflows (branches, commits) — there is no remote GitHub PR workflow available. Load the git-workflow skill for best practices and use explicit arguments (e.g. `git commit -m \"message\"`).";
 
 // --- Extension ---
 
 export { detectWorkflow, getRemoteOrg, isGtInstalled, loadConfig, saveConfig };
 
 export default function (pi: ExtensionAPI) {
-  // --- /git-workflow command ---
+  // --- /workflow command ---
 
-  pi.registerCommand("git-workflow", {
+  pi.registerCommand("workflow", {
     description: "Manage git workflow configuration (Graphite orgs)",
     handler: async (_args, ctx) => {
       const config = loadConfig();
@@ -175,7 +185,7 @@ export default function (pi: ExtensionAPI) {
       if (action === "List configured orgs") {
         if (config.graphiteOrgs.length === 0) {
           ctx.ui.notify(
-            "No orgs configured. Use /git-workflow to add one.",
+            "No orgs configured. Use /workflow to add one.",
             "info",
           );
         } else {
@@ -268,9 +278,11 @@ export default function (pi: ExtensionAPI) {
     const content =
       workflow === "graphite"
         ? GRAPHITE_CONTEXT
-        : workflow === "git"
-          ? GIT_CONTEXT
-          : undefined;
+        : workflow === "github"
+          ? GITHUB_CONTEXT
+          : workflow === "git"
+            ? GIT_CONTEXT
+            : undefined;
 
     if (!content) return undefined;
 
