@@ -3,7 +3,8 @@
  *
  * Detects the appropriate git workflow for the current repo:
  * - If no remote is configured → local git workflow (no PRs)
- * - If a remote is configured → GitHub PR-based workflow or Graphite (if configured)
+ * - If a non-GitHub remote is configured → remote git workflow (no GitHub PR assumptions)
+ * - If a GitHub remote is configured → GitHub PR-based workflow or Graphite (if configured)
  *
  * Injects a one-line context hint via the context event so the agent knows
  * which workflow to use. Detailed Graphite reference lives in the built-in
@@ -68,22 +69,29 @@ function isGtInstalled(): boolean {
 
 // --- Repo detection ---
 
-type WorkflowType = "graphite" | "github" | "git" | "unknown";
+type WorkflowType = "graphite" | "github" | "git" | "remote-git" | "unknown";
 
-function getRemoteOrg(cwd: string): string | undefined {
+function getOriginRemoteUrl(cwd: string): string | undefined {
   try {
-    const remoteUrl = execFileSync("git", ["remote", "get-url", "origin"], {
+    return execFileSync("git", ["remote", "get-url", "origin"], {
       cwd,
       encoding: "utf-8",
       timeout: 3000,
       stdio: ["pipe", "pipe", "pipe"],
     }).trim();
-
-    const match = remoteUrl.match(/github\.com[:/]([^/]+)\//i);
-    return match ? match[1].toLowerCase() : undefined;
   } catch {
     return undefined;
   }
+}
+
+function extractGithubOrg(remoteUrl: string): string | undefined {
+  const match = remoteUrl.match(/github\.com[:/]([^/]+)\//i);
+  return match ? match[1].toLowerCase() : undefined;
+}
+
+function getRemoteOrg(cwd: string): string | undefined {
+  const remoteUrl = getOriginRemoteUrl(cwd);
+  return remoteUrl ? extractGithubOrg(remoteUrl) : undefined;
 }
 
 /** Cache: cwd → workflow type (avoids shelling out on every LLM call) */
@@ -91,19 +99,24 @@ const workflowCache = new Map<string, WorkflowType>();
 
 function detectWorkflow(cwd: string): WorkflowType {
   const cached = workflowCache.get(cwd);
-  if (cached !== undefined) return cached;
+  if (cached !== undefined) {
+    updateStatus(cached);
+    return cached;
+  }
 
   let workflow: WorkflowType;
-  // First check whether a remote org is configured. If no remote exists,
-  // fall back to the local git workflow. If a remote exists, then decide
-  // between Graphite and GitHub PR workflows.
-  const org = getRemoteOrg(cwd);
-  if (!org) {
-    // No remote configured → local git workflow
+  // First check whether an origin remote is configured. If no remote exists,
+  // fall back to the local git workflow. If a GitHub remote exists, then decide
+  // between Graphite and GitHub PR workflows. Non-GitHub remotes get accurate
+  // local-git-with-remote guidance rather than being treated as no remote.
+  const remoteUrl = getOriginRemoteUrl(cwd);
+  if (!remoteUrl) {
     workflow = "git";
   } else {
-    // Remote exists → choose between Graphite and GitHub PR-based workflow
-    if (!isGtInstalled()) {
+    const org = extractGithubOrg(remoteUrl);
+    if (!org) {
+      workflow = "remote-git";
+    } else if (!isGtInstalled()) {
       workflow = "github";
     } else {
       const config = loadConfig();
@@ -120,6 +133,7 @@ function detectWorkflow(cwd: string): WorkflowType {
 
 function clearCache(): void {
   workflowCache.clear();
+  gtAvailable = undefined;
 }
 
 // --- Status ---
@@ -134,6 +148,7 @@ function statusText(workflow: WorkflowType): string | undefined {
     case "github":
       return "github";
     case "git":
+    case "remote-git":
       return "git";
     default:
       return undefined;
@@ -152,11 +167,13 @@ function updateStatus(workflow: WorkflowType): void {
 // --- Context messages ---
 
 const GRAPHITE_CONTEXT =
-  "This is a Graphite repo. Use `gt` instead of `git` for all mutating operations. Load the graphite skill for the full command reference. Always provide explicit arguments and messages inline to avoid opening interactive prompts or an editor (e.g. `gt checkout <branch>` instead of bare `gt checkout`, `gt create -am \"message\"`, `gt submit --no-edit`). Note: if the repo's AGENTS.md or project docs specify a different workflow, follow those instead.";
+  "This is a Graphite repo. Use `gt` for branch creation, commit/amend, restack/sync, submit, and stack navigation. Plain `git` is still appropriate for status/diff/staging and conflict resolution unless repo docs say otherwise. Load the graphite skill for the full command reference. Always provide explicit arguments and messages inline to avoid opening interactive prompts or an editor (e.g. `gt checkout <branch>` instead of bare `gt checkout`, `gt create -am \"message\"`, `gt submit --no-edit`). Note: if the repo's AGENTS.md or project docs specify a different workflow, follow those instead.";
 const GITHUB_CONTEXT =
-  "This repo uses standard GitHub PRs. Use `git` and `gh` for branching, pushing, and creating PRs. Load the github-workflow skill for best practices. Always provide explicit arguments and messages inline to avoid opening interactive prompts or an editor (e.g. `git commit -m \"message\"`, `gh pr create --fill`, `git rebase --no-edit`). Note: if the repo's AGENTS.md or project docs specify a different workflow, follow those instead.";
+  "This repo uses standard GitHub PRs. Use `git` and `gh` for branching, pushing, and creating PRs. Load the github-workflow skill for best practices. Always provide explicit arguments and messages inline to avoid opening interactive prompts or an editor (e.g. `git commit -m \"message\"`, `gh pr edit --body-file ...`, `git rebase main`). Note: if the repo's AGENTS.md or project docs specify a different workflow, follow those instead.";
 const GIT_CONTEXT =
   "This repo has no remote configured. Use local `git` workflows (branches, commits) — there is no remote GitHub PR workflow available. Load the git-workflow skill for best practices and use explicit arguments (e.g. `git commit -m \"message\"`).";
+const REMOTE_GIT_CONTEXT =
+  "This repo has a non-GitHub origin remote. Use explicit local `git` commands for branching, commits, fetching, rebasing, and pushing; do not assume GitHub PRs or `gh` are available unless repo docs say so. Load the git-workflow skill for best practices and use explicit arguments (e.g. `git commit -m \"message\"`).";
 
 // --- Extension ---
 
@@ -169,23 +186,71 @@ export default function (pi: ExtensionAPI) {
     description: "Manage git workflow configuration (Graphite orgs)",
     handler: async (_args, ctx) => {
       const config = loadConfig();
+      const usage = "Usage: /workflow [list|add <org>|remove <org>|detect]";
+      const rawArgs = typeof _args === "string" ? _args.trim() : "";
+      let action: "list" | "add" | "remove" | "detect" | undefined;
+      let orgArg: string | undefined;
 
-      const action = await ctx.ui.select(
-        "Git Workflow Configuration",
-        [
-          "List configured orgs",
-          "Add an org",
-          "Remove an org",
-          "Detect current repo",
-        ],
-      );
+      if (rawArgs) {
+        const [command, ...rest] = rawArgs.split(/\s+/);
+        orgArg = rest.join(" ").trim() || undefined;
 
-      if (!action) return;
+        switch (command.toLowerCase()) {
+          case "list":
+          case "ls":
+            action = "list";
+            break;
+          case "add":
+            action = "add";
+            break;
+          case "remove":
+          case "rm":
+            action = "remove";
+            break;
+          case "detect":
+            action = "detect";
+            break;
+          case "help":
+          case "--help":
+          case "-h":
+            ctx.ui.notify(usage, "info");
+            return;
+          default:
+            ctx.ui.notify(`${usage}. Unknown action: ${command}`, "warning");
+            return;
+        }
+      } else {
+        if (!ctx.hasUI) {
+          ctx.ui.notify(usage, "warning");
+          return;
+        }
 
-      if (action === "List configured orgs") {
+        const selection = await ctx.ui.select(
+          "Git Workflow Configuration",
+          [
+            "List configured orgs",
+            "Add an org",
+            "Remove an org",
+            "Detect current repo",
+          ],
+        );
+
+        if (!selection) return;
+
+        action =
+          selection === "List configured orgs"
+            ? "list"
+            : selection === "Add an org"
+              ? "add"
+              : selection === "Remove an org"
+                ? "remove"
+                : "detect";
+      }
+
+      if (action === "list") {
         if (config.graphiteOrgs.length === 0) {
           ctx.ui.notify(
-            "No orgs configured. Use /workflow to add one.",
+            "No orgs configured. Use /workflow add <org> to add one.",
             "info",
           );
         } else {
@@ -194,14 +259,24 @@ export default function (pi: ExtensionAPI) {
             "info",
           );
         }
-      } else if (action === "Add an org") {
-        const org = await ctx.ui.input(
-          "GitHub org to use Graphite workflow",
-          "e.g. Shopify",
-        );
+      } else if (action === "add") {
+        let org = orgArg;
+        if (!org) {
+          if (!ctx.hasUI) {
+            ctx.ui.notify(usage, "warning");
+            return;
+          }
+
+          org = await ctx.ui.input(
+            "GitHub org to use Graphite workflow",
+            "e.g. Shopify",
+          );
+        }
         if (!org) return;
 
         const trimmed = org.trim();
+        if (!trimmed) return;
+
         if (
           config.graphiteOrgs.some(
             (o) => o.toLowerCase() === trimmed.toLowerCase(),
@@ -217,25 +292,43 @@ export default function (pi: ExtensionAPI) {
         // Re-detect so the status reflects the new config immediately
         if (ctx.cwd) detectWorkflow(ctx.cwd);
         ctx.ui.notify(`Added "${trimmed}".`, "info");
-      } else if (action === "Remove an org") {
+      } else if (action === "remove") {
         if (config.graphiteOrgs.length === 0) {
           ctx.ui.notify("No orgs configured.", "info");
           return;
         }
 
-        const org = await ctx.ui.select(
-          "Select org to remove",
-          config.graphiteOrgs,
-        );
+        let org = orgArg;
+        if (!org) {
+          if (!ctx.hasUI) {
+            ctx.ui.notify(usage, "warning");
+            return;
+          }
+
+          org = await ctx.ui.select(
+            "Select org to remove",
+            config.graphiteOrgs,
+          );
+        }
         if (!org) return;
 
-        config.graphiteOrgs = config.graphiteOrgs.filter((o) => o !== org);
+        const existing = config.graphiteOrgs.find(
+          (o) => o.toLowerCase() === org.toLowerCase(),
+        );
+        if (!existing) {
+          ctx.ui.notify(`"${org}" is not configured.`, "warning");
+          return;
+        }
+
+        config.graphiteOrgs = config.graphiteOrgs.filter(
+          (o) => o.toLowerCase() !== existing.toLowerCase(),
+        );
         saveConfig(config);
         clearCache();
         // Re-detect so the status reflects the new config immediately
         if (ctx.cwd) detectWorkflow(ctx.cwd);
-        ctx.ui.notify(`Removed "${org}".`, "info");
-      } else if (action === "Detect current repo") {
+        ctx.ui.notify(`Removed "${existing}".`, "info");
+      } else if (action === "detect") {
         const cwd = ctx.cwd;
         if (!cwd) {
           ctx.ui.notify("No working directory.", "warning");
@@ -282,7 +375,9 @@ export default function (pi: ExtensionAPI) {
           ? GITHUB_CONTEXT
           : workflow === "git"
             ? GIT_CONTEXT
-            : undefined;
+            : workflow === "remote-git"
+              ? REMOTE_GIT_CONTEXT
+              : undefined;
 
     if (!content) return undefined;
 

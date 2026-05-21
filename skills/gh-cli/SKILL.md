@@ -36,7 +36,8 @@ This applies to all `gh` subcommands that accept body text:
 ### Heredoc to temp file (preferred for generated content)
 
 ```bash
-cat <<'EOF' > /tmp/pr-body.md
+body_file="$(mktemp)"
+cat > "$body_file" <<'EOF'
 ## Summary
 
 Content with $variables, `backticks`, and "quotes" that won't break.
@@ -45,7 +46,8 @@ Content with $variables, `backticks`, and "quotes" that won't break.
 - So does ```code fencing```
 EOF
 
-gh pr create --title "feat: add widget" --body-file /tmp/pr-body.md
+gh pr create --title "feat: add widget" --body-file "$body_file"
+rm -f "$body_file"
 ```
 
 ### Pipe via stdin
@@ -60,8 +62,10 @@ EOF
 ### Write from a variable (when content is already in a shell variable)
 
 ```bash
-printf '%s' "$body_content" > /tmp/pr-body.md
-gh pr edit 123 --body-file /tmp/pr-body.md
+body_file="$(mktemp)"
+printf '%s' "$body_content" > "$body_file"
+gh pr edit 123 --body-file "$body_file"
+rm -f "$body_file"
 ```
 
 ### Simple static strings (the only safe inline case)
@@ -82,7 +86,7 @@ gh pr comment 123 --body "LGTM, merging."
 
 | Instead of | Use |
 |---|---|
-| `--body "$variable"` | `printf '%s' "$variable" > /tmp/body.md && --body-file /tmp/body.md` |
-| `--body "$(command)"` | `command > /tmp/body.md && --body-file /tmp/body.md` |
+| `--body "$variable"` | `body_file="$(mktemp)"; printf '%s' "$variable" > "$body_file"; gh ... --body-file "$body_file"; rm -f "$body_file"` |
+| `--body "$(command)"` | `body_file="$(mktemp)"; command > "$body_file"; gh ... --body-file "$body_file"; rm -f "$body_file"` |
 | `--body "multi\nline"` | `--body-file - <<'EOF' ... EOF` |
 | `--body "has 'quotes'"` | `--body-file - <<'EOF' ... EOF` |

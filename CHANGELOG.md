@@ -1,5 +1,16 @@
 # Changelog
 
+## 2.4.1
+
+- Improve `git-workflow` detection and status handling
+  - Distinguish non-GitHub origin remotes from repositories with no origin remote
+  - Refresh the status bar even when workflow detection uses a cached result
+  - Clear cached `gt` availability when workflow configuration changes
+- Add explicit `/workflow` command arguments for non-interactive use: `list`, `add <org>`, `remove <org>`, and `detect`
+- Tighten GitHub workflow guidance with `git pull --ff-only`, explicit `gh pr create --head/--base`, and `mktemp`/`--body-file` examples
+- Update `gh-cli` examples to use `mktemp` with cleanup and add the skill to the README
+- Bump package version to `2.4.1`
+
 ## 2.4.0
 
 - Split `git-workflow` skill into local (no-remote) guidance and a new `github-workflow` skill for GitHub PR-based guidance. The extension (`./git-workflow/index.ts`) now detects no-remote vs remote repos and injects the appropriate context message.
