@@ -17,7 +17,7 @@ description: Standard GitHub PR workflow reference. Use when a remote exists and
 
 ```bash
 git checkout main
-git pull origin main
+git pull --ff-only origin main
 git checkout -b feature-name
 ```
 
@@ -35,15 +35,17 @@ Use the GitHub CLI safely (see the gh-cli skill). Examples:
 ```bash
 git push -u origin feature-name
 # Create a PR using the commits as the description
-gh pr create --fill
+gh pr create --fill --head feature-name --base main
 
 # Or supply an explicit title/body file
-cat <<'EOF' > /tmp/pr-body.md
+body_file="$(mktemp)"
+cat > "$body_file" <<'EOF'
 Summary of changes...
 
 More details.
 EOF
-gh pr create --title "feat: ..." --body-file /tmp/pr-body.md
+gh pr create --title "feat: ..." --body-file "$body_file" --head feature-name --base main
+rm -f "$body_file"
 ```
 
 ### Update from main
@@ -60,6 +62,12 @@ git rebase origin/main     # preferred over merge for clean history
 git add <files>
 git commit -m "fix: address review feedback"
 git push
+```
+
+If the push is rejected because the branch was rebased, use an explicit lease:
+
+```bash
+git push --force-with-lease origin feature-name
 ```
 
 ## Commit Message Conventions
