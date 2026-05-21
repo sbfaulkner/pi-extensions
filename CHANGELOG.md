@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.5.0
+
+- Add a vendored `graphite` skill to this package, based on the existing local Graphite skill
+  - Includes a trimmed main Graphite skill plus concise command and stacking workflow references
+  - Adds prominent agent/non-interactive command guidance
+  - Updates common examples to avoid bare interactive `gt` commands by default
+- Bump package version to `2.5.0`
+
 ## 2.4.1
 
 - Improve `git-workflow` detection and status handling

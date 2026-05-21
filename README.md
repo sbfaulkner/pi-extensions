@@ -21,6 +21,7 @@ Personal extensions for the [Pi coding agent](https://buildwithpi.com).
 | [codeowners](./skills/codeowners/) | Identify code owners for a given file path by locating and evaluating the repository's CODEOWNERS file. |
 | [delegate](./skills/delegate/) | Delegate tasks to new pi sessions in other repos via Ghostty panes/tabs. Includes AppleScript for pane, tab, and window management. |
 | [gh-cli](./skills/gh-cli/) | Safe GitHub CLI patterns for PR/issue bodies, comments, and generated multi-line content. |
+| [graphite](./skills/graphite/) | Graphite CLI and stacked PR workflow guidance with agent-safe non-interactive command defaults. |
 | [git-workflow](./skills/git-workflow/) | Local git workflow guidance for repositories with no remote configured (no `gh`/PR commands). |
 | [github-workflow](./skills/github-workflow/) | GitHub PR workflow guidance (branching, commits, `gh` CLI, PR creation). |
 | [gws-docs-markdown](./skills/gws-docs-markdown/) | Create and update Google Docs from markdown content. |
