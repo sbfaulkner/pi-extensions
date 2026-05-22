@@ -1,20 +1,24 @@
 {
   "name": "pi-extensions",
-  "version": "2.5.0",
+  "version": "2.6.0",
   "license": "MIT",
   "private": true,
   "keywords": [
     "pi-package"
   ],
+  "scripts": {
+    "test": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test nodoz/index.test.mjs"
+  },
   "pi": {
     "extensions": [
+      "./git-workflow/index.ts",
       "./interview/index.ts",
+      "./nodoz/index.ts",
       "./secrets/index.ts",
       "./system-theme/index.ts",
       "./usage/index.ts",
       "./vim/index.ts",
-      "./web-search/index.ts",
-      "./git-workflow/index.ts"
+      "./web-search/index.ts"
     ],
     "skills": [
       "./skills"
