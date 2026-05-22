@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.6.0
+
+- Add `nodoz` extension to keep macOS awake while Pi is actively working
+  - Uses lifecycle-scoped `caffeinate -d -i -s` in interactive TTY sessions only
+  - Refcounts active agent turns and cleans up on `agent_end`, `session_shutdown`, and process exit
+  - Shows a dim `👀 nodoz` footer status while active
+
 ## 2.5.0
 
 - Add a vendored `graphite` skill to this package, based on the existing local Graphite skill
