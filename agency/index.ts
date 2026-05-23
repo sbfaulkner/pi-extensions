@@ -1,7 +1,6 @@
 import type { ExtensionAPI, ExtensionCommandContext } from "@mariozechner/pi-coding-agent";
 import { truncateToWidth } from "@mariozechner/pi-tui";
 import { spawn } from "node:child_process";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { EventEmitter } from "node:events";
@@ -35,24 +34,37 @@ export default function (pi: ExtensionAPI) {
   const sessions = new Map<string, Session>();
   const events = new EventEmitter();
 
-  async function loadState() {
+  // Load state from the current session only (no global fallback).
+  async function loadState(ctx?: ExtensionCommandContext) {
     try {
-      const raw = await readFile(CONFIG_PATH, "utf8");
-      const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed.members)) {
-        for (const m of parsed.members) {
-          if (m && typeof m.id === "string") members.set(m.id, m as Member);
+      if (ctx && ctx.sessionManager) {
+        const entries = ctx.sessionManager.getEntries();
+        for (let i = entries.length - 1; i >= 0; i--) {
+          const e: any = entries[i];
+          if (e && e.type === "custom" && e.customType === "agency" && e.data && Array.isArray(e.data.members)) {
+            members.clear();
+            for (const m of e.data.members) {
+              if (m && typeof m.id === "string") members.set(m.id, m as Member);
+            }
+            return;
+          }
         }
       }
-    } catch (e: any) {
-      // ignore missing file
+    } catch (e) {
+      // ignore session restore failures
     }
+    // No fallback: leave members empty if no session entry found
   }
 
-  async function saveState(): Promise<void> {
-    await mkdir(path.dirname(CONFIG_PATH), { recursive: true });
-    const obj = { members: Array.from(members.values()) };
-    await writeFile(CONFIG_PATH, JSON.stringify(obj, null, 2) + "\n", "utf8");
+  // Persist state to the current session only.
+  async function saveState(ctx?: ExtensionCommandContext): Promise<void> {
+    try {
+      if (ctx && typeof (pi as any).appendEntry === "function") {
+        await (pi as any).appendEntry("agency", { members: Array.from(members.values()) });
+      }
+    } catch (e) {
+      // ignore persistence failure in headless contexts
+    }
   }
 
   function makeWidgetFactory(ctx: ExtensionCommandContext) {
@@ -211,7 +223,7 @@ export default function (pi: ExtensionAPI) {
   }
 
   pi.on("session_start", async (_event, ctx) => {
-    await loadState();
+    await loadState(ctx);
     // Register interactive command only when UI is available
     if (!ctx.hasUI) return;
     if (commandRegistered) return;
@@ -230,7 +242,7 @@ export default function (pi: ExtensionAPI) {
           const id = generateId(role);
           const member: Member = { id, role };
           members.set(id, member);
-          await saveState();
+          await saveState(innerCtx);
           // Spawn the member process immediately
           const sess = spawnMemberProcess(member);
           if (sess) {
@@ -254,7 +266,7 @@ export default function (pi: ExtensionAPI) {
             sessions.delete(id);
           }
           members.delete(id);
-          await saveState();
+          await saveState(innerCtx);
           innerCtx.ui.notify(`Member ${id} removed and process killed (if it was running)`, "info");
           try { if (visible) events.emit("change"); } catch {}
           return;
