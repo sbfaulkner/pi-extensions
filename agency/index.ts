@@ -118,7 +118,19 @@ export default function (pi: ExtensionAPI) {
   });
 
   // Clean up on session end
-  pi.on("session_shutdown", () => {
+  pi.on("session_shutdown", (_event, ctx) => {
+    // Ensure the UI is cleared of any agency artifacts
+    if (ctx?.ui) {
+      try {
+        ctx.ui.setStatus("agency", undefined);
+        ctx.ui.setWidget("agency", undefined);
+        ctx.ui.setFooter(undefined);
+      } catch (e) {
+        // ignore - some hosts may not provide full UI on shutdown
+      }
+    }
+
     visible = false;
+    footerEnabled = false;
   });
 }
