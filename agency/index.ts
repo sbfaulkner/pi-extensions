@@ -110,7 +110,8 @@ export default function (pi: ExtensionAPI) {
               status === "idle" ? theme.fg("success", "idle") : status === "busy" ? theme.fg("accent", "busy") : theme.fg("dim", "offline");
             const model = m.modelId ? ` ${m.modelId}` : "";
             const role = m.role ? ` ${m.role}` : "";
-            const line = `${theme.fg("dim", `${m.id}:`)}${m.displayName ? " " + m.displayName : ""}${role}${model} ${statusText}`;
+            const pidText = s && s.proc && typeof s.proc.pid === "number" ? theme.fg("dim", ` pid=${s.proc.pid}`) : "";
+            const line = `${theme.fg("dim", `${m.id}:`)}${m.displayName ? " " + m.displayName : ""}${role}${model}${pidText} ${statusText}`;
             lines.push(line);
           }
           lines.push("");
@@ -397,7 +398,11 @@ export default function (pi: ExtensionAPI) {
         // Shorthand list: /agency list
         if (verb === "list") {
           if (members.size === 0) { innerCtx.ui.notify("No members configured", "info"); return; }
-          const list = Array.from(members.values()).map(m => `${m.id}${m.role? ' ('+m.role+')':''}${m.modelId? ' @'+m.modelId:''}`).join("\n");
+          const list = Array.from(members.values()).map(m => {
+            const s = sessions.get(m.id);
+            const pidText = s && s.proc && typeof s.proc.pid === "number" ? ` pid=${s.proc.pid}` : "";
+            return `${m.id}${m.role? ' ('+m.role+')':''}${m.modelId? ' @'+m.modelId:''}${pidText}`;
+          }).join("\n");
           innerCtx.ui.notify(`Members:\n${list}`, "info");
           return;
         }
