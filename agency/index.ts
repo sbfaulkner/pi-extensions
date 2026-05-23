@@ -7,7 +7,7 @@
  */
 
 import type { ExtensionAPI, ExtensionCommandContext } from "@mariozechner/pi-coding-agent";
-
+import { truncateToWidth } from "@mariozechner/pi-tui";
 
 export default function (pi: ExtensionAPI) {
   let visible = false;
@@ -15,22 +15,37 @@ export default function (pi: ExtensionAPI) {
 
   function makeWidgetFactory(ctx: ExtensionCommandContext) {
     return (tui: any, theme: any) => {
-      const render = (width: number) => {
+      let cachedWidth: number | undefined;
+      let cachedLines: string[] | undefined;
+
+      function buildLines(width: number): string[] {
+        if (cachedLines && cachedWidth === width) return cachedLines;
+
         if (items.length === 0) {
-          return [theme.fg("muted", "(agency) no items — use /agency add <text> to add")];
+          cachedLines = [theme.fg("muted", "(agency) no items — use /agency add <text> to add")];
+          cachedWidth = width;
+          return cachedLines;
         }
-        const lines = [theme.fg("accent", "Agency"), ""]; // title + spacer
+
+        const lines: string[] = [theme.fg("accent", "Agency"), ""];
         for (let i = 0; i < items.length; i++) {
           const prefix = theme.fg("dim", `${i + 1}. `);
           const text = items[i];
           lines.push(prefix + text);
         }
-        return lines.map((l) => (l.length > width ? l.slice(0, width) : l));
-      };
+
+        // Truncate each line to the available width using truncateToWidth (ANSI-aware)
+        cachedLines = lines.map((l) => truncateToWidth(l, width));
+        cachedWidth = width;
+        return cachedLines;
+      }
 
       return {
-        render: (w: number) => render(w),
-        invalidate: () => {},
+        render: (w: number) => buildLines(w),
+        invalidate: () => {
+          cachedWidth = undefined;
+          cachedLines = undefined;
+        },
       };
     };
   }
@@ -55,18 +70,8 @@ export default function (pi: ExtensionAPI) {
         ctx.ui.notify(`Added (${items.length}): ${text}`, "info");
         // If visible, update widget lines directly using themed lines (preferred over requestRender)
         if (visible) {
-          const theme = ctx.ui.theme;
-          let lines: string[];
-          if (items.length === 0) {
-            lines = [theme.fg("muted", "(agency) no items — use /agency add <text> to add")];
-          } else {
-            lines = [theme.fg("accent", "Agency"), ""];
-            for (let i = 0; i < items.length; i++) {
-              const prefix = theme.fg("dim", `${i + 1}. `);
-              lines.push(prefix + items[i]);
-            }
-          }
-          ctx.ui.setWidget("agency", lines, { placement: "belowEditor" });
+          // Re-register the factory so the widget updates (caches cleared via factory.invalidate)
+          ctx.ui.setWidget("agency", makeWidgetFactory(ctx), { placement: "belowEditor" });
         }
         return;
       }
