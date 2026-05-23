@@ -6,18 +6,44 @@
     "thinking": "medium",
     "names": ["Daniel", "Diana", "Dominic", "Danielle"]
   },
-  "researcher": {
-    "displayName": "Researcher",
+
+  "analyst": {
+    "displayName": "Analyst",
+    "provider": null,
+    "modelId": null,
+    "thinking": "medium",
+    "names": ["Ava", "Arjun", "Alex", "Aisha"]
+  },
+
+  "investigator": {
+    "displayName": "Investigator",
     "provider": null,
     "modelId": null,
     "thinking": "high",
-    "names": ["Rachel", "Ravi", "Rosa", "Richard"]
+    "names": ["Iris", "Ian", "Ines", "Ivan"]
   },
+
+  "planner": {
+    "displayName": "Planner",
+    "provider": null,
+    "modelId": null,
+    "thinking": "low",
+    "names": ["Paula", "Peter", "Priya", "Parker"]
+  },
+
   "reviewer": {
     "displayName": "Reviewer",
     "provider": null,
     "modelId": null,
     "thinking": "low",
     "names": ["Rebecca", "Roland", "Renee", "Raymond"]
+  },
+
+  "researcher": {
+    "displayName": "Analyst",
+    "provider": null,
+    "modelId": null,
+    "thinking": "medium",
+    "names": ["Ava", "Arjun", "Alex", "Aisha"]
   }
 }
