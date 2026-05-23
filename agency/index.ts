@@ -176,6 +176,7 @@ export default function (pi: ExtensionAPI) {
 
   // We'll capture a context for widget re-renders; it's set when commands run in interactive mode
   let ctxForRender: ExtensionCommandContext | null = null;
+  let commandRegistered = false;
 
   function handleMemberMessage(memberId: string, msg: any) {
     const session = sessions.get(memberId);
@@ -209,96 +210,99 @@ export default function (pi: ExtensionAPI) {
     }
   }
 
-  pi.registerCommand("agency", {
-    description: "Toggle the agency widget or add items: /agency add <text>",
-    handler: async (args: string | string[] | undefined, ctx) => {
-      ctxForRender = ctx;
-      const rawArgs = typeof args === "string" ? args.trim() : Array.isArray(args) ? args.join(" ").trim() : "";
-      const parts = rawArgs ? rawArgs.split(/\s+/) : [];
-      const verb = parts[0];
-
-
-      // New shorthand: /agency add [role]
-      if (verb === "add") {
-        const role = parts[1] || "developer";
-        const id = generateId(role);
-        const member: Member = { id, role };
-        members.set(id, member);
-        await saveState();
-        // Spawn the member process immediately
-        const sess = spawnMemberProcess(member);
-        if (sess) {
-          ctx.ui.notify(`Member ${id} added and spawned (role=${role})`, "info");
-        } else {
-          ctx.ui.notify(`Member ${id} added (role=${role}) — failed to spawn`, "warning");
-        }
-        try { if (visible) events.emit("change"); } catch {}
-        return;
-      }
-
-      // Shorthand remove: /agency remove <id>
-      if (verb === "remove") {
-        const id = parts[1];
-        if (!id) { ctx.ui.notify("Usage: /agency remove <id>", "warning"); return; }
-        if (!members.has(id)) { ctx.ui.notify(`Unknown member: ${id}`, "warning"); return; }
-        // Kill session if running
-        const s = sessions.get(id);
-        if (s && s.proc) {
-          try { s.proc.kill(); } catch (e) { /* ignore */ }
-          sessions.delete(id);
-        }
-        members.delete(id);
-        await saveState();
-        ctx.ui.notify(`Member ${id} removed and process killed (if it was running)`, "info");
-        if (visible) ctx.ui.setWidget("agency", makeWidgetFactory(ctx), { placement: "belowEditor" });
-        return;
-      }
-
-      // Shorthand list: /agency list
-      if (verb === "list") {
-        if (members.size === 0) { ctx.ui.notify("No members configured", "info"); return; }
-        const list = Array.from(members.values()).map(m => `${m.id}${m.role? ' ('+m.role+')':''}${m.modelId? ' @'+m.modelId:''}`).join("\n");
-        ctx.ui.notify(`Members:\n${list}`, "info");
-        return;
-      }
-
-
-      if (verb === "assign") {
-        const id = parts[1];
-        const text = parts.slice(2).join(" ").trim();
-        if (!id || !text) { ctx.ui.notify("Usage: /agency assign <id> <task text>", "warning"); return; }
-        const m = members.get(id);
-        if (!m) { ctx.ui.notify(`Unknown member: ${id}`, "warning"); return; }
-        // ensure session
-        const sess = spawnMemberProcess(m);
-        if (!sess) { ctx.ui.notify(`Failed to spawn ${id}`, "error"); return; }
-        const taskId = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2,8)}`;
-        sess.currentTaskId = taskId;
-        sess.status = "busy";
-        const sent = sendToMember(id, { id: taskId, type: "task", task: { text } });
-        if (!sent) { ctx.ui.notify(`Failed to send task to ${id}`, "error"); sess.status = "idle"; return; }
-        ctx.ui.notify(`Assigned to ${id}: ${text}`, "info");
-        if (visible) ctx.ui.setWidget("agency", makeWidgetFactory(ctx), { placement: "belowEditor" });
-        return;
-      }
-
-      // Toggle widget
-      if (!visible) {
-        // Show widget below the editor
-        ctx.ui.setWidget("agency", makeWidgetFactory(ctx), { placement: "belowEditor" });
-        visible = true;
-        ctx.ui.notify("Agency widget shown", "info");
-      } else {
-        ctx.ui.setWidget("agency", undefined);
-        visible = false;
-        ctx.ui.notify("Agency widget hidden", "info");
-      }
-    },
-  });
-
   pi.on("session_start", async (_event, ctx) => {
     await loadState();
-    // nothing else on start
+    // Register interactive command only when UI is available
+    if (!ctx.hasUI) return;
+    if (commandRegistered) return;
+
+    pi.registerCommand("agency", {
+      description: "Toggle the agency widget or add items: /agency add <text>",
+      handler: async (args: string | string[] | undefined, innerCtx) => {
+        ctxForRender = innerCtx.hasUI ? innerCtx : null;
+        const rawArgs = typeof args === "string" ? args.trim() : Array.isArray(args) ? args.join(" ").trim() : "";
+        const parts = rawArgs ? rawArgs.split(/\s+/) : [];
+        const verb = parts[0];
+
+        // New shorthand: /agency add [role]
+        if (verb === "add") {
+          const role = parts[1] || "developer";
+          const id = generateId(role);
+          const member: Member = { id, role };
+          members.set(id, member);
+          await saveState();
+          // Spawn the member process immediately
+          const sess = spawnMemberProcess(member);
+          if (sess) {
+            innerCtx.ui.notify(`Member ${id} added and spawned (role=${role})`, "info");
+          } else {
+            innerCtx.ui.notify(`Member ${id} added (role=${role}) — failed to spawn`, "warning");
+          }
+          try { if (visible) events.emit("change"); } catch {}
+          return;
+        }
+
+        // Shorthand remove: /agency remove <id>
+        if (verb === "remove") {
+          const id = parts[1];
+          if (!id) { innerCtx.ui.notify("Usage: /agency remove <id>", "warning"); return; }
+          if (!members.has(id)) { innerCtx.ui.notify(`Unknown member: ${id}`, "warning"); return; }
+          // Kill session if running
+          const s = sessions.get(id);
+          if (s && s.proc) {
+            try { s.proc.kill(); } catch (e) { /* ignore */ }
+            sessions.delete(id);
+          }
+          members.delete(id);
+          await saveState();
+          innerCtx.ui.notify(`Member ${id} removed and process killed (if it was running)`, "info");
+          try { if (visible) events.emit("change"); } catch {}
+          return;
+        }
+
+        // Shorthand list: /agency list
+        if (verb === "list") {
+          if (members.size === 0) { innerCtx.ui.notify("No members configured", "info"); return; }
+          const list = Array.from(members.values()).map(m => `${m.id}${m.role? ' ('+m.role+')':''}${m.modelId? ' @'+m.modelId:''}`).join("\n");
+          innerCtx.ui.notify(`Members:\n${list}`, "info");
+          return;
+        }
+
+        // Shorthand assign: /agency assign <id> <text>
+        if (verb === "assign") {
+          const id = parts[1];
+          const text = parts.slice(2).join(" ").trim();
+          if (!id || !text) { innerCtx.ui.notify("Usage: /agency assign <id> <task text>", "warning"); return; }
+          const m = members.get(id);
+          if (!m) { innerCtx.ui.notify(`Unknown member: ${id}`, "warning"); return; }
+          // ensure session
+          const sess = spawnMemberProcess(m);
+          if (!sess) { innerCtx.ui.notify(`Failed to spawn ${id}`, "error"); return; }
+          const taskId = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2,8)}`;
+          sess.currentTaskId = taskId;
+          sess.status = "busy";
+          const sent = sendToMember(id, { id: taskId, type: "task", task: { text } });
+          if (!sent) { innerCtx.ui.notify(`Failed to send task to ${id}`, "error"); sess.status = "idle"; return; }
+          innerCtx.ui.notify(`Assigned to ${id}: ${text}`, "info");
+          try { if (visible) events.emit("change"); } catch {}
+          return;
+        }
+
+        // Toggle widget
+        if (!visible) {
+          // Show widget below the editor
+          innerCtx.ui.setWidget("agency", makeWidgetFactory(innerCtx), { placement: "belowEditor" });
+          visible = true;
+          innerCtx.ui.notify("Agency widget shown", "info");
+        } else {
+          innerCtx.ui.setWidget("agency", undefined);
+          visible = false;
+          innerCtx.ui.notify("Agency widget hidden", "info");
+        }
+      },
+    });
+
+    commandRegistered = true;
   });
 
   pi.on("session_shutdown", (_event, ctx) => {
