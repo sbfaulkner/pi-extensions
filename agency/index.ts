@@ -25,8 +25,6 @@ type Session = {
   currentTaskId?: string | null;
 };
 
-const CONFIG_DIR = path.join(os.homedir() || ".", ".pi", "agent");
-const CONFIG_PATH = path.join(CONFIG_DIR, "agency.json");
 
 export default function (pi: ExtensionAPI) {
   let visible = false;
