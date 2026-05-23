@@ -227,7 +227,13 @@ export default function (pi: ExtensionAPI) {
         const member: Member = { id, role };
         members.set(id, member);
         await saveState();
-        ctx.ui.notify(`Member ${id} added (role=${role})`, "info");
+        // Spawn the member process immediately
+        const sess = spawnMemberProcess(member);
+        if (sess) {
+          ctx.ui.notify(`Member ${id} added and spawned (role=${role})`, "info");
+        } else {
+          ctx.ui.notify(`Member ${id} added (role=${role}) — failed to spawn`, "warning");
+        }
         if (visible) ctx.ui.setWidget("agency", makeWidgetFactory(ctx), { placement: "belowEditor" });
         return;
       }
@@ -237,10 +243,15 @@ export default function (pi: ExtensionAPI) {
         const id = parts[1];
         if (!id) { ctx.ui.notify("Usage: /agency remove <id>", "warning"); return; }
         if (!members.has(id)) { ctx.ui.notify(`Unknown member: ${id}`, "warning"); return; }
+        // Kill session if running
+        const s = sessions.get(id);
+        if (s && s.proc) {
+          try { s.proc.kill(); } catch (e) { /* ignore */ }
+          sessions.delete(id);
+        }
         members.delete(id);
-        sessions.delete(id);
         await saveState();
-        ctx.ui.notify(`Member ${id} removed`, "info");
+        ctx.ui.notify(`Member ${id} removed and process killed (if it was running)`, "info");
         if (visible) ctx.ui.setWidget("agency", makeWidgetFactory(ctx), { placement: "belowEditor" });
         return;
       }
