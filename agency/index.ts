@@ -79,7 +79,7 @@ export default function (pi: ExtensionAPI) {
             lines.push(line);
           }
           lines.push("");
-          lines.push(theme.fg("dim", "Commands: /agency add [role], /agency member remove|list, /agency assign <id> <text>, /agency spawn <id>, /agency kill <id>"));
+          lines.push(theme.fg("dim", "Commands: /agency add [role], /agency list|remove, /agency assign <id> <text>, /agency spawn <id>, /agency kill <id>"));
         }
 
         cachedLines = lines.map((l) => truncateToWidth(l, width));
@@ -219,49 +219,6 @@ export default function (pi: ExtensionAPI) {
       const parts = rawArgs ? rawArgs.split(/\s+/) : [];
       const verb = parts[0];
 
-      if (verb === "member") {
-        const sub = parts[1];
-        if (sub === "add") {
-          const id = parts[2];
-          if (!id) { ctx.ui.notify("Usage: /agency member add <id>", "warning"); return; }
-          const roleIndex = parts.indexOf("--role");
-          const role = roleIndex >= 0 ? parts[roleIndex + 1] : "developer";
-          const providerIndex = parts.indexOf("--provider");
-          const provider = providerIndex >= 0 ? parts[providerIndex + 1] : null;
-          const modelIndex = parts.indexOf("--model");
-          const model = modelIndex >= 0 ? parts[modelIndex + 1] : null;
-          const cmdIndex = parts.indexOf("--cmd");
-          const cmd = cmdIndex >= 0 ? parts[cmdIndex + 1] : undefined;
-          const argsIndex = parts.indexOf("--args");
-          const cmdArgs = argsIndex >= 0 ? parts[argsIndex + 1].split(",") : undefined;
-
-          const member: Member = { id, role, provider, modelId: model, cmd, args: cmdArgs };
-          members.set(id, member);
-          await saveState();
-          ctx.ui.notify(`Member ${id} added`, "info");
-          if (visible) ctx.ui.setWidget("agency", makeWidgetFactory(ctx), { placement: "belowEditor" });
-          return;
-        }
-        if (sub === "remove") {
-          const id = parts[2];
-          if (!id) { ctx.ui.notify("Usage: /agency member remove <id>", "warning"); return; }
-          members.delete(id);
-          sessions.delete(id);
-          await saveState();
-          ctx.ui.notify(`Member ${id} removed`, "info");
-          if (visible) ctx.ui.setWidget("agency", makeWidgetFactory(ctx), { placement: "belowEditor" });
-          return;
-        }
-        if (sub === "list") {
-          if (members.size === 0) { ctx.ui.notify("No members configured", "info"); return; }
-          const list = Array.from(members.values()).map(m => `${m.id}${m.role? ' ('+m.role+')':''}${m.modelId? ' @'+m.modelId:''}`).join("\n");
-          ctx.ui.notify(`Members:\n${list}`, "info");
-          return;
-        }
-
-        ctx.ui.notify("Usage: /agency member add|remove|list ...", "info");
-        return;
-      }
 
       // New shorthand: /agency add [role]
       if (verb === "add") {
