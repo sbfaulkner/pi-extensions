@@ -105,12 +105,10 @@ export default function (pi: ExtensionAPI) {
       // Toggle widget
       if (!visible) {
         ctx.ui.setWidget("agency", makeWidgetFactory(ctx));
-        ctx.ui.setStatus("agency", ctx.ui.theme.fg("accent", "agency: on"));
         visible = true;
         ctx.ui.notify("Agency widget shown", "info");
       } else {
         ctx.ui.setWidget("agency", undefined);
-        ctx.ui.setStatus("agency", undefined);
         visible = false;
         ctx.ui.notify("Agency widget hidden", "info");
       }
@@ -122,7 +120,6 @@ export default function (pi: ExtensionAPI) {
     // Ensure the UI is cleared of any agency artifacts
     if (ctx?.ui) {
       try {
-        ctx.ui.setStatus("agency", undefined);
         ctx.ui.setWidget("agency", undefined);
         ctx.ui.setFooter(undefined);
       } catch (e) {
