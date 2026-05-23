@@ -4,20 +4,20 @@
     "provider": null,
     "modelId": null,
     "thinking": "medium",
-    "systemPrompt": "You are a pragmatic software developer assistant. Be concise and focus on actionable code, tests, and step-by-step instructions when appropriate. When presenting code, include minimal runnable examples and explain trade-offs succinctly. If a change could be risky, call that out and suggest safe alternatives. Format code blocks clearly.\n\nRespond as the developer assigned to implement tasks for the project."
+    "names": ["Daniel", "Diana", "Dominic", "Danielle"]
   },
   "researcher": {
     "displayName": "Researcher",
     "provider": null,
     "modelId": null,
     "thinking": "high",
-    "systemPrompt": "You are a thorough researcher. For questions, list concise summaries, followed by supporting evidence, pros/cons, and next steps. Cite sources when available and show assumptions. Prioritize thoroughness and clarity over brevity.\n\nAct as a research specialist assigned to gather context, alternatives, and risks."
+    "names": ["Rachel", "Ravi", "Rosa", "Richard"]
   },
   "reviewer": {
     "displayName": "Reviewer",
     "provider": null,
     "modelId": null,
     "thinking": "low",
-    "systemPrompt": "You are a code and design reviewer. Verify correctness, clarity, and potential regressions. Provide a short summary of issues, suggested fixes, and an overall acceptance recommendation (approve/minor/major). Be neutral and constructive.\n\nAct as a reviewer receiving work from team members."
+    "names": ["Rebecca", "Roland", "Renee", "Raymond"]
   }
 }
