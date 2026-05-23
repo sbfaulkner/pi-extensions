@@ -79,7 +79,7 @@ export default function (pi: ExtensionAPI) {
             lines.push(line);
           }
           lines.push("");
-          lines.push(theme.fg("dim", "Commands: /agency add [role], /agency list|remove, /agency assign <id> <text>, /agency spawn <id>, /agency kill <id>"));
+          lines.push(theme.fg("dim", "Commands: /agency add [role], /agency list|remove, /agency assign <id> <text>"));
         }
 
         cachedLines = lines.map((l) => truncateToWidth(l, width));
@@ -253,30 +253,6 @@ export default function (pi: ExtensionAPI) {
         return;
       }
 
-      if (verb === "spawn") {
-        const id = parts[1];
-        if (!id) { ctx.ui.notify("Usage: /agency spawn <id>", "warning"); return; }
-        const m = members.get(id);
-        if (!m) { ctx.ui.notify(`Unknown member: ${id}`, "warning"); return; }
-        const sess = spawnMemberProcess(m);
-        if (!sess) ctx.ui.notify(`Failed to spawn ${id}`, "error"); else ctx.ui.notify(`${id} spawned`, "info");
-        return;
-      }
-
-      if (verb === "kill") {
-        const id = parts[1];
-        if (!id) { ctx.ui.notify("Usage: /agency kill <id>", "warning"); return; }
-        const s = sessions.get(id);
-        if (s && s.proc) {
-          try { s.proc.kill(); } catch {}
-          sessions.delete(id);
-          ctx.ui.notify(`${id} killed`, "info");
-        } else {
-          ctx.ui.notify(`${id} not running`, "info");
-        }
-        if (visible) ctx.ui.setWidget("agency", makeWidgetFactory(ctx), { placement: "belowEditor" });
-        return;
-      }
 
       if (verb === "assign") {
         const id = parts[1];
