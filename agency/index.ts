@@ -130,9 +130,14 @@ export default function (pi: ExtensionAPI) {
     const existing = sessions.get(m.id);
     if (existing && existing.proc && !existing.proc.killed) return existing;
 
-    // Default to mock-member.js if no cmd provided
-    const cmd = m.cmd || process.execPath; // node
-    const args = (m.args && m.args.length > 0) ? m.args : [path.join(__dirname, "mock-member.js")];
+    // Always spawn pi in RPC mode by default; allow m.cmd/m.args to override if provided
+    const cmd = m.cmd || "pi";
+    const args: string[] = [];
+    // ensure RPC mode
+    args.push("--mode", "rpc");
+    if (m.provider) args.push("--provider", String(m.provider));
+    if (m.modelId) args.push("--model", String(m.modelId));
+    if (m.args && m.args.length > 0) args.push(...m.args);
 
     try {
       const proc = spawn(cmd, args, {
@@ -144,16 +149,19 @@ export default function (pi: ExtensionAPI) {
       const session: Session = { proc, buffer: "", status: "idle", currentTaskId: null };
       sessions.set(m.id, session);
 
-      proc.stdout.setEncoding("utf8");
+        proc.stdout.setEncoding("utf8");
       proc.stdout.on("data", (chunk: string) => {
         session.buffer += chunk;
         let idx: number;
         while ((idx = session.buffer.indexOf("\n")) >= 0) {
-          const line = session.buffer.slice(0, idx).trim();
+          // Use strict LF framing per RPC docs
+          const line = session.buffer.slice(0, idx).replace(/\r$/, "").trim();
           session.buffer = session.buffer.slice(idx + 1);
           if (!line) continue;
           try {
             const parsed = JSON.parse(line);
+            // Emit raw parsed events for listeners (handshake, debugging)
+            try { events.emit("raw", m.id, parsed); } catch (e) {}
             handleMemberMessage(m.id, parsed);
           } catch (e) {
             // ignore parse errors
@@ -171,9 +179,44 @@ export default function (pi: ExtensionAPI) {
         try { events.emit("change"); } catch {}
       });
 
-      // Send a configure message so mock member can set provider/model
-      const cfg = { type: "configure", provider: m.provider || null, model: m.modelId || null, systemPrompt: m.systemPrompt || null };
-      try { proc.stdin.write(JSON.stringify(cfg) + "\n"); } catch {}
+      // If provider/model were provided, send set_model command and wait for response
+      const cfgId = `cfg-${Date.now().toString(36)}-${Math.random().toString(36).slice(2,6)}`;
+      if (m.provider || m.modelId) {
+        const setModelCmd: any = { id: cfgId, type: "set_model" };
+        if (m.provider) setModelCmd.provider = m.provider;
+        if (m.modelId) setModelCmd.modelId = m.modelId;
+
+        let configured = false;
+        try {
+          proc.stdin.write(JSON.stringify(setModelCmd) + "\n");
+
+          // Wait for response with matching id
+          configured = await new Promise<boolean>((resolve) => {
+            const onRaw = (memberId: string, parsed: any) => {
+              if (memberId !== m.id) return;
+              if (parsed && parsed.type === "response" && parsed.id === cfgId && parsed.command === "set_model") {
+                events.off("raw", onRaw);
+                resolve(parsed.success === true);
+              }
+            };
+            events.on("raw", onRaw);
+            // Timeout after 6s
+            setTimeout(() => {
+              events.off("raw", onRaw);
+              resolve(false);
+            }, 6000);
+          });
+        } catch (e) {
+          configured = false;
+        }
+
+        if (!configured) {
+          // failed to configure; kill process and return null
+          try { proc.kill(); } catch {}
+          sessions.delete(m.id);
+          return null;
+        }
+      }
 
       // trigger UI update
       try { events.emit("change"); } catch (e) { /* ignore */ }
@@ -191,17 +234,26 @@ export default function (pi: ExtensionAPI) {
   function handleMemberMessage(memberId: string, msg: any) {
     const session = sessions.get(memberId);
     if (!session) return;
-    // simple handler for ack/log/done
-    if (msg.type === "ack") {
+    // RPC-mode event handling: treat streaming and tool events as busy, message_end/tool_execution_end as idle
+    if (msg.type === "response") {
+      // command responses — no-op here (handshake handled elsewhere)
+    } else if (msg.type === "message_start" || msg.type === "message_update") {
       session.status = "busy";
-    } else if (msg.type === "log") {
-      // For now just print logs to console and keep status
-      console.log(`[agency:${memberId}]`, msg.line);
-    } else if (msg.type === "done") {
+    } else if (msg.type === "message_end") {
       session.status = "idle";
       session.currentTaskId = null;
-    } else if (msg.type === "configured") {
-      // noop
+    } else if (msg.type === "tool_execution_start" || msg.type === "tool_execution_update") {
+      session.status = "busy";
+    } else if (msg.type === "tool_execution_end") {
+      session.status = "idle";
+    } else {
+      // Fallback for mock/simple messages
+      if (msg.type === "ack") session.status = "busy";
+      if (msg.type === "log") console.log(`[agency:${memberId}]`, msg.line);
+      if (msg.type === "done") {
+        session.status = "idle";
+        session.currentTaskId = null;
+      }
     }
 
     // Notify listeners to re-render
@@ -291,7 +343,7 @@ export default function (pi: ExtensionAPI) {
           const taskId = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2,8)}`;
           sess.currentTaskId = taskId;
           sess.status = "busy";
-          const sent = sendToMember(id, { id: taskId, type: "task", task: { text } });
+          const sent = sendToMember(id, { id: taskId, type: "prompt", message: text });
           if (!sent) { innerCtx.ui.notify(`Failed to send task to ${id}`, "error"); sess.status = "idle"; return; }
           innerCtx.ui.notify(`Assigned to ${id}: ${text}`, "info");
           try { if (visible) events.emit("change"); } catch {}
