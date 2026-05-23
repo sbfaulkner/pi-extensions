@@ -384,7 +384,7 @@ export default function (pi: ExtensionAPI) {
           } else {
             innerCtx.ui.notify(`Member ${id} added (role=${role}) — failed to spawn`, "warning");
           }
-          try { if (visible) events.emit("change"); } catch {}
+          try { events.emit("change"); } catch {}
           return;
         }
 
@@ -402,7 +402,7 @@ export default function (pi: ExtensionAPI) {
           members.delete(id);
           await saveState(innerCtx);
           innerCtx.ui.notify(`Member ${id} removed and process killed (if it was running)`, "info");
-          try { if (visible) events.emit("change"); } catch {}
+          try { events.emit("change"); } catch {}
           return;
         }
 
@@ -434,7 +434,7 @@ export default function (pi: ExtensionAPI) {
           const sent = sendToMember(id, { id: taskId, type: "prompt", message: text });
           if (!sent) { innerCtx.ui.notify(`Failed to send task to ${id}`, "error"); sess.status = "idle"; return; }
           innerCtx.ui.notify(`Assigned to ${id}: ${text}`, "info");
-          try { if (visible) events.emit("change"); } catch {}
+          try { events.emit("change"); } catch {}
           return;
         }
 
