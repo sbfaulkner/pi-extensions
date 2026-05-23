@@ -50,8 +50,8 @@ export default function (pi: ExtensionAPI) {
         }
         items.push(text);
         ctx.ui.notify(`Added (${items.length}): ${text}`, "info");
-        // If visible, request a re-render
-        if (visible) ctx.ui.requestRender();
+        // If visible, re-register the widget to trigger a re-render
+        if (visible) ctx.ui.setWidget("agency", makeWidgetFactory(ctx));
         return;
       }
 
