@@ -151,6 +151,23 @@ export default function (pi: ExtensionAPI) {
     args.push("--mode", "rpc");
     if (m.provider) args.push("--provider", String(m.provider));
     if (m.modelId) args.push("--model", String(m.modelId));
+
+    // If role has a systemPrompt, write it to a secure temp file and pass via --system-prompt <path>
+    let tmpPromptPath: string | null = null;
+    try {
+      const roleDef = m.role ? roles.get(m.role) : undefined;
+      if (roleDef && roleDef.systemPrompt) {
+        const rolePrompt = String(roleDef.systemPrompt).replace(/\{memberId\}/g, m.id);
+        const tmp = path.join(os.tmpdir(), `pi-agency-${m.id}-${Date.now().toString(36)}.system`);
+        await writeFile(tmp, rolePrompt, { mode: 0o600 });
+        args.push("--system-prompt", tmp);
+        tmpPromptPath = tmp;
+      }
+    } catch (e) {
+      // ignore temp file errors; we'll fall back to sending prompt via RPC if needed
+      tmpPromptPath = null;
+    }
+
     if (m.args && m.args.length > 0) args.push(...m.args);
 
     try {
@@ -259,29 +276,6 @@ export default function (pi: ExtensionAPI) {
             }
           }
 
-          // send system prompt as initial prompt to prime the session
-          if (roleDef.systemPrompt) {
-            const rolePrompt = String(roleDef.systemPrompt).replace(/\{memberId\}/g, m.id);
-            const roleId = `role-${Date.now().toString(36)}-${Math.random().toString(36).slice(2,6)}`;
-            const roleCmd = { id: roleId, type: "prompt", message: rolePrompt };
-            proc.stdin.write(JSON.stringify(roleCmd) + "\n");
-            const primed = await new Promise<boolean>((resolve) => {
-              const onRaw = (memberId: string, parsed: any) => {
-                if (memberId !== m.id) return;
-                if (parsed && parsed.type === "response" && parsed.id === roleId && parsed.command === "prompt") {
-                  events.off("raw", onRaw);
-                  resolve(parsed.success === true);
-                }
-              };
-              events.on("raw", onRaw);
-              setTimeout(() => { events.off("raw", onRaw); resolve(false); }, 8000);
-            });
-            if (!primed) {
-              try { proc.kill(); } catch {}
-              sessions.delete(m.id);
-              return null;
-            }
-          }
         }
       } catch (e) {
         // ignore role application errors
@@ -292,6 +286,8 @@ export default function (pi: ExtensionAPI) {
       return session;
     } catch (e) {
       console.warn("Failed to spawn member", e);
+      // cleanup temp file on failure
+      try { if (typeof tmpPromptPath !== 'undefined' && tmpPromptPath) await unlink(tmpPromptPath); } catch {}
       return null;
     }
   }
@@ -342,6 +338,7 @@ export default function (pi: ExtensionAPI) {
   }
 
   pi.on("session_start", async (_event, ctx) => {
+    await loadRoles();
     await loadState(ctx);
     // Register interactive command only when UI is available
     if (!ctx.hasUI) return;
