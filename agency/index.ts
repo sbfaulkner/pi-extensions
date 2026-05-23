@@ -373,16 +373,44 @@ export default function (pi: ExtensionAPI) {
         // New shorthand: /agency add [role]
         if (verb === "add") {
           const role = parts[1] || "developer";
-          const id = generateId(role);
-          const member: Member = { id, role };
+          if (!roles.has(role)) { innerCtx.ui.notify(`Failed to add member ${role} - unknown role`, "error"); return; }
+
+          // Determine displayName: optional user-provided name as parts[2], otherwise pick an unused name from role definition
+          const explicitName = parts[2] ? parts.slice(2).join(" ").trim() : undefined;
+          const roleDef = roles.get(role);
+          let displayName: string | undefined = undefined;
+          if (explicitName) {
+            displayName = explicitName;
+          } else if (roleDef && Array.isArray(roleDef.names) && roleDef.names.length > 0) {
+            // pick first unused name for this role
+            const used = new Set(Array.from(members.values()).filter(m=>m.role===role).map(m=> (m.displayName || "").toLowerCase()));
+            displayName = roleDef.names.find((n: string) => !used.has(n.toLowerCase()));
+            if (!displayName) displayName = roleDef.names[Math.floor(Math.random()*roleDef.names.length)];
+          }
+
+          // Generate a stable id based on role + slug(displayName) or fallback
+          function slugify(s: string) { return s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, ""); }
+          let id: string;
+          if (displayName) {
+            const base = `${role}-${slugify(displayName)}`;
+            id = base;
+            let suffix = 2;
+            while (members.has(id)) {
+              id = `${base}-${suffix++}`;
+            }
+          } else {
+            id = generateId(role);
+          }
+
+          const member: Member = { id, role, displayName };
           members.set(id, member);
           await saveState(innerCtx);
           // Spawn the member process immediately
           const sess = await spawnMemberProcess(member);
           if (sess) {
-            innerCtx.ui.notify(`Member ${id} added and spawned (role=${role})`, "info");
+            innerCtx.ui.notify(`Added ${role} ${displayName ?? id}`, "info");
           } else {
-            innerCtx.ui.notify(`Member ${id} added (role=${role}) — failed to spawn`, "warning");
+            innerCtx.ui.notify(`Failed to spawn member ${role} ${displayName ?? id} - spawn failed`, "error");
           }
           try { events.emit("change"); } catch {}
           return;
@@ -392,7 +420,7 @@ export default function (pi: ExtensionAPI) {
         if (verb === "remove") {
           const id = parts[1];
           if (!id) { innerCtx.ui.notify("Usage: /agency remove <id>", "warning"); return; }
-          if (!members.has(id)) { innerCtx.ui.notify(`Unknown member: ${id}`, "warning"); return; }
+          if (!members.has(id)) { innerCtx.ui.notify(`Failed to remove member ${id} - unknown member`, "warning"); return; }
           // Kill session if running
           const s = sessions.get(id);
           if (s && s.proc) {
@@ -401,7 +429,7 @@ export default function (pi: ExtensionAPI) {
           }
           members.delete(id);
           await saveState(innerCtx);
-          innerCtx.ui.notify(`Member ${id} removed and process killed (if it was running)`, "info");
+          innerCtx.ui.notify(`Removed member ${id}`, "info");
           try { events.emit("change"); } catch {}
           return;
         }
@@ -424,16 +452,16 @@ export default function (pi: ExtensionAPI) {
           const text = parts.slice(2).join(" ").trim();
           if (!id || !text) { innerCtx.ui.notify("Usage: /agency assign <id> <task text>", "warning"); return; }
           const m = members.get(id);
-          if (!m) { innerCtx.ui.notify(`Unknown member: ${id}`, "warning"); return; }
+          if (!m) { innerCtx.ui.notify(`Failed to assign member ${id} - unknown member`, "warning"); return; }
           // ensure session
           const sess = await spawnMemberProcess(m);
-          if (!sess) { innerCtx.ui.notify(`Failed to spawn ${id}`, "error"); return; }
+          if (!sess) { innerCtx.ui.notify(`Failed to spawn member ${id} - spawn failed`, "error"); return; }
           const taskId = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2,8)}`;
           sess.currentTaskId = taskId;
           sess.status = "busy";
           const sent = sendToMember(id, { id: taskId, type: "prompt", message: text });
-          if (!sent) { innerCtx.ui.notify(`Failed to send task to ${id}`, "error"); sess.status = "idle"; return; }
-          innerCtx.ui.notify(`Assigned to ${id}: ${text}`, "info");
+          if (!sent) { innerCtx.ui.notify(`Failed to send task to ${id} - send failed`, "error"); sess.status = "idle"; return; }
+          innerCtx.ui.notify(`Assigned member ${id}`, "info");
           try { events.emit("change"); } catch {}
           return;
         }
@@ -443,11 +471,11 @@ export default function (pi: ExtensionAPI) {
           // Show widget below the editor
           innerCtx.ui.setWidget("agency", makeWidgetFactory(innerCtx), { placement: "belowEditor" });
           visible = true;
-          innerCtx.ui.notify("Agency widget shown", "info");
+          innerCtx.ui.notify("Displayed agency widget", "info");
         } else {
           innerCtx.ui.setWidget("agency", undefined);
           visible = false;
-          innerCtx.ui.notify("Agency widget hidden", "info");
+          innerCtx.ui.notify("Hidden agency widget", "info");
         }
       },
     });
