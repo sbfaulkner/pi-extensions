@@ -124,6 +124,9 @@ export default function (pi: ExtensionAPI) {
       };
 
       const onChange = () => {
+        // Clear caches so render() rebuilds with latest data, then request a redraw
+        cachedWidth = undefined;
+        cachedLines = undefined;
         try { tui.requestRender(); } catch {}
       };
       events.on("change", onChange);
