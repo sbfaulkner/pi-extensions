@@ -4,6 +4,7 @@ import { spawn } from "node:child_process";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
+import { EventEmitter } from "node:events";
 
 type Member = {
   id: string;
@@ -32,6 +33,7 @@ export default function (pi: ExtensionAPI) {
   let visible = false;
   const members = new Map<string, Member>();
   const sessions = new Map<string, Session>();
+  const events = new EventEmitter();
 
   async function loadState() {
     try {
@@ -155,12 +157,8 @@ export default function (pi: ExtensionAPI) {
       proc.on("exit", (code) => {
         session.status = "offline";
         session.proc = null as any;
-        // re-render widget if visible
-        try {
-          if (visible && ctxForRender) ctxForRender.ui.setWidget("agency", makeWidgetFactory(ctxForRender), { placement: "belowEditor" });
-        } catch (e) {
-          // ignore - ctx may be unavailable
-        }
+        // Notify listeners to re-render if widget is present
+        try { events.emit("change"); } catch {}
       });
 
       // Send a configure message so mock member can set provider/model
@@ -168,11 +166,7 @@ export default function (pi: ExtensionAPI) {
       try { proc.stdin.write(JSON.stringify(cfg) + "\n"); } catch {}
 
       // trigger UI update
-      try {
-        if (visible && ctxForRender) ctxForRender.ui.setWidget("agency", makeWidgetFactory(ctxForRender), { placement: "belowEditor" });
-      } catch (e) {
-        // ignore
-      }
+      try { events.emit("change"); } catch (e) { /* ignore */ }
       return session;
     } catch (e) {
       console.warn("Failed to spawn member", e);
@@ -199,12 +193,8 @@ export default function (pi: ExtensionAPI) {
       // noop
     }
 
-    // Re-render widget if visible and we have a context
-    if (visible && ctxForRender) {
-      try {
-        ctxForRender.ui.setWidget("agency", makeWidgetFactory(ctxForRender), { placement: "belowEditor" });
-      } catch {}
-    }
+    // Notify listeners to re-render
+    try { events.emit("change"); } catch {}
   }
 
   // Simple send utility
@@ -242,7 +232,7 @@ export default function (pi: ExtensionAPI) {
         } else {
           ctx.ui.notify(`Member ${id} added (role=${role}) — failed to spawn`, "warning");
         }
-        if (visible) ctx.ui.setWidget("agency", makeWidgetFactory(ctx), { placement: "belowEditor" });
+        try { if (visible) events.emit("change"); } catch {}
         return;
       }
 
