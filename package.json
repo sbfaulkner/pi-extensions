@@ -18,7 +18,8 @@
       "./system-theme/index.ts",
       "./usage/index.ts",
       "./vim/index.ts",
-      "./web-search/index.ts"
+      "./web-search/index.ts",
+      "./agency/index.ts"
     ],
     "skills": [
       "./skills"
