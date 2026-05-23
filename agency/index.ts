@@ -275,6 +275,27 @@ export default function (pi: ExtensionAPI) {
         return;
       }
 
+      // Shorthand remove: /agency remove <id>
+      if (verb === "remove") {
+        const id = parts[1];
+        if (!id) { ctx.ui.notify("Usage: /agency remove <id>", "warning"); return; }
+        if (!members.has(id)) { ctx.ui.notify(`Unknown member: ${id}`, "warning"); return; }
+        members.delete(id);
+        sessions.delete(id);
+        await saveState();
+        ctx.ui.notify(`Member ${id} removed`, "info");
+        if (visible) ctx.ui.setWidget("agency", makeWidgetFactory(ctx), { placement: "belowEditor" });
+        return;
+      }
+
+      // Shorthand list: /agency list
+      if (verb === "list") {
+        if (members.size === 0) { ctx.ui.notify("No members configured", "info"); return; }
+        const list = Array.from(members.values()).map(m => `${m.id}${m.role? ' ('+m.role+')':''}${m.modelId? ' @'+m.modelId:''}`).join("\n");
+        ctx.ui.notify(`Members:\n${list}`, "info");
+        return;
+      }
+
       if (verb === "spawn") {
         const id = parts[1];
         if (!id) { ctx.ui.notify("Usage: /agency spawn <id>", "warning"); return; }
