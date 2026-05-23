@@ -19,8 +19,7 @@
       "./usage/index.ts",
       "./vim/index.ts",
       "./web-search/index.ts",
-      "./agency/index.ts",
-      "./footer-example/index.ts"
+      "./agency/index.ts"
     ],
     "skills": [
       "./skills"
