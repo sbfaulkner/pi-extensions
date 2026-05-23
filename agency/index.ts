@@ -123,11 +123,19 @@ export default function (pi: ExtensionAPI) {
         return cachedLines;
       };
 
+      const onChange = () => {
+        try { tui.requestRender(); } catch {}
+      };
+      events.on("change", onChange);
+
       return {
         render: (w: number) => build(w),
         invalidate: () => {
           cachedWidth = undefined;
           cachedLines = undefined;
+        },
+        dispose: () => {
+          events.off("change", onChange);
         },
       };
     };
