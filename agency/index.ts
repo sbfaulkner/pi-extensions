@@ -1,6 +1,7 @@
 import type { ExtensionAPI, ExtensionCommandContext } from "@mariozechner/pi-coding-agent";
 import { truncateToWidth } from "@mariozechner/pi-tui";
 import { spawn } from "node:child_process";
+import { readFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { EventEmitter } from "node:events";
@@ -31,6 +32,19 @@ export default function (pi: ExtensionAPI) {
   const members = new Map<string, Member>();
   const sessions = new Map<string, Session>();
   const events = new EventEmitter();
+  const roles = new Map<string, any>();
+
+  async function loadRoles() {
+    try {
+      const raw = await readFile(path.join(__dirname, "roles.json"), "utf8");
+      const parsed = JSON.parse(raw);
+      for (const [k, v] of Object.entries(parsed || {})) {
+        roles.set(k, v);
+      }
+    } catch (e) {
+      // ignore - roles may be missing; defaults are minimal
+    }
+  }
 
   // Load state from the current session only (no global fallback).
   async function loadState(ctx?: ExtensionCommandContext) {
@@ -125,7 +139,7 @@ export default function (pi: ExtensionAPI) {
     return `${base}-${time}${rand}`;
   }
 
-  function spawnMemberProcess(m: Member): Session | null {
+  async function spawnMemberProcess(m: Member): Promise<Session | null> {
     // If already spawned return
     const existing = sessions.get(m.id);
     if (existing && existing.proc && !existing.proc.killed) return existing;
@@ -218,6 +232,61 @@ export default function (pi: ExtensionAPI) {
         }
       }
 
+      // Apply role-specific settings: thinking level and system prompt (from roles.json)
+      try {
+        const roleDef = m.role ? roles.get(m.role) : undefined;
+        if (roleDef) {
+          // set thinking level if specified
+          if (roleDef.thinking) {
+            const thinkId = `think-${Date.now().toString(36)}-${Math.random().toString(36).slice(2,6)}`;
+            const thinkCmd = { id: thinkId, type: "set_thinking_level", level: roleDef.thinking };
+            proc.stdin.write(JSON.stringify(thinkCmd) + "\n");
+            const thought = await new Promise<boolean>((resolve) => {
+              const onRaw = (memberId: string, parsed: any) => {
+                if (memberId !== m.id) return;
+                if (parsed && parsed.type === "response" && parsed.id === thinkId && parsed.command === "set_thinking_level") {
+                  events.off("raw", onRaw);
+                  resolve(parsed.success === true);
+                }
+              };
+              events.on("raw", onRaw);
+              setTimeout(() => { events.off("raw", onRaw); resolve(false); }, 4000);
+            });
+            if (!thought) {
+              try { proc.kill(); } catch {}
+              sessions.delete(m.id);
+              return null;
+            }
+          }
+
+          // send system prompt as initial prompt to prime the session
+          if (roleDef.systemPrompt) {
+            const rolePrompt = String(roleDef.systemPrompt).replace(/\{memberId\}/g, m.id);
+            const roleId = `role-${Date.now().toString(36)}-${Math.random().toString(36).slice(2,6)}`;
+            const roleCmd = { id: roleId, type: "prompt", message: rolePrompt };
+            proc.stdin.write(JSON.stringify(roleCmd) + "\n");
+            const primed = await new Promise<boolean>((resolve) => {
+              const onRaw = (memberId: string, parsed: any) => {
+                if (memberId !== m.id) return;
+                if (parsed && parsed.type === "response" && parsed.id === roleId && parsed.command === "prompt") {
+                  events.off("raw", onRaw);
+                  resolve(parsed.success === true);
+                }
+              };
+              events.on("raw", onRaw);
+              setTimeout(() => { events.off("raw", onRaw); resolve(false); }, 8000);
+            });
+            if (!primed) {
+              try { proc.kill(); } catch {}
+              sessions.delete(m.id);
+              return null;
+            }
+          }
+        }
+      } catch (e) {
+        // ignore role application errors
+      }
+
       // trigger UI update
       try { events.emit("change"); } catch (e) { /* ignore */ }
       return session;
@@ -294,7 +363,7 @@ export default function (pi: ExtensionAPI) {
           members.set(id, member);
           await saveState(innerCtx);
           // Spawn the member process immediately
-          const sess = spawnMemberProcess(member);
+          const sess = await spawnMemberProcess(member);
           if (sess) {
             innerCtx.ui.notify(`Member ${id} added and spawned (role=${role})`, "info");
           } else {
@@ -338,7 +407,7 @@ export default function (pi: ExtensionAPI) {
           const m = members.get(id);
           if (!m) { innerCtx.ui.notify(`Unknown member: ${id}`, "warning"); return; }
           // ensure session
-          const sess = spawnMemberProcess(m);
+          const sess = await spawnMemberProcess(m);
           if (!sess) { innerCtx.ui.notify(`Failed to spawn ${id}`, "error"); return; }
           const taskId = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2,8)}`;
           sess.currentTaskId = taskId;
