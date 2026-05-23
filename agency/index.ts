@@ -96,7 +96,7 @@ export default function (pi: ExtensionAPI) {
           if (statusesMap) {
             const entries = Array.from(statusesMap.entries()).map(([id, text]) => `${id}=${text}`);
             if (entries.length > 0) {
-              const joined = entries.join(" • ");
+              const joined = entries.join(" ");
               secondLine = truncateToWidth(theme.fg("dim", joined), width);
             }
           }
