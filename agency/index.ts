@@ -94,7 +94,9 @@ export default function (pi: ExtensionAPI) {
 
           let secondLine = "";
           if (statusesMap) {
-            const entries = Array.from(statusesMap.entries()).map(([id, text]) => `${id}=${text}`);
+            const entries = Array.from(statusesMap.entries())
+              .sort((a, b) => a[0].localeCompare(b[0]))
+              .map(([id, text]) => `${id}=${text}`);
             if (entries.length > 0) {
               const joined = entries.join(" ");
               secondLine = truncateToWidth(theme.fg("dim", joined), width);
