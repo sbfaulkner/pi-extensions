@@ -7,9 +7,11 @@
  */
 
 import type { ExtensionAPI, ExtensionCommandContext } from "@mariozechner/pi-coding-agent";
+import { truncateToWidth, visibleWidth } from "@mariozechner/pi-tui";
 
 export default function (pi: ExtensionAPI) {
   let visible = false;
+  let footerEnabled = false;
   const items: string[] = [];
 
   function makeWidgetFactory(ctx: ExtensionCommandContext) {
@@ -35,7 +37,7 @@ export default function (pi: ExtensionAPI) {
   }
 
   pi.registerCommand("agency", {
-    description: "Toggle the agency widget or add items: /agency add <text>",
+    description: "Toggle the agency widget or add items: /agency add <text> (use 'footer' to toggle footer)",
     handler: async (args: string | string[] | undefined, ctx) => {
       // args may be a single raw string or an array depending on host. Normalize to a single string.
       const rawArgs = typeof args === "string" ? args.trim() : Array.isArray(args) ? args.join(" ").trim() : "";
@@ -50,8 +52,53 @@ export default function (pi: ExtensionAPI) {
         }
         items.push(text);
         ctx.ui.notify(`Added (${items.length}): ${text}`, "info");
-        // If visible, re-register the widget to trigger a re-render
-        if (visible) ctx.ui.setWidget("agency", makeWidgetFactory(ctx));
+        // If visible, update widget lines directly using themed lines (preferred over requestRender)
+        if (visible) {
+          const theme = ctx.ui.theme;
+          let lines: string[];
+          if (items.length === 0) {
+            lines = [theme.fg("muted", "(agency) no items — use /agency add <text> to add")];
+          } else {
+            lines = [theme.fg("accent", "Agency"), ""];
+            for (let i = 0; i < items.length; i++) {
+              const prefix = theme.fg("dim", `${i + 1}. `);
+              lines.push(prefix + items[i]);
+            }
+          }
+          ctx.ui.setWidget("agency", lines);
+        }
+        return;
+      }
+
+      if (verb === "footer") {
+        // Toggle a custom footer for the agency extension
+        footerEnabled = !footerEnabled;
+        if (footerEnabled) {
+          ctx.ui.setFooter((tui, theme, footerData) => {
+            const unsub = footerData.onBranchChange(() => tui.requestRender());
+
+            return {
+              dispose: unsub,
+              invalidate() {},
+              render(width: number): string[] {
+                const themeLeft = theme.fg("accent", "Agency");
+                const themeCount = theme.fg("muted", ` ${items.length} items`);
+                const left = themeLeft + themeCount;
+
+                const branch = footerData.getGitBranch();
+                const branchStr = branch ? ` (${branch})` : "";
+                const right = theme.fg("dim", `${ctx.model?.id || "no-model"}${branchStr}`);
+
+                const pad = " ".repeat(Math.max(1, width - visibleWidth(left) - visibleWidth(right)));
+                return [truncateToWidth(left + pad + right, width)];
+              },
+            };
+          });
+          ctx.ui.notify("Agency footer enabled", "info");
+        } else {
+          ctx.ui.setFooter(undefined);
+          ctx.ui.notify("Agency footer disabled", "info");
+        }
         return;
       }
 
