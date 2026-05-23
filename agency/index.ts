@@ -75,22 +75,70 @@ export default function (pi: ExtensionAPI) {
         footerEnabled = !footerEnabled;
         if (footerEnabled) {
           ctx.ui.setFooter((tui, theme, footerData) => {
+            // Re-render when branch changes
             const unsub = footerData.onBranchChange(() => tui.requestRender());
 
             return {
               dispose: unsub,
-              invalidate() {},
+              invalidate() {
+                // nothing cached; themes are applied on each render
+              },
               render(width: number): string[] {
-                const themeLeft = theme.fg("accent", "Agency");
-                const themeCount = theme.fg("muted", ` ${items.length} items`);
-                const left = themeLeft + themeCount;
+                // --- Token / usage stats from sessionManager ---
+                let input = 0,
+                  output = 0,
+                  cost = 0;
+                try {
+                  for (const e of ctx.sessionManager.getBranch()) {
+                    if (e.type === "message" && (e.message as any)?.role === "assistant") {
+                      const m = e.message as any;
+                      if (m?.usage) {
+                        input += (m.usage.input || 0) as number;
+                        output += (m.usage.output || 0) as number;
+                        cost += (m.usage.cost?.total || 0) as number;
+                      }
+                    }
+                  }
+                } catch {
+                  // ignore if sessionManager not available
+                }
 
+                const fmt = (n: number) => (n < 1000 ? `${n}` : `${(n / 1000).toFixed(1)}k`);
+
+                // Left side: Agency label, item count, token stats
+                const left =
+                  theme.fg("accent", "Agency") +
+                  " " +
+                  theme.fg("muted", `items=${items.length}`) +
+                  " " +
+                  theme.fg("dim", `↑${fmt(input)}↓${fmt(output)} $${cost.toFixed(3)}`);
+
+                // Right side: model id and branch
                 const branch = footerData.getGitBranch();
-                const branchStr = branch ? ` (${branch})` : "";
+                const branchStr = branch ? ` branch=${branch}` : "";
                 const right = theme.fg("dim", `${ctx.model?.id || "no-model"}${branchStr}`);
 
-                const pad = " ".repeat(Math.max(1, width - visibleWidth(left) - visibleWidth(right)));
-                return [truncateToWidth(left + pad + right, width)];
+                const firstLine = truncateToWidth(
+                  left + " ".repeat(Math.max(1, width - visibleWidth(left) - visibleWidth(right))) + right,
+                  width,
+                );
+
+                // Secondary line: extension statuses with their ids
+                const statusesMap: ReadonlyMap<string, string> | undefined =
+                  typeof footerData.getExtensionStatuses === "function"
+                    ? footerData.getExtensionStatuses()
+                    : undefined;
+
+                let secondLine = "";
+                if (statusesMap) {
+                  const entries = Array.from(statusesMap.entries()).map(([id, text]) => `${id}=${text}`);
+                  if (entries.length > 0) {
+                    const joined = entries.join(" • ");
+                    secondLine = truncateToWidth(theme.fg("dim", joined), width);
+                  }
+                }
+
+                return secondLine ? [firstLine, secondLine] : [firstLine];
               },
             };
           });
