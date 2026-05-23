@@ -12,7 +12,6 @@ import path from "node:path";
 
 export default function (pi: ExtensionAPI) {
   let visible = false;
-  let footerEnabled = false;
   const items: string[] = [];
 
   function makeWidgetFactory(ctx: ExtensionCommandContext) {
@@ -139,8 +138,8 @@ export default function (pi: ExtensionAPI) {
           }
           ctx.ui.setWidget("agency", lines);
         }
-        // If footer is enabled, re-register it so counts update immediately
-        if (footerEnabled) ctx.ui.setFooter(makeFooterFactory(ctx));
+        // If footer is active (widget visible), re-register it so counts update immediately
+        if (visible) ctx.ui.setFooter(makeFooterFactory(ctx));
         return;
       }
 
@@ -160,10 +159,13 @@ export default function (pi: ExtensionAPI) {
       // Toggle widget
       if (!visible) {
         ctx.ui.setWidget("agency", makeWidgetFactory(ctx));
+        // Ensure the custom footer is active whenever the widget is shown
+        ctx.ui.setFooter(makeFooterFactory(ctx));
         visible = true;
         ctx.ui.notify("Agency widget shown", "info");
       } else {
         ctx.ui.setWidget("agency", undefined);
+        ctx.ui.setFooter(undefined);
         visible = false;
         ctx.ui.notify("Agency widget hidden", "info");
       }
