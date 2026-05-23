@@ -36,10 +36,14 @@ export default function (pi: ExtensionAPI) {
 
   pi.registerCommand("agency", {
     description: "Toggle the agency widget or add items: /agency add <text>",
-    handler: async (args: string[], ctx) => {
-      const verb = args[0];
+    handler: async (args: string | string[] | undefined, ctx) => {
+      // args may be a single raw string or an array depending on host. Normalize to a single string.
+      const rawArgs = typeof args === "string" ? args.trim() : Array.isArray(args) ? args.join(" ").trim() : "";
+      const parts = rawArgs ? rawArgs.split(/\s+/) : [];
+      const verb = parts[0];
+
       if (verb === "add") {
-        const text = args.slice(1).join(" ").trim();
+        const text = parts.slice(1).join(" ").trim();
         if (!text) {
           ctx.ui.notify("Usage: /agency add <text>", "warning");
           return;
