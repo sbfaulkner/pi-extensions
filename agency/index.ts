@@ -39,6 +39,15 @@ export default function (pi: ExtensionAPI) {
       const raw = await readFile(path.join(__dirname, "roles.json"), "utf8");
       const parsed = JSON.parse(raw);
       for (const [k, v] of Object.entries(parsed || {})) {
+        // If there is a roles/<role>/SYSTEM.md file, prefer its contents as the systemPrompt
+        const roleDir = path.join(__dirname, "roles", k);
+        try {
+          const systemPath = path.join(roleDir, "SYSTEM.md");
+          const systemText = await readFile(systemPath, "utf8");
+          (v as any).systemPrompt = systemText;
+        } catch {
+          // no SYSTEM.md, keep whatever is in roles.json
+        }
         roles.set(k, v);
       }
     } catch (e) {
