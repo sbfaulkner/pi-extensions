@@ -66,17 +66,14 @@ export default function (pi: ExtensionAPI) {
               lines.push(prefix + items[i]);
             }
           }
-          ctx.ui.setWidget("agency", lines);
+          ctx.ui.setWidget("agency", lines, { placement: "belowEditor" });
         }
-        // If widget is visible, re-register it so counts update immediately
-        if (visible) ctx.ui.setWidget("agency", lines, { placement: "belowEditor" });
         return;
       }
 
       // Toggle widget
       if (!visible) {
-        ctx.ui.setWidget("agency", makeWidgetFactory(ctx));
-        // Ensure the widget is shown below the editor
+        // Show widget below the editor
         ctx.ui.setWidget("agency", makeWidgetFactory(ctx), { placement: "belowEditor" });
         visible = true;
         ctx.ui.notify("Agency widget shown", "info");
