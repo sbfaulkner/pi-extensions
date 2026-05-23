@@ -156,7 +156,11 @@ export default function (pi: ExtensionAPI) {
         session.status = "offline";
         session.proc = null as any;
         // re-render widget if visible
-        if (visible) pi.ui.setWidget("agency", makeWidgetFactory(ctxForRender), { placement: "belowEditor" });
+        try {
+          if (visible && ctxForRender) ctxForRender.ui.setWidget("agency", makeWidgetFactory(ctxForRender), { placement: "belowEditor" });
+        } catch (e) {
+          // ignore - ctx may be unavailable
+        }
       });
 
       // Send a configure message so mock member can set provider/model
@@ -164,7 +168,11 @@ export default function (pi: ExtensionAPI) {
       try { proc.stdin.write(JSON.stringify(cfg) + "\n"); } catch {}
 
       // trigger UI update
-      if (visible) pi.ui.setWidget("agency", makeWidgetFactory(ctxForRender), { placement: "belowEditor" });
+      try {
+        if (visible && ctxForRender) ctxForRender.ui.setWidget("agency", makeWidgetFactory(ctxForRender), { placement: "belowEditor" });
+      } catch (e) {
+        // ignore
+      }
       return session;
     } catch (e) {
       console.warn("Failed to spawn member", e);
