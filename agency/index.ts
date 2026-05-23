@@ -161,20 +161,19 @@ export default function (pi: ExtensionAPI) {
     if (m.provider) args.push("--provider", String(m.provider));
     if (m.modelId) args.push("--model", String(m.modelId));
 
-    // If role has a systemPrompt, write it to a secure temp file and pass via --system-prompt <path>
-    let tmpPromptPath: string | null = null;
-    try {
-      const roleDef = m.role ? roles.get(m.role) : undefined;
-      if (roleDef && roleDef.systemPrompt) {
-        const rolePrompt = String(roleDef.systemPrompt).replace(/\{memberId\}/g, m.id);
-        const tmp = path.join(os.tmpdir(), `pi-agency-${m.id}-${Date.now().toString(36)}.system`);
-        await writeFile(tmp, rolePrompt, { mode: 0o600 });
-        args.push("--system-prompt", tmp);
-        tmpPromptPath = tmp;
+    // If a roles/<role>/SYSTEM.md file exists, pass its path via --system-prompt; otherwise do not override the default
+    const roleDef = m.role ? roles.get(m.role) : undefined;
+    if (!roleDef) {
+      // Role missing in roles.json — caller should validate; log and continue without system-prompt
+      console.warn(`spawnMemberProcess: role '${m.role}' not defined in roles.json`);
+    } else {
+      const roleFile = path.join(__dirname, "roles", String(m.role || ""), "SYSTEM.md");
+      try {
+        await readFile(roleFile, "utf8");
+        args.push("--system-prompt", roleFile);
+      } catch {
+        // file doesn't exist; do not pass --system-prompt
       }
-    } catch (e) {
-      // ignore temp file errors; we'll fall back to sending prompt via RPC if needed
-      tmpPromptPath = null;
     }
 
     if (m.args && m.args.length > 0) args.push(...m.args);
@@ -295,8 +294,6 @@ export default function (pi: ExtensionAPI) {
       return session;
     } catch (e) {
       console.warn("Failed to spawn member", e);
-      // cleanup temp file on failure
-      try { if (typeof tmpPromptPath !== 'undefined' && tmpPromptPath) await unlink(tmpPromptPath); } catch {}
       return null;
     }
   }
