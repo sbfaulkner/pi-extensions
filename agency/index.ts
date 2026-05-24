@@ -255,12 +255,7 @@ export default function (pi: ExtensionAPI) {
             const parsed = JSON.parse(line);
             // Emit raw parsed events for listeners (handshake, debugging)
             try { events.emit("raw", m.id, parsed); } catch (e) {}
-            // Persist raw events into the session history so they appear in session output
-            try {
-              if (typeof (pi as any).appendEntry === "function") {
-                (pi as any).appendEntry("agency-log", { time: Date.now(), member: m.id, event: parsed }).catch(() => {});
-              }
-            } catch {}
+
             // Optionally log raw events to console for debugging if runtime toggle enabled
             try {
               if (debugRawLogging) {
