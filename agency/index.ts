@@ -14,8 +14,6 @@ type Member = {
   modelId?: string | null;
   thinking?: string | null;
   systemPrompt?: string | null;
-  cmd?: string;
-  args?: string[];
   cwd?: string | null;
   env?: Record<string, string> | null;
 };
@@ -205,8 +203,8 @@ export default function (pi: ExtensionAPI) {
     const existing = sessions.get(m.id);
     if (existing && existing.proc && !existing.proc.killed) return existing;
 
-    // Always spawn pi in RPC mode by default; allow m.cmd/m.args to override if provided
-    const cmd = m.cmd || "pi";
+    // Always spawn the pi binary in RPC mode; do not allow overriding the command.
+    const cmd = "pi";
     const args: string[] = [];
     // ensure RPC mode
     args.push("--mode", "rpc");
@@ -228,8 +226,6 @@ export default function (pi: ExtensionAPI) {
         // file doesn't exist; do not pass --system-prompt
       }
     }
-
-    if (m.args && m.args.length > 0) args.push(...m.args);
 
     try {
       const proc = spawn(cmd, args, {

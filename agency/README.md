@@ -74,10 +74,9 @@ Widget behavior
 
 Known limitations and notes
 
-- The extension expects child processes that speak the newline-delimited JSON RPC protocol. You can test locally by running a compatible RPC process (for example: a local "pi --mode rpc" instance) and pointing members at it via cmd/args.
+- The extension expects child processes that speak the newline-delimited JSON RPC protocol. The extension always spawns the local "pi" binary in RPC mode; you can run a separate local "pi --mode rpc" instance for development testing.
 - The help text mentions an older command "/agency stop" in a few places; the code does not implement a dedicated stop command. Use /agency clear (with confirmation) or /agency remove per-member.
 - A runtime console logging toggle (/agency log on|off) is available for debugging.
-- The default spawn target is the "pi" binary; launching child processes implies platform-specific behavior and security considerations. Be careful when running in multi-user environments.
 - Persistence is session-scoped — members persist only within the Pi session entries and will be re-spawned on an interactive session start if the session includes agency entries.
 
 Goals / roadmap (what we're aiming for)
@@ -98,8 +97,7 @@ The following decisions reflect the intended behavior and have been applied to t
 - The extension spawns the "pi" binary in RPC mode by default and passes role-based provider/model/thinking values or falls back to the active session model when role settings are null.
 - Persistence remains session-scoped (members persisted to the current Pi session only).
 - There is no dedicated "/agency stop" command; use /agency clear or /agency remove instead.
-- Persisted member configs may specify cmd/args; member sessions are not treated differently from the main session in capabilities.
 - Role presets may contain null provider/modelId/thinking values; the extension falls back to session defaults in those cases.
 - The /agency logs command has been removed; runtime console logging is still available via /agency log on|off.
 
-If you'd like additional changes (e.g., remove support for arbitrary cmd/args, add workspace persistence, or add a dev-mode test harness), I can prepare follow-up PRs with the necessary changes.
+If you'd like additional changes (e.g., add workspace persistence or a dev-mode test harness), I can prepare follow-up PRs with the necessary changes.
