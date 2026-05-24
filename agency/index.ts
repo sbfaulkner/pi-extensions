@@ -737,6 +737,26 @@ export default function (pi: ExtensionAPI) {
           return;
         }
 
+        // Show recent persisted raw events: /agency logs [N]
+        if (verb === "logs") {
+          const max = Number(parts[1]) || 50;
+          try {
+            if (!innerCtx.sessionManager) { innerCtx.ui.notify("Session manager not available", "warning"); return; }
+            const entries = innerCtx.sessionManager.getEntries().filter((e: any) => e && e.type === 'custom' && e.customType === 'agency-log');
+            const slice = entries.slice(-max);
+            const lines = slice.map((e: any) => {
+              const t = e.data && e.data.time ? new Date(e.data.time).toISOString() : (e.createdAt ? new Date(e.createdAt).toISOString() : '');
+              const member = e.data && e.data.member ? e.data.member : '';
+              const ev = e.data && e.data.event ? JSON.stringify(e.data.event) : JSON.stringify(e.data);
+              return `${t} ${member}> ${ev}`;
+            });
+            innerCtx.ui.notify(`Agency logs (last ${lines.length}):\n${lines.join('\n')}`, "info");
+          } catch (e) {
+            innerCtx.ui.notify(`Failed to read logs - ${String(e)}`, "error");
+          }
+          return;
+        }
+
         // Shorthand assign: /agency assign <id> <text>
         if (verb === "assign") {
           const id = parts[1];
