@@ -155,8 +155,6 @@ export default function (pi: ExtensionAPI) {
 
             lines.push(line);
           }
-          lines.push("");
-          lines.push(theme.fg("dim", "Commands: /agency add [role], /agency list|remove, /agency assign <id> <text>"));
         }
 
         cachedLines = lines.map((l) => truncateToWidth(l, width));
