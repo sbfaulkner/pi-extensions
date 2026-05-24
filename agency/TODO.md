@@ -22,5 +22,5 @@ Long-term / out of scope for this change
 
 Notes
 
-- Changes that touch the runtime child-process spawning behavior should include security considerations and possibly a confirmation/whitelist for non-default cmd/args.
+- Persisted member configs may include cmd/args; the current plan is to treat member sessions similarly to the main session (no whitelist/confirmation gating). Any deviation from this should be a deliberate follow-up change.
 - Any code changes should target the feat/agency-extension branch.
