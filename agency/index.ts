@@ -114,8 +114,6 @@ export default function (pi: ExtensionAPI) {
         if (cachedLines && cachedWidth === width) return cachedLines;
 
         const lines: string[] = [];
-        lines.push(theme.fg("accent", "Agency Team"));
-        lines.push("");
 
         if (members.size === 0) {
           lines.push(theme.fg("muted", "(no members) add with /agency add [role] — default role is developer"));
