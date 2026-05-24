@@ -901,6 +901,5 @@ export default function (pi: ExtensionAPI) {
     }
     sessions.clear();
     visible = false;
-    } catch {}
   });
 }
