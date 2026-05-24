@@ -316,6 +316,72 @@ export default function (pi: ExtensionAPI) {
     }
   }
 
+  // Assign a text task to a member. This handles spawning, sets a pending state,
+  // sends the prompt, waits briefly for an explicit confirmation response, and
+  // transitions to busy/idle accordingly. Returns true on success.
+  async function assignTaskToMember(member: Member, text: string, innerCtx: ExtensionCommandContext): Promise<boolean> {
+    const sess = await spawnMemberProcess(member);
+    if (!sess) {
+      innerCtx.ui.notify(`Failed to spawn member ${member.id} - spawn failed`, "error");
+      return false;
+    }
+
+    const taskId = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2,8)}`;
+    sess.currentTaskId = taskId;
+    // mark as pending until we confirm the child accepted the prompt
+    sess.status = "pending" as any;
+
+    const sent = sendToMember(member.id, { id: taskId, type: "prompt", message: text });
+    if (!sent) {
+      sess.status = "idle";
+      sess.currentTaskId = null;
+      innerCtx.ui.notify(`Failed to send task to ${member.id} - send failed`, "error");
+      try { events.emit("change"); } catch {}
+      return false;
+    }
+
+    // Wait for a response with matching id (response.type === 'response' && id === taskId)
+    let confirmed: boolean | undefined = undefined;
+    try {
+      confirmed = await new Promise<boolean | undefined>((resolve) => {
+        const onRaw = (memberId: string, parsed: any) => {
+          if (memberId !== member.id) return;
+          if (parsed && parsed.type === "response" && parsed.id === taskId) {
+            try { events.off("raw", onRaw); } catch {}
+            resolve(parsed.success === true);
+          }
+        };
+        events.on("raw", onRaw);
+        // Timeout after 6s
+        setTimeout(() => { try { events.off("raw", onRaw); } catch {} ; resolve(undefined); }, 6000);
+      });
+    } catch (e) {
+      confirmed = undefined;
+    }
+
+    if (confirmed === true) {
+      sess.status = "busy";
+      innerCtx.ui.notify(`Assigned ${member.role} task to ${member.displayName ?? member.id}`, "info");
+      try { events.emit("change"); } catch {}
+      return true;
+    }
+
+    if (confirmed === false) {
+      // explicit rejection
+      sess.status = "idle";
+      sess.currentTaskId = null;
+      innerCtx.ui.notify(`Failed to assign task to ${member.id} - rejected`, "error");
+      try { events.emit("change"); } catch {}
+      return false;
+    }
+
+    // Timeout: assume accepted but we didn't get explicit confirmation; transition to busy
+    sess.status = "busy";
+    innerCtx.ui.notify(`Assigned ${member.role} task to ${member.displayName ?? member.id}`, "info");
+    try { events.emit("change"); } catch {}
+    return true;
+  }
+
   pi.on("session_start", async (_event, ctx) => {
     await loadRoles();
     await loadState(ctx);
@@ -472,15 +538,7 @@ export default function (pi: ExtensionAPI) {
             innerCtx.ui.notify(`Added ${role} ${targetMember.displayName ?? targetMember.id}`, "info");
           }
 
-          const sess = await spawnMemberProcess(targetMember);
-          if (!sess) { innerCtx.ui.notify(`Failed to spawn member ${targetMember.id} - spawn failed`, "error"); return; }
-          const taskId = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2,8)}`;
-          sess.currentTaskId = taskId;
-          sess.status = "busy";
-          const sent = sendToMember(targetMember.id, { id: taskId, type: "prompt", message: taskText });
-          if (!sent) { innerCtx.ui.notify(`Failed to send task to ${targetMember.id} - send failed`, "error"); sess.status = "idle"; return; }
-          innerCtx.ui.notify(`Assigned ${targetMember.role} task to ${targetMember.displayName ?? targetMember.id}`, "info");
-          try { events.emit("change"); } catch {}
+          await assignTaskToMember(targetMember, taskText, innerCtx);
           return;
         }
 
@@ -674,15 +732,7 @@ export default function (pi: ExtensionAPI) {
           const m = members.get(id);
           if (!m) { innerCtx.ui.notify(`Failed to assign member ${id} - unknown member`, "warning"); return; }
           // ensure session
-          const sess = await spawnMemberProcess(m);
-          if (!sess) { innerCtx.ui.notify(`Failed to spawn member ${id} - spawn failed`, "error"); return; }
-          const taskId = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2,8)}`;
-          sess.currentTaskId = taskId;
-          sess.status = "busy";
-          const sent = sendToMember(id, { id: taskId, type: "prompt", message: text });
-          if (!sent) { innerCtx.ui.notify(`Failed to send task to ${id} - send failed`, "error"); sess.status = "idle"; return; }
-          innerCtx.ui.notify(`Assigned ${m.role} task to ${m.displayName ?? m.id}`, "info");
-          try { events.emit("change"); } catch {}
+          await assignTaskToMember(m, text, innerCtx);
           return;
         }
 
