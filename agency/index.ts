@@ -2,7 +2,6 @@ import type { ExtensionAPI, ExtensionCommandContext } from "@mariozechner/pi-cod
 import { truncateToWidth } from "@mariozechner/pi-tui";
 import { spawn } from "node:child_process";
 import { readFile } from "node:fs/promises";
-import os from "node:os";
 import path from "node:path";
 import { EventEmitter } from "node:events";
 
@@ -41,15 +40,7 @@ export default function (pi: ExtensionAPI) {
       const raw = await readFile(path.join(__dirname, "roles.json"), "utf8");
       const parsed = JSON.parse(raw);
       for (const [k, v] of Object.entries(parsed || {})) {
-        // If there is a roles/<role>/SYSTEM.md file, prefer its contents as the systemPrompt
-        const roleDir = path.join(__dirname, "roles", k);
-        try {
-          const systemPath = path.join(roleDir, "SYSTEM.md");
-          const systemText = await readFile(systemPath, "utf8");
-          (v as any).systemPrompt = systemText;
-        } catch {
-          // no SYSTEM.md, keep whatever is in roles.json
-        }
+        // roles/<role>/SYSTEM.md is read at spawn time if present. Store the role definition as-is.
         roles.set(k, v);
         // collect verbs (if present) for shorthand commands
         try {
