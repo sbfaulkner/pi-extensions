@@ -273,6 +273,7 @@ export default function (pi: ExtensionAPI) {
   // We'll capture a context for widget re-renders; it's set when commands run in interactive mode
   let ctxForRender: ExtensionCommandContext | null = null;
   let commandRegistered = false;
+  let rawListener: ((memberId: string, parsed: any) => void) | null = null;
 
   function handleMemberMessage(memberId: string, msg: any) {
     const session = sessions.get(memberId);
@@ -323,7 +324,7 @@ export default function (pi: ExtensionAPI) {
     if (commandRegistered) return;
 
     // Raw event -> UI notifications for debugging. Uses ctxForRender so notifications appear in the active UI context.
-    const rawListener = (memberId: string, parsed: any) => {
+    rawListener = (memberId: string, parsed: any) => {
       try {
         const m = members.get(memberId);
         const name = m?.displayName ?? memberId;
@@ -720,6 +721,6 @@ export default function (pi: ExtensionAPI) {
     }
     sessions.clear();
     visible = false;
-    try { events.off("raw"); } catch {}
+    try { if (rawListener) events.off("raw", rawListener); rawListener = null; } catch {}
   });
 }
