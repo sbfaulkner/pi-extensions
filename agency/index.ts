@@ -514,6 +514,8 @@ export default function (pi: ExtensionAPI) {
             " /agency list                - list configured members",
             " /agency assign <id> <task>  - assign a task to a member (by id)",
             " /agency stop                - stop all member processes (keeps member entries)",
+            " /agency log on|off|status   - toggle raw event console logging",
+            " /agency logs [N]            - show last N persisted raw events (default 50)",
             " /agency <verb> [task]       - shorthand: create/assign using role verbs (examples below)",
             "",
             "Role verb shorthands:",
@@ -530,9 +532,9 @@ export default function (pi: ExtensionAPI) {
         }
 
         // Role verb shorthand: /agency <verb> <task>
-        // If no task is provided: add a member of that role.
-        // If task is provided: assign to an idle member of that role if present; otherwise add a member and assign.
-        if (verb && verbMap.has(verb.toLowerCase())) {
+        // Reserved commands (handled below) should take precedence over role verbs.
+        const reservedCommands = new Set(["help","add","remove","list","assign","clear","logs","log"]);
+        if (verb && !reservedCommands.has(verb.toLowerCase()) && verbMap.has(verb.toLowerCase())) {
           const role = verbMap.get(verb.toLowerCase())!;
           const taskText = parts.slice(1).join(" ").trim();
 
@@ -746,8 +748,8 @@ export default function (pi: ExtensionAPI) {
           return;
         }
 
-        // Debug toggle: /agency debug on|off|status
-        if (verb === "debug") {
+        // Logging toggle: /agency log on|off|status
+        if (verb === "log") {
           const arg = parts[1] ? parts[1].toLowerCase() : "status";
           if (arg === "on") {
             debugRawLogging = true;
