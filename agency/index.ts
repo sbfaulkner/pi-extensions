@@ -472,12 +472,33 @@ export default function (pi: ExtensionAPI) {
   pi.on("session_start", async (_event, ctx) => {
     await loadRoles();
     await loadState(ctx);
+
     // Register interactive command only when UI is available
     if (!ctx.hasUI) return;
     if (commandRegistered) return;
 
-    // Raw event -> UI notifications for debugging. Uses ctxForRender so notifications appear in the active UI context.
-
+    // On interactive session start, automatically restart member processes that were persisted
+    // (assume members were saved via saveState). This lets `pi --continue` / `pi --resume`
+    // restore the member sessions in interactive contexts only. We respawn sequentially and notify via ctx.ui.
+    try {
+      for (const m of Array.from(members.values())) {
+        const existing = sessions.get(m.id);
+        if (existing && existing.proc && !existing.proc.killed) continue;
+        try {
+          const sess = await spawnMemberProcess(m);
+          if (sess) {
+            try { ctx.ui.notify(`Resumed ${m.role} ${m.displayName ?? m.id}`, "info"); } catch {}
+          } else {
+            try { ctx.ui.notify(`Failed to spawn member ${m.role} ${m.displayName ?? m.id} - spawn failed`, "error"); } catch {}
+          }
+        } catch (e) {
+          try { ctx.ui.notify(`Failed to spawn member ${m.role} ${m.displayName ?? m.id} - spawn failed`, "error"); } catch {}
+        }
+        await new Promise((r) => setTimeout(r, 150));
+      }
+    } catch (e) {
+      // ignore spawn errors during resume
+    }
 
     // Helper: create and spawn a member for a role (returns the member or null)
     async function createMemberForRole(role: string, explicitName: string | undefined, innerCtx: ExtensionCommandContext): Promise<Member | null> {
