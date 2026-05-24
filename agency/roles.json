@@ -1,0 +1,48 @@
+{
+  "developer": {
+    "displayName": "Developer",
+    "provider": null,
+    "modelId": null,
+    "thinking": "medium",
+    "verbs": ["develop"],
+    "names": ["Daniel", "Diana", "Dominic", "Danielle"]
+  },
+
+  "analyst": {
+    "displayName": "Analyst",
+    "provider": null,
+    "modelId": null,
+    "thinking": "medium",
+    "verbs": ["analyze"],
+    "names": ["Ava", "Arjun", "Alex", "Aisha"]
+  },
+
+  "investigator": {
+    "displayName": "Investigator",
+    "provider": null,
+    "modelId": null,
+    "thinking": "high",
+    "verbs": ["investigate", "research", "debug"],
+    "names": ["Iris", "Ian", "Ines", "Ivan"]
+  },
+
+
+  "planner": {
+    "displayName": "Planner",
+    "provider": null,
+    "modelId": null,
+    "thinking": "medium",
+    "verbs": ["plan"],
+    "names": ["Paula", "Peter", "Priya", "Parker"]
+  },
+
+
+  "reviewer": {
+    "displayName": "Reviewer",
+    "provider": null,
+    "modelId": null,
+    "thinking": "low",
+    "verbs": ["review"],
+    "names": ["Rebecca", "Roland", "Renee", "Raymond"]
+  }
+}
