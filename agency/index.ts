@@ -265,18 +265,64 @@ export default function (pi: ExtensionAPI) {
             try {
               if (debugRawLogging) {
                 try {
-                  let summary = "";
-                  try {
-                    if (parsed && typeof parsed === "object") {
-                      const t = parsed.type ? String(parsed.type) : "";
-                      const more = Object.keys(parsed).length > 1 ? ", ..." : "";
-                      summary = t ? `{"type":"${t}"${more}}` : JSON.stringify(parsed);
-                    } else {
-                      summary = JSON.stringify(parsed);
-                    }
-                  } catch (e) {
-                    summary = String(parsed);
+                  const MAX_STR = 40;
+                  function truncateStr(s: string) {
+                    if (s.length > MAX_STR) return s.slice(0, MAX_STR) + "...";
+                    return s;
                   }
+                  function truncateDeep(v: any, depth: number): any {
+                    if (depth <= 0) return "...";
+                    if (v === null || v === undefined) return v;
+                    const t = typeof v;
+                    if (t === "string") return truncateStr(v);
+                    if (t === "number" || t === "boolean") return v;
+                    if (Array.isArray(v)) {
+                      const out = v.slice(0, 3).map((x) => truncateDeep(x, depth - 1));
+                      if (v.length > 3) out.push("...");
+                      return out;
+                    }
+                    if (t === "object") {
+                      const keys = Object.keys(v);
+                      const out: any = {};
+                      let i = 0;
+                      for (const k of keys) {
+                        if (i >= 6) { out["..."] = true; break; }
+                        out[k] = truncateDeep(v[k], depth - 1);
+                        i++;
+                      }
+                      return out;
+                    }
+                    try { return String(v).slice(0, MAX_STR); } catch { return v; }
+                  }
+
+                  let summary = "";
+                  if (parsed && typeof parsed === "object") {
+                    if (parsed.type === "extension_ui_request" || parsed.type === "message_end") {
+                      summary = JSON.stringify(truncateDeep(parsed, 3));
+                    } else if (parsed.type === "message_update") {
+                      const rep: any = { type: parsed.type };
+                      try {
+                        const ame = parsed.assistantMessageEvent;
+                        if (ame && typeof ame === "object") {
+                          rep.assistantMessageEvent = { type: String(ame.type) };
+                          if (Object.keys(ame).length > 1) rep.assistantMessageEvent["..."] = true;
+                        }
+                      } catch {}
+                      // include other top-level keys truncated
+                      try {
+                        for (const k of Object.keys(parsed)) {
+                          if (k === "type" || k === "assistantMessageEvent") continue;
+                          rep[k] = truncateDeep(parsed[k], 1);
+                        }
+                      } catch {}
+                      summary = JSON.stringify(rep);
+                    } else {
+                      summary = JSON.stringify(truncateDeep(parsed, 2));
+                    }
+                  } else {
+                    summary = JSON.stringify(parsed);
+                  }
+
                   try { console.log(`[agency:${m.id}] ${new Date().toISOString()} RAW ${summary}`); } catch (e) { /* ignore */ }
                 } catch (e) { /* ignore */ }
               }
