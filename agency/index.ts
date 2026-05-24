@@ -568,7 +568,7 @@ export default function (pi: ExtensionAPI) {
     pi.registerCommand("agency", {
       description: "Toggle the agency widget or add items: /agency add <text>",
       handler: async (args: string | string[] | undefined, innerCtx) => {
-        ctxForRender = innerCtx.hasUI ? innerCtx : null;
+        ctxForRender = innerCtx; // handler only registered in UI sessions, so innerCtx.hasUI is always true
         const rawArgs = typeof args === "string" ? args.trim() : Array.isArray(args) ? args.join(" ").trim() : "";
         const parts = rawArgs ? rawArgs.split(/\s+/) : [];
         const verb = parts[0];
