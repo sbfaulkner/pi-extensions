@@ -1,11 +1,13 @@
 Agency extension — TODO
 
-Short-term (docs/cleanup)
+Short-term (docs/cleanup) — completed
 
-- Remove any remaining user-facing mention of the removed mock-member.js (README updated; verify other docs).
-- Remove /agency logs command from code and tests (command still exists in index.ts; delete handler and any references to 'agency-log' persisted entries).
-- Clean up roles.json by removing explicit null values for provider/modelId where fallback to session is intended (cosmetic).
-- Remove any mention of /agency stop in built-in help text (index.ts) if present; the README documents the lack of a stop command.
+- Removed user-facing mention of the removed mock-member.js from the README (README updated).
+- Removed the /agency logs command from the code and cleaned references to persisted 'agency-log' entries.
+- Cleaned up roles.json by removing explicit null values for provider/modelId where fallback to session is intended.
+- Removed mentions of /agency stop from the built-in help text.
+
+(These changes are committed to feat/agency-extension.)
 
 Medium-term (UX & safety)
 
