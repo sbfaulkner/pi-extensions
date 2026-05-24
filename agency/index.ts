@@ -414,14 +414,9 @@ export default function (pi: ExtensionAPI) {
     if (commandRegistered) return;
 
     // Raw event -> UI notifications for debugging. Uses ctxForRender so notifications appear in the active UI context.
-    rawListener = (memberId: string, parsed: any) => {
-      try {
-        const m = members.get(memberId);
-        const name = m?.displayName ?? memberId;
-        if (ctxForRender && ctxForRender.ui) {
-          try { ctxForRender.ui.notify(`${name}> ${JSON.stringify(parsed)}`, "info"); } catch {}
-        }
-      } catch (e) {}
+    // rawListener intentionally no-ops for UI notifications — raw events are persisted via appendEntry
+    rawListener = (_memberId: string, _parsed: any) => {
+      // no-op: avoid noisy transient UI notifications; events are saved to session history via appendEntry
     };
     events.on("raw", rawListener);
 
