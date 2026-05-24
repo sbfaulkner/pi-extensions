@@ -74,9 +74,9 @@ Widget behavior
 
 Known limitations and notes
 
-- The README originally included a mock member script (mock-member.js) — that file was removed as unused. The extension still expects child processes speaking the newline-delimited JSON RPC protocol. You can test locally by spawning a process that implements the protocol and point the member at it via cmd/args (or run a local "pi --mode rpc" instance).
+- The extension expects child processes that speak the newline-delimited JSON RPC protocol. You can test locally by running a compatible RPC process (for example: a local "pi --mode rpc" instance) and pointing members at it via cmd/args.
 - The help text mentions an older command "/agency stop" in a few places; the code does not implement a dedicated stop command. Use /agency clear (with confirmation) or /agency remove per-member.
-- The "/agency logs" command has been removed: the extension no longer persists raw RPC events by default. A runtime console logging toggle (/agency log on|off) remains for debugging.
+- A runtime console logging toggle (/agency log on|off) is available for debugging.
 - The default spawn target is the "pi" binary; launching child processes implies platform-specific behavior and security considerations. Be careful when running in multi-user environments.
 - Persistence is session-scoped — members persist only within the Pi session entries and will be re-spawned on an interactive session start if the session includes agency entries.
 
