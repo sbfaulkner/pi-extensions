@@ -292,7 +292,6 @@ export default function (pi: ExtensionAPI) {
   // We'll capture a context for widget re-renders; it's set when commands run in interactive mode
   let ctxForRender: ExtensionCommandContext | null = null;
   let commandRegistered = false;
-  let rawListener: ((memberId: string, parsed: any) => void) | null = null;
 
   // Busy reaper: reset sessions stuck in 'busy' if no activity for this threshold
   const BUSY_TIMEOUT_MS = 2 * 60 * 1000; // 2 minutes
@@ -414,11 +413,6 @@ export default function (pi: ExtensionAPI) {
     if (commandRegistered) return;
 
     // Raw event -> UI notifications for debugging. Uses ctxForRender so notifications appear in the active UI context.
-    // rawListener intentionally no-ops for UI notifications — raw events are persisted via appendEntry
-    rawListener = (_memberId: string, _parsed: any) => {
-      // no-op: avoid noisy transient UI notifications; events are saved to session history via appendEntry
-    };
-    events.on("raw", rawListener);
 
 
     // Helper: create and spawn a member for a role (returns the member or null)
@@ -813,7 +807,6 @@ export default function (pi: ExtensionAPI) {
     }
     sessions.clear();
     visible = false;
-    try { if (rawListener) events.off("raw", rawListener); rawListener = null; } catch {}
     try { if (busyReaperTimer) { clearInterval(busyReaperTimer); busyReaperTimer = null; } } catch {}
   });
 }
