@@ -121,8 +121,20 @@ export default function (pi: ExtensionAPI) {
           for (const m of Array.from(members.values())) {
             const s = sessions.get(m.id);
             const status = s ? s.status : "offline";
-            const statusText =
-              status === "idle" ? theme.fg("success", "idle") : status === "busy" ? theme.fg("accent", "busy") : theme.fg("dim", "offline");
+            let statusText: string;
+            if (status === "idle") {
+              statusText = theme.fg("success", "idle");
+            } else if (status === "pending") {
+              statusText = theme.fg("muted", "pending");
+            } else if (status === "initializing") {
+              statusText = theme.fg("warning", "starting");
+            } else if (status === "busy") {
+              statusText = theme.fg("accent", "busy");
+            } else if (status === "error") {
+              statusText = theme.fg("error", "error");
+            } else {
+              statusText = theme.fg("dim", "offline");
+            }
             const name = m.displayName ?? m.id;
             const roleName = m.role ?? "unknown";
             const pidColored = s && s.proc && typeof s.proc.pid === "number" ? theme.fg("dim", ` [pid:${s.proc.pid}]`) : "";
@@ -277,9 +289,14 @@ export default function (pi: ExtensionAPI) {
   let commandRegistered = false;
   let rawListener: ((memberId: string, parsed: any) => void) | null = null;
 
+  // Busy reaper: reset sessions stuck in 'busy' if no activity for this threshold
+  const BUSY_TIMEOUT_MS = 2 * 60 * 1000; // 2 minutes
+  let busyReaperTimer: NodeJS.Timeout | null = null;
+
   function handleMemberMessage(memberId: string, msg: any) {
     const session = sessions.get(memberId);
     if (!session) return;
+    session.lastActivity = Date.now();
     // RPC-mode event handling: treat streaming and tool events as busy, message_end/tool_execution_end as idle
     if (msg.type === "response") {
       // command responses — no-op here (handshake handled elsewhere)
@@ -752,6 +769,29 @@ export default function (pi: ExtensionAPI) {
       },
     });
 
+    // Start busy reaper that auto-resets stuck busy sessions
+    if (!busyReaperTimer) {
+      busyReaperTimer = setInterval(() => {
+        try {
+          const now = Date.now();
+          for (const [id, s] of sessions.entries()) {
+            if (!s) continue;
+            if (s.status === "busy" && s.lastActivity && now - s.lastActivity > BUSY_TIMEOUT_MS) {
+              // reset
+              s.status = "idle";
+              s.currentTaskId = null as any;
+              const m = members.get(id);
+              const name = m ? m.displayName ?? id : id;
+              try {
+                if (ctxForRender && ctxForRender.ui) ctxForRender.ui.notify(`${name} was reset to idle due to inactivity`, "warning");
+              } catch (e) {}
+              try { events.emit("change"); } catch (e) {}
+            }
+          }
+        } catch (e) {}
+      }, 30 * 1000);
+    }
+
     commandRegistered = true;
   });
 
@@ -774,5 +814,6 @@ export default function (pi: ExtensionAPI) {
     sessions.clear();
     visible = false;
     try { if (rawListener) events.off("raw", rawListener); rawListener = null; } catch {}
+    try { if (busyReaperTimer) { clearInterval(busyReaperTimer); busyReaperTimer = null; } } catch {}
   });
 }
