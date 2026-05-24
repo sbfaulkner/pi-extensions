@@ -116,7 +116,8 @@ export default function (pi: ExtensionAPI) {
         const lines: string[] = [];
 
         if (members.size === 0) {
-          lines.push(theme.fg("muted", "(no members) add with /agency add [role] — default role is developer"));
+          lines.push(theme.fg("muted", "0 members"));
+          lines.push("");
         } else {
           for (const m of Array.from(members.values())) {
             const s = sessions.get(m.id);
