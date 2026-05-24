@@ -107,6 +107,8 @@ export default function (pi: ExtensionAPI) {
       let cachedWidth: number | undefined;
       let cachedLines: string[] | undefined;
 
+      const stripAnsi = (s: string) => s.replace(/\x1b\[[0-9;]*m/g, "");
+
       const build = (width: number) => {
         if (cachedLines && cachedWidth === width) return cachedLines;
 
@@ -124,8 +126,22 @@ export default function (pi: ExtensionAPI) {
               status === "idle" ? theme.fg("success", "idle") : status === "busy" ? theme.fg("accent", "busy") : theme.fg("dim", "offline");
             const name = m.displayName ?? m.id;
             const roleName = m.role ?? "unknown";
-            const pidText = s && s.proc && typeof s.proc.pid === "number" ? theme.fg("dim", ` [pid:${s.proc.pid}]`) : "";
-            const line = `${name} (${roleName}): ${statusText}${pidText}`;
+            const pidColored = s && s.proc && typeof s.proc.pid === "number" ? theme.fg("dim", ` [pid:${s.proc.pid}]`) : "";
+
+            const left = `${name} (${roleName}): ${statusText}`;
+
+            // Right-align pidColored within the given width. Prefer to keep pid visible; truncate left if necessary.
+            let line: string;
+            if (pidColored) {
+              const pidRawLen = stripAnsi(pidColored).length;
+              const allowedLeftWidth = Math.max(0, width - pidRawLen - 1);
+              const leftPart = truncateToWidth(left, allowedLeftWidth);
+              const spacer = allowedLeftWidth > 0 ? " " : "";
+              line = `${leftPart}${spacer}${pidColored}`;
+            } else {
+              line = left;
+            }
+
             lines.push(line);
           }
           lines.push("");
@@ -305,6 +321,19 @@ export default function (pi: ExtensionAPI) {
     // Register interactive command only when UI is available
     if (!ctx.hasUI) return;
     if (commandRegistered) return;
+
+    // Raw event -> UI notifications for debugging. Uses ctxForRender so notifications appear in the active UI context.
+    const rawListener = (memberId: string, parsed: any) => {
+      try {
+        const m = members.get(memberId);
+        const name = m?.displayName ?? memberId;
+        if (ctxForRender && ctxForRender.ui) {
+          try { ctxForRender.ui.notify(`${name}> ${JSON.stringify(parsed)}`, "info"); } catch {}
+        }
+      } catch (e) {}
+    };
+    events.on("raw", rawListener);
+
 
     // Helper: create and spawn a member for a role (returns the member or null)
     async function createMemberForRole(role: string, explicitName: string | undefined, innerCtx: ExtensionCommandContext): Promise<Member | null> {
@@ -691,5 +720,6 @@ export default function (pi: ExtensionAPI) {
     }
     sessions.clear();
     visible = false;
+    try { events.off("raw"); } catch {}
   });
 }
