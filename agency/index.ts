@@ -33,26 +33,35 @@ export default function (pi: ExtensionAPI) {
   const roles = new Map<string, any>();
   const verbMap = new Map<string, string>(); // verb -> role id
 
-  // Auto-hide timer and delay
-  let autoHideTimer: ReturnType<typeof setTimeout> | null = null;
+  // Minimize timer and delay (also used for temporary expand -> minimize)
+  let minimizeTimer: ReturnType<typeof setTimeout> | null = null;
   const AUTO_HIDE_DELAY = 5000; // ms
 
-  // Reference to an interactive context for UI actions (notifications, widget)
-  let ctxForRender: ExtensionCommandContext | undefined = undefined;
+  // Reference to an interactive context for UI actions (widget)
+  let uiCtx: ExtensionCommandContext | undefined = undefined;
+
+  // Minimized state: when true the widget renders as a single-line summary.
+  let minimized = true;
+  // Highlighted member id (when temporarily expanded)
+  let highlightMemberId: string | null = null;
 
   function cancelAutoHide() {
-    if (autoHideTimer) {
-      try { clearTimeout(autoHideTimer); } catch {}
-      autoHideTimer = null;
+    if (minimizeTimer) {
+      try { clearTimeout(minimizeTimer); } catch {}
+      minimizeTimer = null;
     }
   }
 
   function showAgencyWidget(ctx?: ExtensionCommandContext) {
-    const c = ctx || ctxForRender;
+    const c = ctx || uiCtx;
     if (!c || !c.hasUI) return;
     try {
+      // Ensure widget is registered
       c.ui.setWidget("agency", makeWidgetFactory(c), { placement: "belowEditor" });
       visible = true;
+      // Expand to full view
+      minimized = false;
+      try { events.emit("change"); } catch {}
     } catch (e) {
       // ignore
     }
@@ -60,11 +69,13 @@ export default function (pi: ExtensionAPI) {
   }
 
   function hideAgencyWidget(ctx?: ExtensionCommandContext) {
-    const c = ctx || ctxForRender;
+    // Minimize the widget to a single-line summary (do not unregister)
+    const c = ctx || uiCtx;
     if (!c || !c.hasUI) return;
     try {
-      c.ui.setWidget("agency", undefined);
-      visible = false;
+      minimized = true;
+      highlightMemberId = null;
+      try { events.emit("change"); } catch {}
     } catch (e) {
       // ignore
     }
@@ -75,11 +86,24 @@ export default function (pi: ExtensionAPI) {
     cancelAutoHide();
     const active = Array.from(sessions.values()).some((s) => s && (s.status === "busy" || s.status === "pending" || s.status === "initializing"));
     if (!active && visible) {
-      autoHideTimer = setTimeout(() => {
+      minimizeTimer = setTimeout(() => {
         try { hideAgencyWidget(); } catch {}
-        autoHideTimer = null;
+        minimizeTimer = null;
       }, AUTO_HIDE_DELAY);
     }
+  }
+
+  function scheduleTemporaryMinimize() {
+    // Always schedule a minimize after AUTO_HIDE_DELAY and clear highlight
+    cancelAutoHide();
+    minimizeTimer = setTimeout(() => {
+      try {
+        minimized = true;
+        highlightMemberId = null;
+        try { events.emit("change"); } catch {}
+      } catch (e) {}
+      minimizeTimer = null;
+    }, AUTO_HIDE_DELAY);
   }
 
   async function loadRoles() {
@@ -151,6 +175,38 @@ export default function (pi: ExtensionAPI) {
 
         const lines: string[] = [];
 
+        // If minimized, render a single summary line (plus a blank line)
+        if (minimized) {
+          if (members.size === 0) {
+            lines.push(theme.fg("muted", "0 members"));
+          } else {
+            let busy = 0, idle = 0, pending = 0, initializing = 0, offline = 0, error = 0;
+            for (const m of Array.from(members.values())) {
+              const s = sessions.get(m.id);
+              const status = s ? s.status : "offline";
+              if (status === "busy") busy++;
+              else if (status === "idle") idle++;
+              else if (status === "pending") pending++;
+              else if (status === "initializing") initializing++;
+              else if (status === "error") error++;
+              else offline++;
+            }
+            const parts: string[] = [];
+            if (busy > 0) parts.push(`${busy} active`);
+            if (idle > 0) parts.push(`${idle} idle`);
+            if (pending > 0) parts.push(`${pending} pending`);
+            if (initializing > 0) parts.push(`${initializing} starting`);
+            if (offline > 0 && parts.length === 0) parts.push(`${offline} offline`);
+            const summary = parts.join('; ');
+            lines.push(theme.fg("muted", `${members.size} members — ${summary}`));
+          }
+          lines.push("");
+          cachedLines = lines.map((l) => truncateToWidth(l, width));
+          cachedWidth = width;
+          return cachedLines;
+        }
+
+        // Full expanded view
         if (members.size === 0) {
           lines.push(theme.fg("muted", "0 members"));
           lines.push("");
@@ -176,7 +232,13 @@ export default function (pi: ExtensionAPI) {
             const roleName = m.role ?? "unknown";
             const pidColored = s && s.proc && typeof s.proc.pid === "number" ? theme.fg("dim", ` [pid:${s.proc.pid}]`) : "";
 
-            const left = `${name} (${roleName}): ${statusText}`;
+            const leftRaw = `${name} (${roleName}): ${statusText}`;
+
+            // Highlight if requested
+            let left = leftRaw;
+            if (highlightMemberId && highlightMemberId === m.id) {
+              left = theme.fg("accent", leftRaw);
+            }
 
             // Right-align pidColored within the given width. Prefer to keep pid visible; truncate left if necessary.
             let line: string;
@@ -383,59 +445,52 @@ export default function (pi: ExtensionAPI) {
   // runtime debug toggle: when true, log raw parsed events to console
   let debugRawLogging = false;
 
-  // Keep a reference to an interactive command context so we can surface
-  // notifications (e.g., "member completed task") to the lead UI.
-  let ctxForRender: ExtensionCommandContext | undefined = undefined;
-
   function handleMemberMessage(memberId: string, msg: any) {
     const session = sessions.get(memberId);
     if (!session) return;
     session.lastActivity = Date.now();
+
     // RPC-mode event handling: treat streaming and tool events as busy, message_end/tool_execution_end as idle
     if (msg.type === "response") {
       // command responses — no-op here (handshake handled elsewhere)
     } else if (msg.type === "message_start" || msg.type === "message_update") {
       session.status = "busy";
+      // cancel any pending minimize while active
+      try { cancelAutoHide(); } catch {}
+      // clear highlight when activity resumes
+      highlightMemberId = null;
     } else if (msg.type === "message_end") {
+      // Member finished a message: mark idle and highlight/expand widget briefly
       const finishedTaskId = session.currentTaskId ?? null;
       session.status = "idle";
       session.currentTaskId = null;
-      // Notify the lead/UI if available that this member completed a task
-      try {
-        if (ctxForRender && ctxForRender.ui && typeof (ctxForRender.ui as any).notify === 'function') {
-          const m = members.get(memberId);
-          const disp = m ? (m.displayName ?? m.id) : memberId;
-          try { (ctxForRender.ui as any).notify(`${disp} completed task${finishedTaskId ? ` (${finishedTaskId})` : ''}`, "info"); } catch {}
-        }
-      } catch {}
+
+      // Highlight the member and expand the widget if minimized
+      highlightMemberId = memberId;
+      try { showAgencyWidget(uiCtx); } catch {}
+      try { scheduleTemporaryMinimize(); } catch {}
     } else if (msg.type === "tool_execution_start" || msg.type === "tool_execution_update") {
       session.status = "busy";
+      try { cancelAutoHide(); } catch {}
+      highlightMemberId = null;
     } else if (msg.type === "tool_execution_end") {
+      // Finish of tool execution
       const finishedTaskId = session.currentTaskId ?? null;
       session.status = "idle";
       session.currentTaskId = null;
-      try {
-        if (ctxForRender && ctxForRender.ui && typeof (ctxForRender.ui as any).notify === 'function') {
-          const m = members.get(memberId);
-          const disp = m ? (m.displayName ?? m.id) : memberId;
-          try { (ctxForRender.ui as any).notify(`${disp} finished tool execution${finishedTaskId ? ` (${finishedTaskId})` : ''}`, "info"); } catch {}
-        }
-      } catch {}
+      highlightMemberId = memberId;
+      try { showAgencyWidget(uiCtx); } catch {}
+      try { scheduleTemporaryMinimize(); } catch {}
     } else {
-      // Fallback for mock/simple messages
+      // Fallback for simple messages
       if (msg.type === "ack") session.status = "busy";
       if (msg.type === "log") console.log(`[agency:${memberId}]`, msg.line);
       if (msg.type === "done") {
-        const finishedTaskId = session.currentTaskId ?? null;
         session.status = "idle";
         session.currentTaskId = null;
-        try {
-          if (ctxForRender && ctxForRender.ui && typeof (ctxForRender.ui as any).notify === 'function') {
-            const m = members.get(memberId);
-            const disp = m ? (m.displayName ?? m.id) : memberId;
-            try { (ctxForRender.ui as any).notify(`${disp} done${finishedTaskId ? ` (${finishedTaskId})` : ''}`, "info"); } catch {}
-          }
-        } catch {}
+        highlightMemberId = memberId;
+        try { showAgencyWidget(uiCtx); } catch {}
+        try { scheduleTemporaryMinimize(); } catch {}
       }
     }
 
@@ -530,8 +585,8 @@ export default function (pi: ExtensionAPI) {
     await loadRoles();
     await loadState(ctx);
 
-    // If we have a UI context, keep a reference so we can surface notifications.
-    if (ctx && ctx.hasUI) ctxForRender = ctx;
+    // If we have a UI context, keep a reference so we can perform UI actions.
+    if (ctx && ctx.hasUI) uiCtx = ctx;
 
     // Register interactive command only when UI is available
     if (!ctx.hasUI) return;
@@ -940,6 +995,9 @@ export default function (pi: ExtensionAPI) {
         // ignore - some hosts may not provide full UI on shutdown
       }
     }
+
+    // Clear ui context reference
+    uiCtx = undefined;
 
     // Kill any spawned procs we own
     for (const [id, s] of sessions.entries()) {
