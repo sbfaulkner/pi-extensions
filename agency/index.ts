@@ -182,15 +182,6 @@ export default function (pi: ExtensionAPI) {
     };
   }
 
-  function normalizeArgs(args: string | string[] | undefined): string[] {
-    if (!args) return [];
-    if (typeof args === "string") {
-      const s = args.trim();
-      return s ? s.split(/\s+/) : [];
-    }
-    return args;
-  }
-
   function generateId(role?: string): string {
     const base = (role || "member").replace(/[^a-z0-9]+/gi, "").toLowerCase() || "member";
     const time = Date.now().toString(36).slice(-4);

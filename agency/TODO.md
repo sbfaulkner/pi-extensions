@@ -22,5 +22,5 @@ Long-term / out of scope for this change
 
 Notes
 
-- Persisted member configs may include cmd/args; the current plan is to treat member sessions similarly to the main session (no whitelist/confirmation gating). Any deviation from this should be a deliberate follow-up change.
+- Members always spawn the local "pi" binary in RPC mode; custom command overrides are not supported.
 - Any code changes should target the feat/agency-extension branch.

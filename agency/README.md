@@ -63,7 +63,7 @@ Roles and configuration
 Runtime and implementation notes
 
 - Members are represented as persisted configuration (saved into the current session via appendEntry("agency", ...)) and as in-memory objects at runtime.
-- When a member is spawned the extension runs a child process. Default command: "pi --mode rpc" (the extension passes provider/model/thinking via CLI args). A member may override cmd/args in its definition.
+- When a member is spawned the extension runs a child process. It always runs the local "pi --mode rpc" binary and passes provider/model/thinking via CLI args.
 - Communication uses newline-delimited JSON over stdin/stdout. The extension parses JSON lines, updates session state from RPC events (message_start/message_update/message_end, tool_execution_*, etc.), and renders status in the widget.
 - Assignment flow: assignTaskToMember marks the session pending, sends a prompt JSON, waits briefly for a response event matching the task id (6s timeout), and then marks the session busy (or idle on rejection).
 - The extension intentionally scopes persistence to the current Pi session (no global file fallback).
