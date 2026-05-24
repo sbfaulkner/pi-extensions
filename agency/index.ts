@@ -261,6 +261,12 @@ export default function (pi: ExtensionAPI) {
                 (pi as any).appendEntry("agency-log", { time: Date.now(), member: m.id, event: parsed }).catch(() => {});
               }
             } catch {}
+            // Optionally log raw events to console for debugging if runtime toggle enabled
+            try {
+              if (debugRawLogging) {
+                try { console.log(`[agency:${m.id}] ${new Date().toISOString()} RAW ${JSON.stringify(parsed)}`); } catch (e) { /* ignore */ }
+              }
+            } catch (e) { /* ignore */ }
             // If we were initializing, the first parsed event means the process is alive; mark idle unless the event indicates activity
             if (session.status === "initializing") session.status = "idle";
             handleMemberMessage(m.id, parsed);
@@ -292,6 +298,9 @@ export default function (pi: ExtensionAPI) {
   // We'll capture a context for widget re-renders; it's set when commands run in interactive mode
   let ctxForRender: ExtensionCommandContext | null = null;
   let commandRegistered = false;
+
+  // runtime debug toggle: when true, log raw parsed events to console
+  let debugRawLogging = false;
 
   // Busy reaper: reset sessions stuck in 'busy' if no activity for this threshold
   const BUSY_TIMEOUT_MS = 2 * 60 * 1000; // 2 minutes
@@ -734,6 +743,21 @@ export default function (pi: ExtensionAPI) {
             return `${m.displayName ?? m.id} (${m.role ? m.role : 'unknown'}): ${s ? s.status : 'offline'}${pidText}`;
           }).join("\n");
           innerCtx.ui.notify(`Members:\n${list}`, "info");
+          return;
+        }
+
+        // Debug toggle: /agency debug on|off|status
+        if (verb === "debug") {
+          const arg = parts[1] ? parts[1].toLowerCase() : "status";
+          if (arg === "on") {
+            debugRawLogging = true;
+            innerCtx.ui.notify("Enabled raw event console logging", "info");
+          } else if (arg === "off") {
+            debugRawLogging = false;
+            innerCtx.ui.notify("Disabled raw event console logging", "info");
+          } else {
+            innerCtx.ui.notify(`Raw event console logging is ${debugRawLogging ? 'on' : 'off'}`, "info");
+          }
           return;
         }
 
