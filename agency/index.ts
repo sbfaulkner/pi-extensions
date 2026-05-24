@@ -278,12 +278,6 @@ export default function (pi: ExtensionAPI) {
                     summary = String(parsed);
                   }
                   try { console.log(`[agency:${m.id}] ${new Date().toISOString()} RAW ${summary}`); } catch (e) { /* ignore */ }
-                  // Also persist a short debug entry so it appears in the session history for quick viewing
-                  try {
-                    if (typeof (pi as any).appendEntry === "function") {
-                      (pi as any).appendEntry("agency-debug", { time: Date.now(), member: m.id, summary }).catch(() => {});
-                    }
-                  } catch (e) { /* ignore */ }
                 } catch (e) { /* ignore */ }
               }
             } catch (e) { /* ignore */ }
