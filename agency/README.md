@@ -46,9 +46,6 @@ All commands are exposed via the single interactive command "/agency". Examples 
 - /agency log on|off|status
   - Toggle or show runtime raw event console logging used for debugging.
 
-- /agency logs [N]
-  - Show the last N persisted raw RPC events (default 50) from the session event log (if session persistence is available).
-
 - Role verb shorthands
   - roles.json can include a "verbs" array to provide shorthand commands of the form: /agency <verb> [task]
   - Example: if roles.json maps "analyze" to the analyst role then "/agency analyze Do X" will create/assign accordingly.
@@ -79,6 +76,7 @@ Known limitations and notes
 
 - The README originally included a mock member script (mock-member.js) — that file was removed as unused. The extension still expects child processes speaking the newline-delimited JSON RPC protocol. You can test locally by spawning a process that implements the protocol and point the member at it via cmd/args (or run a local "pi --mode rpc" instance).
 - The help text mentions an older command "/agency stop" in a few places; the code does not implement a dedicated stop command. Use /agency clear (with confirmation) or /agency remove per-member.
+- The "/agency logs" command has been removed: the extension no longer persists raw RPC events by default. A runtime console logging toggle (/agency log on|off) remains for debugging.
 - The default spawn target is the "pi" binary; launching child processes implies platform-specific behavior and security considerations. Be careful when running in multi-user environments.
 - Persistence is session-scoped — members persist only within the Pi session entries and will be re-spawned on an interactive session start if the session includes agency entries.
 
@@ -93,16 +91,15 @@ Contributing
 
 - This repo uses a standard GitHub PR workflow. Please branch off main (or the active feature branch), make small focused changes, and open a PR. Commit messages should be clear and use conventional prefixes (feat:, fix:, docs:, chore:).
 
-Questions for the maintainers
+Decisions (current)
 
-- Do we want the extension to continue spawning the "pi" binary by default, or should we make a test/mock process the default in developer mode?
-- Should we implement a dedicated "/agency stop" command (stop all processes but keep member configs) in addition to /agency clear which removes members?
-- Is session-scoped persistence sufficient, or would you like an option for global/workspace persistence?
-- Are there any security constraints (e.g., disallow arbitrary cmd/args) you'd like enforced before we document public usage?
+The following decisions reflect the intended behavior and have been applied to the README/docs:
 
-If you'd like, I can open a PR that updates this README and also:
-- Remove references to the removed mock script in other docs (if any),
-- Add a minimal example mock script under a test/ or dev/ directory (instead of top-level agency/mock-member.js), and
-- Fix the help mismatch for "/agency stop" (either implement or remove the mention).
+- The extension spawns the "pi" binary in RPC mode by default and passes role-based provider/model/thinking values or falls back to the active session model when role settings are null.
+- Persistence remains session-scoped (members persisted to the current Pi session only).
+- There is no dedicated "/agency stop" command; use /agency clear or /agency remove instead.
+- Persisted member configs may specify cmd/args; member sessions are not treated differently from the main session in capabilities.
+- Role presets may contain null provider/modelId/thinking values; the extension falls back to session defaults in those cases.
+- The /agency logs command has been removed; runtime console logging is still available via /agency log on|off.
 
--- End of README --
+If you'd like additional changes (e.g., remove support for arbitrary cmd/args, add workspace persistence, or add a dev-mode test harness), I can prepare follow-up PRs with the necessary changes.
