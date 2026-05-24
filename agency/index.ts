@@ -255,6 +255,12 @@ export default function (pi: ExtensionAPI) {
             const parsed = JSON.parse(line);
             // Emit raw parsed events for listeners (handshake, debugging)
             try { events.emit("raw", m.id, parsed); } catch (e) {}
+            // Persist raw events into the session history so they appear in session output
+            try {
+              if (typeof (pi as any).appendEntry === "function") {
+                (pi as any).appendEntry("agency-log", { time: Date.now(), member: m.id, event: parsed }).catch(() => {});
+              }
+            } catch {}
             // If we were initializing, the first parsed event means the process is alive; mark idle unless the event indicates activity
             if (session.status === "initializing") session.status = "idle";
             handleMemberMessage(m.id, parsed);
