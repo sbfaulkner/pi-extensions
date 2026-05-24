@@ -264,7 +264,21 @@ export default function (pi: ExtensionAPI) {
             // Optionally log raw events to console for debugging if runtime toggle enabled
             try {
               if (debugRawLogging) {
-                try { console.log(`[agency:${m.id}] ${new Date().toISOString()} RAW ${JSON.stringify(parsed)}`); } catch (e) { /* ignore */ }
+                try {
+                  let summary = "";
+                  try {
+                    if (parsed && typeof parsed === "object") {
+                      const t = parsed.type ? String(parsed.type) : "";
+                      const more = Object.keys(parsed).length > 1 ? ", ..." : "";
+                      summary = t ? `{"type":"${t}"${more}}` : JSON.stringify(parsed);
+                    } else {
+                      summary = JSON.stringify(parsed);
+                    }
+                  } catch (e) {
+                    summary = String(parsed);
+                  }
+                  try { console.log(`[agency:${m.id}] ${new Date().toISOString()} RAW ${summary}`); } catch (e) { /* ignore */ }
+                } catch (e) { /* ignore */ }
               }
             } catch (e) { /* ignore */ }
             // If we were initializing, the first parsed event means the process is alive; mark idle unless the event indicates activity
