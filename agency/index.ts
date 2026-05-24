@@ -969,16 +969,14 @@ export default function (pi: ExtensionAPI) {
           return;
         }
 
-        // Toggle widget
+        // Toggle widget: expand/minimize rather than fully unregistering
         if (!visible) {
-          // Show widget below the editor
-          innerCtx.ui.setWidget("agency", makeWidgetFactory(innerCtx), { placement: "belowEditor" });
-          visible = true;
-          innerCtx.ui.notify("Displayed agency widget", "info");
+          // Show and expand widget below the editor
+          try { showAgencyWidget(innerCtx); } catch {}
+          // No noisy notification for auto/show
         } else {
-          innerCtx.ui.setWidget("agency", undefined);
-          visible = false;
-          innerCtx.ui.notify("Hidden agency widget", "info");
+          // Minimize the widget to the summary line
+          try { hideAgencyWidget(innerCtx); } catch {}
         }
       },
     });

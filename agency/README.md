@@ -71,13 +71,23 @@ Runtime and implementation notes
 Widget behavior
 
 - The widget displays a compact list of members and their state below the editor (truncate-to-width aware). It subscribes to internal change events and requests rerenders when members or session statuses change.
+- Minimized vs expanded:
+  - When minimized the widget renders a single-line summary (e.g. "5 members — 1 active; 4 idle"). The widget is kept registered in the UI in this minimized form rather than being fully unregistered.
+  - When expanded the widget shows the full per-member list with status and pid metadata.
+- Auto behavior:
+  - The widget auto-expands when a member is added, when a task is assigned (and accepted), or when a member finishes a task. On finish the member is briefly highlighted in the expanded view.
+  - When all members are idle the widget auto-minimizes back to the one-line summary after a short delay (configurable in code, default 5s).
+  - Manual toggles (/agency) now expand/minimize the widget rather than unregistering it.
+
 
 Known limitations and notes
 
 - The extension expects child processes that speak the newline-delimited JSON RPC protocol. The extension always spawns the local "pi" binary in RPC mode; you can run a separate local "pi --mode rpc" instance for development testing.
 - The help text mentions an older command "/agency stop" in a few places; the code does not implement a dedicated stop command. Use /agency clear (with confirmation) or /agency remove per-member.
 - A runtime console logging toggle (/agency log on|off) is available for debugging.
+- Lead feedback on member completion is surfaced by temporarily expanding and highlighting the relevant member in the widget; the previous notify/toast-based completion messages were removed in favor of this inline UX.
 - Persistence is session-scoped — members persist only within the Pi session entries and will be re-spawned on an interactive session start if the session includes agency entries.
+
 
 Goals / roadmap (what we're aiming for)
 
@@ -99,5 +109,6 @@ The following decisions reflect the intended behavior and have been applied to t
 - There is no dedicated "/agency stop" command; use /agency clear or /agency remove instead.
 - Role presets may contain null provider/modelId/thinking values; the extension falls back to session defaults in those cases.
 - The /agency logs command has been removed; runtime console logging is still available via /agency log on|off.
+- UX: widget uses minimized (summary) and expanded views. Completion feedback is shown by expanding/highlighting the member rather than sending a separate UI notification.
 
 If you'd like additional changes (e.g., add workspace persistence or a dev-mode test harness), I can prepare follow-up PRs with the necessary changes.
