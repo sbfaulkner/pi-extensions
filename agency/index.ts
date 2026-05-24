@@ -124,7 +124,7 @@ export default function (pi: ExtensionAPI) {
               status === "idle" ? theme.fg("success", "idle") : status === "busy" ? theme.fg("accent", "busy") : theme.fg("dim", "offline");
             const name = m.displayName ?? m.id;
             const roleName = m.role ?? "unknown";
-            const pidText = s && s.proc && typeof s.proc.pid === "number" ? theme.fg("dim", ` [pid=${s.proc.pid}]`) : "";
+            const pidText = s && s.proc && typeof s.proc.pid === "number" ? theme.fg("dim", ` [pid:${s.proc.pid}]`) : "";
             const line = `${name} (${roleName}): ${statusText}${pidText}`;
             lines.push(line);
           }
@@ -629,7 +629,7 @@ export default function (pi: ExtensionAPI) {
           if (members.size === 0) { innerCtx.ui.notify("No members configured", "info"); return; }
           const list = Array.from(members.values()).map(m => {
             const s = sessions.get(m.id);
-            const pidText = s && s.proc && typeof s.proc.pid === "number" ? ` [pid=${s.proc.pid}]` : "";
+            const pidText = s && s.proc && typeof s.proc.pid === "number" ? ` [pid:${s.proc.pid}]` : "";
             return `${m.displayName ?? m.id} (${m.role ? m.role : 'unknown'}): ${s ? s.status : 'offline'}${pidText}`;
           }).join("\n");
           innerCtx.ui.notify(`Members:\n${list}`, "info");
