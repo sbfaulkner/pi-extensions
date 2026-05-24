@@ -350,16 +350,11 @@ export default function (pi: ExtensionAPI) {
     }
   }
 
-  // We'll capture a context for widget re-renders; it's set when commands run in interactive mode
-  let ctxForRender: ExtensionCommandContext | null = null;
   let commandRegistered = false;
 
   // runtime debug toggle: when true, log raw parsed events to console
   let debugRawLogging = false;
 
-  // Busy reaper: reset sessions stuck in 'busy' if no activity for this threshold
-  const BUSY_TIMEOUT_MS = 2 * 60 * 1000; // 2 minutes
-  let busyReaperTimer: NodeJS.Timeout | null = null;
 
   function handleMemberMessage(memberId: string, msg: any) {
     const session = sessions.get(memberId);
@@ -568,7 +563,7 @@ export default function (pi: ExtensionAPI) {
     pi.registerCommand("agency", {
       description: "Toggle the agency widget or add items: /agency add <text>",
       handler: async (args: string | string[] | undefined, innerCtx) => {
-        ctxForRender = innerCtx; // handler only registered in UI sessions, so innerCtx.hasUI is always true
+
         const rawArgs = typeof args === "string" ? args.trim() : Array.isArray(args) ? args.join(" ").trim() : "";
         const parts = rawArgs ? rawArgs.split(/\s+/) : [];
         const verb = parts[0];
@@ -885,29 +880,6 @@ export default function (pi: ExtensionAPI) {
       },
     });
 
-    // Start busy reaper that auto-resets stuck busy sessions
-    if (!busyReaperTimer) {
-      busyReaperTimer = setInterval(() => {
-        try {
-          const now = Date.now();
-          for (const [id, s] of sessions.entries()) {
-            if (!s) continue;
-            if (s.status === "busy" && s.lastActivity && now - s.lastActivity > BUSY_TIMEOUT_MS) {
-              // reset
-              s.status = "idle";
-              s.currentTaskId = null as any;
-              const m = members.get(id);
-              const name = m ? m.displayName ?? id : id;
-              try {
-                if (ctxForRender && ctxForRender.ui) ctxForRender.ui.notify(`${name} was reset to idle due to inactivity`, "warning");
-              } catch (e) {}
-              try { events.emit("change"); } catch (e) {}
-            }
-          }
-        } catch (e) {}
-      }, 30 * 1000);
-    }
-
     commandRegistered = true;
   });
 
@@ -929,6 +901,6 @@ export default function (pi: ExtensionAPI) {
     }
     sessions.clear();
     visible = false;
-    try { if (busyReaperTimer) { clearInterval(busyReaperTimer); busyReaperTimer = null; } } catch {}
+    } catch {}
   });
 }
