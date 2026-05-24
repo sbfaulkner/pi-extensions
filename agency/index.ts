@@ -12,7 +12,6 @@ type Member = {
   provider?: string | null;
   modelId?: string | null;
   thinking?: string | null;
-  systemPrompt?: string | null;
   cwd?: string | null;
   env?: Record<string, string> | null;
 };
