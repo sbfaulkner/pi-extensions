@@ -23,8 +23,9 @@ type Member = {
 type Session = {
   proc: any;
   buffer: string;
-  status: "idle" | "busy" | "offline";
+  status: "idle" | "busy" | "offline" | "initializing" | "pending" | "error";
   currentTaskId?: string | null;
+  lastActivity?: number | null;
 };
 
 
@@ -228,12 +229,13 @@ export default function (pi: ExtensionAPI) {
         stdio: ["pipe", "pipe", "pipe"],
       });
 
-      const session: Session = { proc, buffer: "", status: "idle", currentTaskId: null };
+      const session: Session = { proc, buffer: "", status: "initializing", currentTaskId: null, lastActivity: Date.now() };
       sessions.set(m.id, session);
 
       proc.stdout.setEncoding("utf8");
       proc.stdout.on("data", (chunk: string) => {
         session.buffer += chunk;
+        session.lastActivity = Date.now();
         let idx: number;
         while ((idx = session.buffer.indexOf("\n")) >= 0) {
           // Use strict LF framing per RPC docs
@@ -244,6 +246,8 @@ export default function (pi: ExtensionAPI) {
             const parsed = JSON.parse(line);
             // Emit raw parsed events for listeners (handshake, debugging)
             try { events.emit("raw", m.id, parsed); } catch (e) {}
+            // If we were initializing, the first parsed event means the process is alive; mark idle unless the event indicates activity
+            if (session.status === "initializing") session.status = "idle";
             handleMemberMessage(m.id, parsed);
           } catch (e) {
             // ignore parse errors
