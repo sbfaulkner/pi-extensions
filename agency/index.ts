@@ -584,9 +584,7 @@ export default function (pi: ExtensionAPI) {
             " /agency remove <id|displayName> - remove a member by id or display name (case-insensitive)",
             " /agency list                - list configured members",
             " /agency assign <id> <task>  - assign a task to a member (by id)",
-            " /agency stop                - stop all member processes (keeps member entries)",
             " /agency log on|off|status   - toggle raw event console logging",
-            " /agency logs [N]            - show last N persisted raw events (default 50)",
             " /agency <verb> [task]       - shorthand: create/assign using role verbs (examples below)",
             "",
             "Role verb shorthands:",
@@ -604,7 +602,7 @@ export default function (pi: ExtensionAPI) {
 
         // Role verb shorthand: /agency <verb> <task>
         // Reserved commands (handled below) should take precedence over role verbs.
-        const reservedCommands = new Set(["help","add","remove","list","assign","clear","logs","log"]);
+        const reservedCommands = new Set(["help","add","remove","list","assign","clear","log"]);
         if (verb && !reservedCommands.has(verb.toLowerCase()) && verbMap.has(verb.toLowerCase())) {
           const role = verbMap.get(verb.toLowerCase())!;
           const taskText = parts.slice(1).join(" ").trim();
@@ -834,25 +832,6 @@ export default function (pi: ExtensionAPI) {
           return;
         }
 
-        // Show recent persisted raw events: /agency logs [N]
-        if (verb === "logs") {
-          const max = Number(parts[1]) || 50;
-          try {
-            if (!innerCtx.sessionManager) { innerCtx.ui.notify("Session manager not available", "warning"); return; }
-            const entries = innerCtx.sessionManager.getEntries().filter((e: any) => e && e.type === 'custom' && e.customType === 'agency-log');
-            const slice = entries.slice(-max);
-            const lines = slice.map((e: any) => {
-              const t = e.data && e.data.time ? new Date(e.data.time).toISOString() : (e.createdAt ? new Date(e.createdAt).toISOString() : '');
-              const member = e.data && e.data.member ? e.data.member : '';
-              const ev = e.data && e.data.event ? JSON.stringify(e.data.event) : JSON.stringify(e.data);
-              return `${t} ${member}> ${ev}`;
-            });
-            innerCtx.ui.notify(`Agency logs (last ${lines.length}):\n${lines.join('\n')}`, "info");
-          } catch (e) {
-            innerCtx.ui.notify(`Failed to read logs - ${String(e)}`, "error");
-          }
-          return;
-        }
 
         // Shorthand assign: /agency assign <id> <text>
         if (verb === "assign") {
