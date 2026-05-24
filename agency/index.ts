@@ -33,6 +33,54 @@ export default function (pi: ExtensionAPI) {
   const roles = new Map<string, any>();
   const verbMap = new Map<string, string>(); // verb -> role id
 
+  // Auto-hide timer and delay
+  let autoHideTimer: ReturnType<typeof setTimeout> | null = null;
+  const AUTO_HIDE_DELAY = 5000; // ms
+
+  // Reference to an interactive context for UI actions (notifications, widget)
+  let ctxForRender: ExtensionCommandContext | undefined = undefined;
+
+  function cancelAutoHide() {
+    if (autoHideTimer) {
+      try { clearTimeout(autoHideTimer); } catch {}
+      autoHideTimer = null;
+    }
+  }
+
+  function showAgencyWidget(ctx?: ExtensionCommandContext) {
+    const c = ctx || ctxForRender;
+    if (!c || !c.hasUI) return;
+    try {
+      c.ui.setWidget("agency", makeWidgetFactory(c), { placement: "belowEditor" });
+      visible = true;
+    } catch (e) {
+      // ignore
+    }
+    cancelAutoHide();
+  }
+
+  function hideAgencyWidget(ctx?: ExtensionCommandContext) {
+    const c = ctx || ctxForRender;
+    if (!c || !c.hasUI) return;
+    try {
+      c.ui.setWidget("agency", undefined);
+      visible = false;
+    } catch (e) {
+      // ignore
+    }
+    cancelAutoHide();
+  }
+
+  function scheduleAutoHide() {
+    cancelAutoHide();
+    const active = Array.from(sessions.values()).some((s) => s && (s.status === "busy" || s.status === "pending" || s.status === "initializing"));
+    if (!active && visible) {
+      autoHideTimer = setTimeout(() => {
+        try { hideAgencyWidget(); } catch {}
+        autoHideTimer = null;
+      }, AUTO_HIDE_DELAY);
+    }
+  }
 
   async function loadRoles() {
     try {
@@ -300,8 +348,11 @@ export default function (pi: ExtensionAPI) {
               }
             } catch (e) { /* ignore */ }
             // If we were initializing, the first parsed event means the process is alive; mark idle unless the event indicates activity
-            if (session.status === "initializing") session.status = "idle";
+                    if (session.status === "initializing") session.status = "idle";
             handleMemberMessage(m.id, parsed);
+            // If this event made the session idle, schedule auto-hide; otherwise cancel auto-hide
+            try { scheduleAutoHide(); } catch {}
+
           } catch (e) {
             // ignore parse errors
           }
@@ -332,6 +383,9 @@ export default function (pi: ExtensionAPI) {
   // runtime debug toggle: when true, log raw parsed events to console
   let debugRawLogging = false;
 
+  // Keep a reference to an interactive command context so we can surface
+  // notifications (e.g., "member completed task") to the lead UI.
+  let ctxForRender: ExtensionCommandContext | undefined = undefined;
 
   function handleMemberMessage(memberId: string, msg: any) {
     const session = sessions.get(memberId);
@@ -343,19 +397,45 @@ export default function (pi: ExtensionAPI) {
     } else if (msg.type === "message_start" || msg.type === "message_update") {
       session.status = "busy";
     } else if (msg.type === "message_end") {
+      const finishedTaskId = session.currentTaskId ?? null;
       session.status = "idle";
       session.currentTaskId = null;
+      // Notify the lead/UI if available that this member completed a task
+      try {
+        if (ctxForRender && ctxForRender.ui && typeof (ctxForRender.ui as any).notify === 'function') {
+          const m = members.get(memberId);
+          const disp = m ? (m.displayName ?? m.id) : memberId;
+          try { (ctxForRender.ui as any).notify(`${disp} completed task${finishedTaskId ? ` (${finishedTaskId})` : ''}`, "info"); } catch {}
+        }
+      } catch {}
     } else if (msg.type === "tool_execution_start" || msg.type === "tool_execution_update") {
       session.status = "busy";
     } else if (msg.type === "tool_execution_end") {
+      const finishedTaskId = session.currentTaskId ?? null;
       session.status = "idle";
+      session.currentTaskId = null;
+      try {
+        if (ctxForRender && ctxForRender.ui && typeof (ctxForRender.ui as any).notify === 'function') {
+          const m = members.get(memberId);
+          const disp = m ? (m.displayName ?? m.id) : memberId;
+          try { (ctxForRender.ui as any).notify(`${disp} finished tool execution${finishedTaskId ? ` (${finishedTaskId})` : ''}`, "info"); } catch {}
+        }
+      } catch {}
     } else {
       // Fallback for mock/simple messages
       if (msg.type === "ack") session.status = "busy";
       if (msg.type === "log") console.log(`[agency:${memberId}]`, msg.line);
       if (msg.type === "done") {
+        const finishedTaskId = session.currentTaskId ?? null;
         session.status = "idle";
         session.currentTaskId = null;
+        try {
+          if (ctxForRender && ctxForRender.ui && typeof (ctxForRender.ui as any).notify === 'function') {
+            const m = members.get(memberId);
+            const disp = m ? (m.displayName ?? m.id) : memberId;
+            try { (ctxForRender.ui as any).notify(`${disp} done${finishedTaskId ? ` (${finishedTaskId})` : ''}`, "info"); } catch {}
+          }
+        } catch {}
       }
     }
 
@@ -422,6 +502,8 @@ export default function (pi: ExtensionAPI) {
       sess.status = "busy";
       innerCtx.ui.notify(`Assigned ${member.role} task to ${member.displayName ?? member.id}`, "info");
       try { events.emit("change"); } catch {}
+      try { showAgencyWidget(innerCtx); } catch {}
+      try { cancelAutoHide(); } catch {}
       return true;
     }
 
@@ -431,6 +513,7 @@ export default function (pi: ExtensionAPI) {
       sess.currentTaskId = null;
       innerCtx.ui.notify(`Failed to assign task to ${member.id} - rejected`, "error");
       try { events.emit("change"); } catch {}
+      try { scheduleAutoHide(); } catch {}
       return false;
     }
 
@@ -438,12 +521,17 @@ export default function (pi: ExtensionAPI) {
     sess.status = "busy";
     innerCtx.ui.notify(`Assigned ${member.role} task to ${member.displayName ?? member.id}`, "info");
     try { events.emit("change"); } catch {}
+    try { showAgencyWidget(innerCtx); } catch {}
+    try { cancelAutoHide(); } catch {}
     return true;
   }
 
   pi.on("session_start", async (_event, ctx) => {
     await loadRoles();
     await loadState(ctx);
+
+    // If we have a UI context, keep a reference so we can surface notifications.
+    if (ctx && ctx.hasUI) ctxForRender = ctx;
 
     // Register interactive command only when UI is available
     if (!ctx.hasUI) return;
@@ -534,6 +622,8 @@ export default function (pi: ExtensionAPI) {
       await saveState(innerCtx);
       const sess = await spawnMemberProcess(member);
       try { events.emit("change"); } catch {}
+      try { showAgencyWidget(innerCtx); } catch {}
+      try { cancelAutoHide(); } catch {}
       return member;
     }
 
@@ -689,6 +779,8 @@ export default function (pi: ExtensionAPI) {
             innerCtx.ui.notify(`Failed to spawn member ${role} ${displayName ?? id} - spawn failed`, "error");
           }
           try { events.emit("change"); } catch {}
+          try { showAgencyWidget(innerCtx); } catch {}
+          try { cancelAutoHide(); } catch {}
           return;
         }
 
