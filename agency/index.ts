@@ -448,6 +448,12 @@ export default function (pi: ExtensionAPI) {
   function handleMemberMessage(memberId: string, msg: any) {
     const session = sessions.get(memberId);
     if (!session) return;
+
+    // Ignore UI-only extension requests that don't represent activity
+    try {
+      if (msg && msg.type === "extension_ui_request" && msg.method === "setStatus") return;
+    } catch (e) {}
+
     session.lastActivity = Date.now();
 
     // Helper to emit a completion notify when a task id was present
