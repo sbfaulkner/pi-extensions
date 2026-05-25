@@ -450,6 +450,18 @@ export default function (pi: ExtensionAPI) {
     if (!session) return;
     session.lastActivity = Date.now();
 
+    // Helper to emit a completion notify when a task id was present
+    const maybeNotifyCompletion = (label: string, finishedTaskId: string | null) => {
+      if (!finishedTaskId) return;
+      try {
+        if (uiCtx && uiCtx.ui && typeof (uiCtx.ui as any).notify === 'function') {
+          const m = members.get(memberId);
+          const disp = m ? (m.displayName ?? m.id) : memberId;
+          try { (uiCtx.ui as any).notify(`${disp} ${label}${finishedTaskId ? ` (${finishedTaskId})` : ''}`, "info"); } catch {}
+        }
+      } catch {}
+    };
+
     // RPC-mode event handling: treat streaming and tool events as busy, message_end/tool_execution_end as idle
     if (msg.type === "response") {
       // command responses — no-op here (handshake handled elsewhere)
@@ -469,6 +481,9 @@ export default function (pi: ExtensionAPI) {
       highlightMemberId = memberId;
       try { showAgencyWidget(uiCtx); } catch {}
       try { scheduleTemporaryMinimize(); } catch {}
+
+      // Notify lead of final task completion if we had a task id
+      maybeNotifyCompletion('completed task', finishedTaskId);
     } else if (msg.type === "tool_execution_start" || msg.type === "tool_execution_update") {
       session.status = "busy";
       try { cancelAutoHide(); } catch {}
@@ -481,16 +496,21 @@ export default function (pi: ExtensionAPI) {
       highlightMemberId = memberId;
       try { showAgencyWidget(uiCtx); } catch {}
       try { scheduleTemporaryMinimize(); } catch {}
+
+      maybeNotifyCompletion('finished tool execution', finishedTaskId);
     } else {
       // Fallback for simple messages
       if (msg.type === "ack") session.status = "busy";
       if (msg.type === "log") console.log(`[agency:${memberId}]`, msg.line);
       if (msg.type === "done") {
+        const finishedTaskId = session.currentTaskId ?? null;
         session.status = "idle";
         session.currentTaskId = null;
         highlightMemberId = memberId;
         try { showAgencyWidget(uiCtx); } catch {}
         try { scheduleTemporaryMinimize(); } catch {}
+
+        maybeNotifyCompletion('done', finishedTaskId);
       }
     }
 
