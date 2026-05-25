@@ -43,8 +43,8 @@ All commands are exposed via the single interactive command "/agency". Examples 
 - /agency clear [confirm|--force]
   - Stop and remove members. If there are busy members the extension will attempt to use a UI confirmation; if no UI confirmation is available you must pass a force token (e.g. /agency clear confirm) to stop busy members. Without force the command removes only idle members and warns about busy ones.
 
-- /agency log on|off|status
-  - Toggle or show runtime raw event console logging used for debugging.
+- /agency events <id|all> [N]
+  - Show recent in-memory member events for a single member (by id) or for all members. Default N=50.
 
 - Role verb shorthands
   - roles.json can include a "verbs" array to provide shorthand commands of the form: /agency <verb> [task]
@@ -84,9 +84,10 @@ Known limitations and notes
 
 - The extension expects child processes that speak the newline-delimited JSON RPC protocol. The extension always spawns the local "pi" binary in RPC mode; you can run a separate local "pi --mode rpc" instance for development testing.
 - The help text mentions an older command "/agency stop" in a few places; the code does not implement a dedicated stop command. Use /agency clear (with confirmation) or /agency remove per-member.
-- A runtime console logging toggle (/agency log on|off) is available for debugging.
-- Lead feedback on member completion is surfaced by temporarily expanding and highlighting the relevant member in the widget; the previous notify/toast-based completion messages were removed in favor of this inline UX.
+- Use /agency events to inspect recent member events; the extension no longer emits raw RPC events to the host console by default.
+- Lead feedback on member completion is surfaced by temporarily expanding and highlighting the relevant member in the widget; a short notify is also emitted when a task with an id completes.
 - Persistence is session-scoped — members persist only within the Pi session entries and will be re-spawned on an interactive session start if the session includes agency entries.
+
 
 
 Goals / roadmap (what we're aiming for)
@@ -108,7 +109,7 @@ The following decisions reflect the intended behavior and have been applied to t
 - Persistence remains session-scoped (members persisted to the current Pi session only).
 - There is no dedicated "/agency stop" command; use /agency clear or /agency remove instead.
 - Role presets may contain null provider/modelId/thinking values; the extension falls back to session defaults in those cases.
-- The /agency logs command has been removed; runtime console logging is still available via /agency log on|off.
-- UX: widget uses minimized (summary) and expanded views. Completion feedback is shown by expanding/highlighting the member rather than sending a separate UI notification.
+- The /agency logs and /agency log commands have been removed. Use the in-widget preview (highlight) or the /agency events command to inspect recent member events.
+- UX: widget uses minimized (summary) and expanded views. Completion feedback is shown by expanding/highlighting the member in the widget; a short notify is also emitted when a task with an id completes.
 
 If you'd like additional changes (e.g., add workspace persistence or a dev-mode test harness), I can prepare follow-up PRs with the necessary changes.
