@@ -33,6 +33,63 @@ export default function (pi: ExtensionAPI) {
   const roles = new Map<string, any>();
   const verbMap = new Map<string, string>(); // verb -> role id
 
+  // Per-member recent event buffer (in-memory, capped)
+  const memberEvents = new Map<string, string[]>();
+  const MAX_EVENTS_PER_MEMBER = 100;
+
+  function truncateDeep(v: any, depth: number): any {
+    if (depth <= 0) return "...";
+    if (v === null || v === undefined) return v;
+    const t = typeof v;
+    if (t === "string") return v.length > 120 ? v.slice(0, 120) + "..." : v;
+    if (t === "number" || t === "boolean") return v;
+    if (Array.isArray(v)) {
+      const out = v.slice(0, 3).map((x) => truncateDeep(x, depth - 1));
+      if (v.length > 3) out.push("...");
+      return out;
+    }
+    if (t === "object") {
+      const keys = Object.keys(v);
+      const out: any = {};
+      let i = 0;
+      for (const k of keys) {
+        if (i >= 6) { out["..."] = true; break; }
+        out[k] = truncateDeep(v[k], depth - 1);
+        i++;
+      }
+      return out;
+    }
+    try { return String(v).slice(0, 120); } catch { return v; }
+  }
+
+  function summarizeEvent(ev: any): string {
+    try {
+      if (ev && typeof ev === 'object') {
+        if (ev.type === 'message_end' || ev.type === 'done' || ev.type === 'tool_execution_end') {
+          return `${ev.type}${ev.id ? ` id=${ev.id}` : ''}`;
+        }
+        if (ev.type === 'message_update') {
+          const rep: any = { type: ev.type };
+          try { rep.assistantMessageEvent = ev.assistantMessageEvent && ev.assistantMessageEvent.type ? { type: ev.assistantMessageEvent.type } : undefined; } catch {}
+          return JSON.stringify(truncateDeep(rep, 2));
+        }
+        // Fallback to truncated JSON
+        return JSON.stringify(truncateDeep(ev, 2));
+      }
+      return String(ev);
+    } catch (e) { return String(ev); }
+  }
+
+  function pushMemberEvent(memberId: string, ev: any) {
+    try {
+      const s = summarizeEvent(ev);
+      const arr = memberEvents.get(memberId) || [];
+      arr.push(s);
+      if (arr.length > MAX_EVENTS_PER_MEMBER) arr.splice(0, arr.length - MAX_EVENTS_PER_MEMBER);
+      memberEvents.set(memberId, arr);
+    } catch (e) { /* ignore */ }
+  }
+
   // Minimize timer and delay (also used for temporary expand -> minimize)
   let minimizeTimer: ReturnType<typeof setTimeout> | null = null;
   const AUTO_HIDE_DELAY = 5000; // ms
@@ -253,6 +310,20 @@ export default function (pi: ExtensionAPI) {
             }
 
             lines.push(line);
+
+            // If this member is highlighted, append a short recent-events preview
+            if (highlightMemberId && highlightMemberId === m.id) {
+              try {
+                const evs = memberEvents.get(m.id) || [];
+                const tail = evs.slice(-3);
+                if (tail.length > 0) {
+                  lines.push(theme.fg("muted", "  recent:"));
+                  for (const e of tail) {
+                    lines.push(theme.fg("dim", `  ${e}`));
+                  }
+                }
+              } catch (e) { /* ignore */ }
+            }
           }
         }
 
@@ -342,6 +413,9 @@ export default function (pi: ExtensionAPI) {
             const parsed = JSON.parse(line);
             // Emit raw parsed events for listeners (handshake, debugging)
             try { events.emit("raw", m.id, parsed); } catch (e) {}
+
+            // Push a summarized, in-memory event for the member for quick inspection
+            try { pushMemberEvent(m.id, parsed); } catch (e) {}
 
             // Optionally log raw events to console for debugging if runtime toggle enabled
             try {
@@ -750,7 +824,7 @@ export default function (pi: ExtensionAPI) {
 
         // Role verb shorthand: /agency <verb> <task>
         // Reserved commands (handled below) should take precedence over role verbs.
-        const reservedCommands = new Set(["help","add","remove","list","assign","clear","log"]);
+        const reservedCommands = new Set(["help","add","remove","list","assign","clear","log","events"]);
         if (verb && !reservedCommands.has(verb.toLowerCase()) && verbMap.has(verb.toLowerCase())) {
           const role = verbMap.get(verb.toLowerCase())!;
           const taskText = parts.slice(1).join(" ").trim();
@@ -978,6 +1052,32 @@ export default function (pi: ExtensionAPI) {
             innerCtx.ui.notify("Disabled raw event console logging", "info");
           } else {
             innerCtx.ui.notify(`Raw event console logging is ${debugRawLogging ? 'on' : 'off'}`, "info");
+          }
+          return;
+        }
+
+        // Show recent in-memory member events: /agency events <id|all> [N]
+        if (verb === "events") {
+          const target = parts[1] || "all";
+          const max = Math.min(200, Number(parts[2]) || 50);
+          try {
+            if (target === "all") {
+              const lines: string[] = [];
+              for (const [id, arr] of memberEvents.entries()) {
+                const tail = arr.slice(-max).map((l) => `${id}> ${l}`);
+                lines.push(...tail);
+              }
+              if (lines.length === 0) { innerCtx.ui.notify("No member events recorded", "info"); return; }
+              innerCtx.ui.notify(`Member events (per member, last ${max}):\n${lines.join('\n')}`, "info");
+              return;
+            }
+
+            const id = target;
+            if (!memberEvents.has(id)) { innerCtx.ui.notify(`No events for member ${id}`, "info"); return; }
+            const arr = (memberEvents.get(id) || []).slice(-max);
+            innerCtx.ui.notify(`Events for ${id} (last ${arr.length}):\n${arr.join('\n')}`, "info");
+          } catch (e) {
+            innerCtx.ui.notify(`Failed to read events - ${String(e)}`, "error");
           }
           return;
         }
