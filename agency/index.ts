@@ -417,72 +417,6 @@ export default function (pi: ExtensionAPI) {
             // Push a summarized, in-memory event for the member for quick inspection
             try { pushMemberEvent(m.id, parsed); } catch (e) {}
 
-            // Optionally log raw events to console for debugging if runtime toggle enabled
-            try {
-              if (debugRawLogging) {
-                try {
-                  const MAX_STR = 40;
-                  function truncateStr(s: string) {
-                    if (s.length > MAX_STR) return s.slice(0, MAX_STR) + "...";
-                    return s;
-                  }
-                  function truncateDeep(v: any, depth: number): any {
-                    if (depth <= 0) return "...";
-                    if (v === null || v === undefined) return v;
-                    const t = typeof v;
-                    if (t === "string") return truncateStr(v);
-                    if (t === "number" || t === "boolean") return v;
-                    if (Array.isArray(v)) {
-                      const out = v.slice(0, 3).map((x) => truncateDeep(x, depth - 1));
-                      if (v.length > 3) out.push("...");
-                      return out;
-                    }
-                    if (t === "object") {
-                      const keys = Object.keys(v);
-                      const out: any = {};
-                      let i = 0;
-                      for (const k of keys) {
-                        if (i >= 6) { out["..."] = true; break; }
-                        out[k] = truncateDeep(v[k], depth - 1);
-                        i++;
-                      }
-                      return out;
-                    }
-                    try { return String(v).slice(0, MAX_STR); } catch { return v; }
-                  }
-
-                  let summary = "";
-                  if (parsed && typeof parsed === "object") {
-                    if (parsed.type === "extension_ui_request" || parsed.type === "message_end") {
-                      summary = JSON.stringify(truncateDeep(parsed, 3));
-                    } else if (parsed.type === "message_update") {
-                      const rep: any = { type: parsed.type };
-                      try {
-                        const ame = parsed.assistantMessageEvent;
-                        if (ame && typeof ame === "object") {
-                          rep.assistantMessageEvent = { type: String(ame.type) };
-                          if (Object.keys(ame).length > 1) rep.assistantMessageEvent["..."] = true;
-                        }
-                      } catch {}
-                      // include other top-level keys truncated
-                      try {
-                        for (const k of Object.keys(parsed)) {
-                          if (k === "type" || k === "assistantMessageEvent") continue;
-                          rep[k] = truncateDeep(parsed[k], 1);
-                        }
-                      } catch {}
-                      summary = JSON.stringify(rep);
-                    } else {
-                      summary = JSON.stringify(truncateDeep(parsed, 2));
-                    }
-                  } else {
-                    summary = JSON.stringify(parsed);
-                  }
-
-                  try { console.log(`[agency:${m.id}] ${new Date().toISOString()} RAW ${summary}`); } catch (e) { /* ignore */ }
-                } catch (e) { /* ignore */ }
-              }
-            } catch (e) { /* ignore */ }
             // If we were initializing, the first parsed event means the process is alive; mark idle unless the event indicates activity
                     if (session.status === "initializing") session.status = "idle";
             handleMemberMessage(m.id, parsed);
@@ -516,8 +450,6 @@ export default function (pi: ExtensionAPI) {
 
   let commandRegistered = false;
 
-  // runtime debug toggle: when true, log raw parsed events to console
-  let debugRawLogging = false;
 
   function handleMemberMessage(memberId: string, msg: any) {
     const session = sessions.get(memberId);
@@ -581,7 +513,6 @@ export default function (pi: ExtensionAPI) {
     } else {
       // Fallback for simple messages
       if (msg.type === "ack") session.status = "busy";
-      if (msg.type === "log") console.log(`[agency:${memberId}]`, msg.line);
       if (msg.type === "done") {
         const finishedTaskId = session.currentTaskId ?? null;
         session.status = "idle";
@@ -824,7 +755,7 @@ export default function (pi: ExtensionAPI) {
 
         // Role verb shorthand: /agency <verb> <task>
         // Reserved commands (handled below) should take precedence over role verbs.
-        const reservedCommands = new Set(["help","add","remove","list","assign","clear","log","events"]);
+        const reservedCommands = new Set(["help","add","remove","list","assign","clear","events"]);
         if (verb && !reservedCommands.has(verb.toLowerCase()) && verbMap.has(verb.toLowerCase())) {
           const role = verbMap.get(verb.toLowerCase())!;
           const taskText = parts.slice(1).join(" ").trim();
@@ -1041,20 +972,6 @@ export default function (pi: ExtensionAPI) {
           return;
         }
 
-        // Logging toggle: /agency log on|off|status
-        if (verb === "log") {
-          const arg = parts[1] ? parts[1].toLowerCase() : "status";
-          if (arg === "on") {
-            debugRawLogging = true;
-            innerCtx.ui.notify("Enabled raw event console logging", "info");
-          } else if (arg === "off") {
-            debugRawLogging = false;
-            innerCtx.ui.notify("Disabled raw event console logging", "info");
-          } else {
-            innerCtx.ui.notify(`Raw event console logging is ${debugRawLogging ? 'on' : 'off'}`, "info");
-          }
-          return;
-        }
 
         // Show recent in-memory member events: /agency events <id|all> [N]
         if (verb === "events") {
