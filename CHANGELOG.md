@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.6.1
+
+- Fix `web-search` extension behavior when GEMINI_API_KEY is missing or invalid
+  - Do not attempt Gemini calls without GEMINI_API_KEY; show a UI notification in interactive sessions and abort the current agent turn
+  - On authentication failures (HTTP 401/403 or invalid/expired key), notify the user, call ctx.abort(), and surface an AbortError so the agent stops instead of attempting workarounds
+  - Use the runner-provided ctx.signal for all in-flight fetches so ctx.abort() cancels network requests promptly (applies to web_search, web_search_summary, and web_fetch)
+  - Replace top-level console.warn with a session-start UI notification
+
 ## 2.6.0
 
 - Add `nodoz` extension to keep macOS awake while Pi is actively working

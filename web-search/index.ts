@@ -3,6 +3,7 @@ import { Type } from "@sinclair/typebox";
 import { Text } from "@mariozechner/pi-tui";
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+
 const GEMINI_ENDPOINT =
   "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent";
 
@@ -58,7 +59,7 @@ function withTimeout(ms: number, signal?: AbortSignal): AbortSignal {
 
 function isAuthError(code?: number, message?: string): boolean {
   if (code === 401 || code === 403) return true;
-  if (message && /(expired|unauthorized|permission)/i.test(message)) return true;
+  if (message && /(expired|unauthorized|permission|invalid|not valid)/i.test(message)) return true;
   return false;
 }
 
@@ -67,6 +68,19 @@ function formatAuthError(): string {
     "Your GEMINI_API_KEY may be invalid or expired. " +
     "Get a free key at https://aistudio.google.com/apikey"
   );
+}
+
+// Create an AbortError-like exception. Prefer DOMException when available so
+// it matches what fetch() and other browser APIs throw on abort.
+function makeAbortError(message: string): Error {
+  try {
+    // DOMException exists in newer Node versions; prefer it when present.
+    // @ts-ignore - DOMException may not be in the TS lib for this project
+    if (typeof DOMException !== "undefined") return new DOMException(message, "AbortError");
+  } catch {}
+  const e = new Error(message);
+  e.name = "AbortError";
+  return e;
 }
 
 // ---------------------------------------------------------------------------
@@ -143,6 +157,11 @@ async function callGemini(
     },
   );
 
+  // If the HTTP status indicates an auth problem, surface a clear auth error
+  if (response.status === 401 || response.status === 403) {
+    throw new Error(formatAuthError());
+  }
+
   let data: any;
   try {
     data = await response.json();
@@ -157,6 +176,7 @@ async function callGemini(
     if (isAuthError(data.error.code, data.error.message)) {
       throw new Error(formatAuthError());
     }
+
     throw new Error(data.error.message || "Unknown Gemini API error");
   }
 
@@ -318,6 +338,21 @@ function formatSources(sources: Source[]): string {
 // ---------------------------------------------------------------------------
 
 export default function (pi: ExtensionAPI) {
+  // Notify users in the UI when a session starts if the GEMINI_API_KEY is missing.
+  // Interactive sessions will show a UI notification; headless runs will not be
+  // notified until the tool is invoked (which will throw a clear error).
+  pi.on("session_start", async (_event, ctx) => {
+    if (!GEMINI_API_KEY) {
+      try {
+        ctx.ui.notify(
+          "web-search: GEMINI_API_KEY environment variable is not set. The web_search/web_search_summary tools will fail. Get a key at https://aistudio.google.com/apikey",
+          "warning",
+        );
+      } catch (e) {
+        // ignore notification errors
+      }
+    }
+  });
   pi.registerTool({
     name: "web_search",
     label: "Web Search",
@@ -325,17 +360,54 @@ export default function (pi: ExtensionAPI) {
     parameters: Type.Object({
       query: Type.String({ description: "Search query" }),
     }),
-    async execute(_id, params, signal) {
+    async execute(_id, params, signal, _onUpdate, ctx) {
+      // If the API key is not present, abort early instead of attempting the call.
+      if (!GEMINI_API_KEY) {
+        try {
+          if (ctx?.hasUI) {
+            ctx.ui.notify(
+              "web-search: GEMINI_API_KEY environment variable is not set. The web_search tools will fail. Get a key at https://aistudio.google.com/apikey",
+              "error",
+            );
+          }
+        } catch (e) {
+          // ignore UI errors
+        }
+        // Cancel the current agent turn so the model doesn't attempt workarounds.
+        try {
+          ctx?.abort();
+        } catch {}
+        throw makeAbortError("Aborted: GEMINI_API_KEY is not set");
+      }
+
       try {
-        const { text, sources } = await callGemini(params.query, false, signal);
+        const { text, sources } = await callGemini(params.query, false, ctx?.signal ?? signal);
         return {
           content: [{ type: "text", text: text + formatSources(sources) }],
           details: { sources: sources.length },
         };
       } catch (err: any) {
         if (err?.name === "AbortError") throw err;
+
+        const msg = err?.message || String(err);
+        // If this looks like an auth error (invalid/expired/key not valid), abort the agent turn.
+        if (/GEMINI_API_KEY|invalid|not valid|expired|unauthorized|permission/i.test(msg)) {
+          try {
+            if (ctx?.hasUI) {
+              ctx.ui.notify(
+                "web-search: Gemini authentication failed (invalid or expired GEMINI_API_KEY). Aborting the current operation.",
+                "error",
+              );
+            }
+          } catch {}
+          try {
+            ctx?.abort();
+          } catch {}
+          throw makeAbortError("Aborted: Gemini authentication failed (invalid or expired GEMINI_API_KEY)");
+        }
+
         return {
-          content: [{ type: "text", text: err?.message || String(err) }],
+          content: [{ type: "text", text: msg }],
           details: { error: true },
         };
       }
@@ -363,17 +435,51 @@ export default function (pi: ExtensionAPI) {
     parameters: Type.Object({
       query: Type.String({ description: "Search query" }),
     }),
-    async execute(_id, params, signal) {
+    async execute(_id, params, signal, _onUpdate, ctx) {
+      if (!GEMINI_API_KEY) {
+        try {
+          if (ctx?.hasUI) {
+            ctx.ui.notify(
+              "web-search: GEMINI_API_KEY environment variable is not set. The web_search_summary tools will fail. Get a key at https://aistudio.google.com/apikey",
+              "error",
+            );
+          }
+        } catch (e) {
+          // ignore UI errors
+        }
+        try {
+          ctx?.abort();
+        } catch {}
+        throw makeAbortError("Aborted: GEMINI_API_KEY is not set");
+      }
+
       try {
-        const { text, sources } = await callGemini(params.query, true, signal);
+        const { text, sources } = await callGemini(params.query, true, ctx?.signal ?? signal);
         return {
           content: [{ type: "text", text: text + formatSources(sources) }],
           details: { sources: sources.length },
         };
       } catch (err: any) {
         if (err?.name === "AbortError") throw err;
+
+        const msg = err?.message || String(err);
+        if (/GEMINI_API_KEY|invalid|not valid|expired|unauthorized|permission/i.test(msg)) {
+          try {
+            if (ctx?.hasUI) {
+              ctx.ui.notify(
+                "web-search: Gemini authentication failed (invalid or expired GEMINI_API_KEY). Aborting the current operation.",
+                "error",
+              );
+            }
+          } catch {}
+          try {
+            ctx?.abort();
+          } catch {}
+          throw makeAbortError("Aborted: Gemini authentication failed (invalid or expired GEMINI_API_KEY)");
+        }
+
         return {
-          content: [{ type: "text", text: err?.message || String(err) }],
+          content: [{ type: "text", text: msg }],
           details: { error: true },
         };
       }
@@ -403,9 +509,9 @@ export default function (pi: ExtensionAPI) {
     parameters: Type.Object({
       url: Type.String({ description: "URL to fetch" }),
     }),
-    async execute(_id, params, signal) {
+    async execute(_id, params, signal, _onUpdate, ctx) {
       try {
-        const extracted = await fetchPageText(params.url, signal);
+        const extracted = await fetchPageText(params.url, ctx?.signal ?? signal);
         return {
           content: [{ type: "text", text: extracted }],
           details: { chars: extracted.length, url: params.url },
@@ -424,6 +530,7 @@ export default function (pi: ExtensionAPI) {
         };
       }
     },
+
     renderCall(args, theme, context) {
       const text = (context.lastComponent as Text | undefined) ?? new Text("", 0, 0);
       text.setText(theme.bold("web_fetch") + " " + theme.fg("muted", args.url));
