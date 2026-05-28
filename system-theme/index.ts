@@ -8,7 +8,7 @@
  *   - Automatic theme syncing on session start
  *   - Polling for system appearance changes
  *   - /system-theme command to configure dark/light theme names and poll interval
- *   - Persists config overrides to ~/.pi/agent/system-theme.json
+ *   - Persists config overrides to ${PI_CODING_AGENT_DIR:-~/.pi/agent}/system-theme.json
  */
 
 import type {
@@ -16,9 +16,9 @@ import type {
   ExtensionCommandContext,
   ExtensionContext,
 } from "@mariozechner/pi-coding-agent";
+import { getAgentDir } from "@mariozechner/pi-coding-agent";
 import { execFile } from "node:child_process";
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
-import os from "node:os";
 import path from "node:path";
 import { promisify } from "node:util";
 
@@ -38,12 +38,7 @@ const DEFAULT_CONFIG: Config = {
   pollMs: 2000,
 };
 
-const GLOBAL_CONFIG_PATH = path.join(
-  os.homedir(),
-  ".pi",
-  "agent",
-  "system-theme.json",
-);
+const GLOBAL_CONFIG_PATH = path.join(getAgentDir(), "system-theme.json");
 const DETECTION_TIMEOUT_MS = 1200;
 const MIN_POLL_MS = 500;
 

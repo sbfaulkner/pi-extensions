@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.6.2
+
+- Update `secrets` to look for ejson files in XDG config paths (`${XDG_CONFIG_HOME:-$HOME/.config}/secrets`)
+- Update `git-workflow` config to use Pi's configured agent directory (`${PI_CODING_AGENT_DIR:-~/.pi/agent}/git-workflow.json`)
+- Update `system-theme` config to use Pi's configured agent directory (`${PI_CODING_AGENT_DIR:-~/.pi/agent}/system-theme.json`)
+
 ## 2.6.1
 
 - Fix `web-search` extension behavior when GEMINI_API_KEY is missing or invalid

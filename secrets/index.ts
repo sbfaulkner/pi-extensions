@@ -1,8 +1,9 @@
 /**
  * Secrets Extension
  *
- * Loads environment variables from ejson secret files (~/.secrets.d/)
- * and injects them into all bash tool invocations.
+ * Loads environment variables from ejson secret files
+ * (${XDG_CONFIG_HOME:-$HOME/.config}/secrets) and injects them into all bash tool
+ * invocations.
  *
  * Provides:
  *   - load_secrets tool: LLM can load secrets by name
@@ -15,22 +16,26 @@ import { createBashTool } from "@mariozechner/pi-coding-agent";
 import { Type } from "@sinclair/typebox";
 import { execFileSync } from "node:child_process";
 import { existsSync, readdirSync } from "node:fs";
+import os from "node:os";
 import { join } from "node:path";
 
-const SECRETS_DIR = join(process.env.HOME ?? "", ".secrets.d");
+const XDG_CONFIG_HOME = process.env.XDG_CONFIG_HOME || join(os.homedir(), ".config");
+const SECRETS_DIR = join(XDG_CONFIG_HOME, "secrets");
 
 function getAvailableSecrets(): string[] {
   if (!existsSync(SECRETS_DIR)) return [];
   return readdirSync(SECRETS_DIR)
     .filter((f) => f.endsWith(".ejson"))
-    .map((f) => f.replace(/\.ejson$/, ""));
+    .map((f) => f.replace(/\.ejson$/, ""))
+    .sort();
 }
 
 function loadSecretsFromEjson(name: string): Record<string, string> {
   const ejsonPath = join(SECRETS_DIR, `${name}.ejson`);
   if (!existsSync(ejsonPath)) {
+    const available = getAvailableSecrets();
     throw new Error(
-      `Secrets file not found: ${ejsonPath}\nAvailable: ${getAvailableSecrets().join(", ")}`,
+      `Secrets file not found: ${ejsonPath}\nAvailable: ${available.join(", ") || "(none)"}`,
     );
   }
 
@@ -80,7 +85,7 @@ export default function (pi: ExtensionAPI) {
     description:
       "Load environment variables from an ejson secret file. Once loaded, secrets are available in all subsequent bash commands.",
     promptSnippet:
-      "Load env vars from ~/.secrets.d/ ejson files into all bash commands",
+      "Load env vars from XDG secrets ejson files into all bash commands",
     promptGuidelines: [
       "Use load_secrets when a command needs API tokens or secrets (e.g. CLOUDFLARE_API_TOKEN).",
       "Never output secret values to the user.",
@@ -88,7 +93,7 @@ export default function (pi: ExtensionAPI) {
     parameters: Type.Object({
       name: Type.String({
         description:
-          'Name of the secrets file (without .ejson extension). Defaults to "secrets". Available files are in ~/.secrets.d/.',
+          'Name of the secrets file (without .ejson extension). Defaults to "secrets". Available files are in ${XDG_CONFIG_HOME:-$HOME/.config}/secrets.',
       }),
     }),
     async execute(_toolCallId, params) {

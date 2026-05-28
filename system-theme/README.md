@@ -25,7 +25,7 @@ Use `/system-theme` to interactively configure:
 2. Light theme name
 3. Poll interval (ms)
 
-Overrides are persisted to `~/.pi/agent/system-theme.json`:
+Overrides are persisted to `${PI_CODING_AGENT_DIR:-~/.pi/agent}/system-theme.json`:
 
 ```json
 {

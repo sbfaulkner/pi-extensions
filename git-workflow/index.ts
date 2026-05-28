@@ -11,18 +11,19 @@
  * graphite skill. Local git guidance lives in the git-workflow skill. GitHub
  * PR guidance lives in the github-workflow skill.
  *
- * Config: ~/.config/pi/git-workflow.json
+ * Config: ${PI_CODING_AGENT_DIR:-~/.pi/agent}/git-workflow.json
  * Command: /workflow (add/remove/list orgs, detect current repo)
  */
 
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
+import { getAgentDir } from "@mariozechner/pi-coding-agent";
 import { execFileSync } from "node:child_process";
 import * as fs from "node:fs";
 import * as path from "node:path";
 
 // --- Configuration ---
 
-const CONFIG_DIR = path.join(process.env.HOME ?? "", ".config", "pi");
+const CONFIG_DIR = getAgentDir();
 const CONFIG_PATH = path.join(CONFIG_DIR, "git-workflow.json");
 
 interface Config {
