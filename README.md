@@ -38,7 +38,7 @@ Use `/workflow` to manage which GitHub orgs should use Graphite guidance. It sup
 /workflow detect
 ```
 
-The extension stores config in `~/.config/pi/git-workflow.json` and shows the detected workflow in the status bar.
+The extension stores config in `${PI_CODING_AGENT_DIR:-~/.pi/agent}/git-workflow.json` and shows the detected workflow in the status bar.
 
 ## Install
 

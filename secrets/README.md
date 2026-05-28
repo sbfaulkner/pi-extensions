@@ -1,6 +1,6 @@
 # Secrets
 
-Loads environment variables from encrypted ejson files (`~/.secrets.d/`) and injects them into all bash tool invocations.
+Loads environment variables from encrypted ejson files (`${XDG_CONFIG_HOME:-$HOME/.config}/secrets`) and injects them into all bash tool invocations.
 
 ## Features
 
@@ -28,5 +28,5 @@ The `load_secrets` tool is available for the LLM to call when a command needs AP
 ## Requirements
 
 - `ejson2env` installed (e.g. `brew install shopify/shopify/ejson2env`)
-- Encrypted ejson files in `~/.secrets.d/`
+- Encrypted ejson files in `${XDG_CONFIG_HOME:-$HOME/.config}/secrets`
 - Corresponding private keys in `/opt/ejson/keys/`
