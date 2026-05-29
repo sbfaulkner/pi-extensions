@@ -1,6 +1,6 @@
 {
   "name": "pi-extensions",
-  "version": "2.6.2",
+  "version": "2.7.0",
   "license": "MIT",
   "private": true,
   "keywords": [
@@ -12,6 +12,7 @@
   "pi": {
     "extensions": [
       "./git-workflow/index.ts",
+      "./handoff/index.ts",
       "./interview/index.ts",
       "./nodoz/index.ts",
       "./secrets/index.ts",
