@@ -10,6 +10,9 @@
  *   /handoff check other places that need this fix
  *
  * The generated prompt appears as a draft in the editor for review/editing.
+ *
+ * Adapted from Pi's official handoff example:
+ * https://github.com/earendil-works/pi/blob/main/packages/coding-agent/examples/extensions/handoff.ts
  */
 
 import type { AgentMessage } from "@mariozechner/pi-agent-core";
@@ -39,6 +42,10 @@ Files involved:
 ## Task
 [Clear description of what to do next based on user's goal]`;
 
+function entryTimestamp(entry: SessionEntry): number {
+	return new Date(entry.timestamp).getTime();
+}
+
 function entryToMessage(entry: SessionEntry): AgentMessage | undefined {
 	if (entry.type === "message") {
 		return entry.message;
@@ -49,7 +56,27 @@ function entryToMessage(entry: SessionEntry): AgentMessage | undefined {
 			role: "compactionSummary",
 			summary: entry.summary,
 			tokensBefore: entry.tokensBefore,
-			timestamp: new Date(entry.timestamp).getTime(),
+			timestamp: entryTimestamp(entry),
+		};
+	}
+
+	if (entry.type === "branch_summary") {
+		return {
+			role: "branchSummary",
+			summary: entry.summary,
+			fromId: entry.fromId,
+			timestamp: entryTimestamp(entry),
+		};
+	}
+
+	if (entry.type === "custom_message") {
+		return {
+			role: "custom",
+			customType: entry.customType,
+			content: entry.content,
+			display: entry.display,
+			details: entry.details,
+			timestamp: entryTimestamp(entry),
 		};
 	}
 
@@ -100,6 +127,8 @@ export default function (pi: ExtensionAPI) {
 				ctx.ui.notify("Usage: /handoff <goal for new session>", "error");
 				return;
 			}
+
+			await ctx.waitForIdle();
 
 			// Gather conversation context from current branch. If the branch was compacted,
 			// include the compaction summary plus entries from firstKeptEntryId onward.
@@ -168,6 +197,11 @@ export default function (pi: ExtensionAPI) {
 
 			if (result === null) {
 				ctx.ui.notify(generationError ?? "Cancelled", generationError ? "error" : "info");
+				return;
+			}
+
+			if (!result.trim()) {
+				ctx.ui.notify("Generated handoff prompt was empty", "error");
 				return;
 			}
 
