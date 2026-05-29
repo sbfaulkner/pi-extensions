@@ -13,6 +13,7 @@ Personal extensions for the [Pi coding agent](https://buildwithpi.com).
 | [vim](./vim/) | Vi/readline-style modal editing for pi's input editor. Escape for normal mode, `hjkl` navigation, `d/c/y` operators, counts, and more. |
 | [web-search](./web-search/) | Web search and page fetching via Gemini API with Google Search grounding. Provides `web_search`, `web_search_summary`, and `web_fetch` tools. Requires `GEMINI_API_KEY`. |
 | [git-workflow](./git-workflow/) | Auto-detect git workflow (local git, non-GitHub remotes, standard GitHub PRs, or Graphite) and inject context hints. `/workflow` command to manage configured Graphite orgs. |
+| [handoff](./handoff/) | Transfer context into a new focused session with `/handoff <goal>`, preserving recent compaction context and staging an editable prompt. |
 | [nodoz](./nodoz/) | Keep macOS awake while Pi is actively working. Uses lifecycle-scoped `caffeinate` in interactive TTY sessions only. |
 
 ## Skills

@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.7.0
+
+- Add `handoff` extension based on Pi's official handoff example
+  - Provides `/handoff <goal>` to generate a self-contained prompt for a new focused session
+  - Lets the user edit the generated prompt before creating a parent-linked replacement session
+  - Preserves recent compaction context when building the handoff conversation history
+
 ## 2.6.2
 
 - Update `secrets` to look for ejson files in XDG config paths (`${XDG_CONFIG_HOME:-$HOME/.config}/secrets`)
