@@ -221,7 +221,6 @@ export class ViEditor extends CustomEditor {
   private countBuffer: string = "";
   private operatorCountBuffer: string = "";
   private redoStack: Array<{ text: string; line: number; col: number }> = [];
-  private transitionActive: boolean = false;
 
   // --- Public test API ---
 
@@ -356,9 +355,7 @@ export class ViEditor extends CustomEditor {
   private performUndo(): void {
     const textBefore = this.fullText();
     const posBefore = this.getCursorPos();
-    this.transitionActive = true;
     super.handleInput(CTRL_UNDERSCORE);
-    this.transitionActive = false;
 
     const textAfter = this.fullText();
     if (
@@ -375,7 +372,6 @@ export class ViEditor extends CustomEditor {
     if (!snapshot) return;
 
     const editor = this as unknown as EditorInternals;
-    this.transitionActive = true;
     editor.pushUndoSnapshot?.();
 
     const lines = snapshot.text.length === 0 ? [""] : snapshot.text.split("\n");
@@ -390,7 +386,6 @@ export class ViEditor extends CustomEditor {
       editor.onChange?.(snapshot.text);
       editor.tui?.requestRender?.();
     }
-    this.transitionActive = false;
   }
 
   // --- Count handling ---
