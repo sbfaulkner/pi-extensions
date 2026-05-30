@@ -497,6 +497,34 @@ export default function (pi: ExtensionAPI) {
       };
       sessions.set(m.id, session);
 
+      let spawnSettled = false;
+      let resolveSpawn: ((spawned: boolean) => void) | undefined;
+      const spawnResult = new Promise<boolean>((resolve) => {
+        resolveSpawn = resolve;
+      });
+
+      proc.on("error", (error) => {
+        session.status = "error";
+        session.proc = null;
+        try {
+          events.emit("change");
+        } catch {}
+        if (!spawnSettled) {
+          spawnSettled = true;
+          console.warn("Failed to spawn member", error);
+          resolveSpawn?.(false);
+        } else {
+          console.warn(`[agency:${m.id}] process error:`, error);
+        }
+      });
+
+      proc.once("spawn", () => {
+        if (!spawnSettled) {
+          spawnSettled = true;
+          resolveSpawn?.(true);
+        }
+      });
+
       proc.stdout.setEncoding("utf8");
       proc.stdout.on("data", (chunk: string) => {
         session.buffer += chunk;
@@ -544,6 +572,9 @@ export default function (pi: ExtensionAPI) {
           events.emit("change");
         } catch {}
       });
+
+      const spawned = await spawnResult;
+      if (!spawned) return null;
 
       // trigger UI update
       try {
@@ -895,8 +926,17 @@ export default function (pi: ExtensionAPI) {
         thinking: thinking ?? null,
       } as Member;
       members.set(id, member);
+      const sess = await spawnMemberProcess(member);
+      if (!sess) {
+        members.delete(id);
+        sessions.delete(id);
+        innerCtx.ui.notify(`Failed to spawn member ${roleId} ${displayName ?? id} - spawn failed`, "error");
+        try {
+          events.emit("change");
+        } catch {}
+        return null;
+      }
       await saveState(innerCtx);
-      await spawnMemberProcess(member);
       try {
         events.emit("change");
       } catch {}
@@ -1074,13 +1114,19 @@ export default function (pi: ExtensionAPI) {
             thinking: thinking ?? null,
           };
           members.set(id, member);
-          await saveState(innerCtx);
           // Spawn the member process immediately
           const sess = await spawnMemberProcess(member);
           if (sess) {
+            await saveState(innerCtx);
             innerCtx.ui.notify(`Added ${role} ${displayName ?? id}`, "info");
           } else {
+            members.delete(id);
+            sessions.delete(id);
             innerCtx.ui.notify(`Failed to spawn member ${role} ${displayName ?? id} - spawn failed`, "error");
+            try {
+              events.emit("change");
+            } catch {}
+            return;
           }
           try {
             events.emit("change");
