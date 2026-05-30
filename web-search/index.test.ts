@@ -366,6 +366,29 @@ test("web_fetch reports allowlist blocks with the requested hostname", async () 
   }
 });
 
+test("web_fetch reports non-success HTTP responses", async () => {
+  const restoreFetch = installFetch(async () => {
+    return new Response("not found", { status: 404, statusText: "Not Found" });
+  });
+  const harness = await setupExtension("test-key");
+
+  try {
+    const result = await getTool(harness.tools, "web_fetch").execute(
+      "tool-call",
+      { url: "https://example.com/missing" },
+      undefined,
+      undefined,
+      {},
+    );
+
+    assert.deepEqual(result.details, { error: true });
+    assert.equal(result.content[0].text, "HTTP 404 Not Found fetching https://example.com/missing");
+  } finally {
+    restoreFetch();
+    harness.restoreEnv();
+  }
+});
+
 test("web_fetch rejects binary content types", async () => {
   const restoreFetch = installFetch(async () => {
     return new Response("binary", { status: 200, headers: { "content-type": "application/pdf" } });
