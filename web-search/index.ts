@@ -65,6 +65,20 @@ function formatAuthError(): string {
   return "Your GEMINI_API_KEY may be invalid or expired. " + "Get a free key at https://aistudio.google.com/apikey";
 }
 
+function errorField(error: unknown, field: "message" | "name"): string | undefined {
+  if (typeof error !== "object" || error === null) return undefined;
+  const value = (error as Record<typeof field, unknown>)[field];
+  return typeof value === "string" ? value : undefined;
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : (errorField(error, "message") ?? String(error));
+}
+
+function isAbortError(error: unknown): boolean {
+  return errorField(error, "name") === "AbortError";
+}
+
 // Create an AbortError-like exception. Prefer DOMException when available so
 // it matches what fetch() and other browser APIs throw on abort.
 function makeAbortError(message: string): Error {
@@ -84,6 +98,21 @@ function makeAbortError(message: string): Error {
 interface Source {
   title: string;
   uri: string;
+}
+
+interface GeminiResponse {
+  error?: {
+    code?: number;
+    message?: string;
+  };
+  candidates?: Array<{
+    content?: {
+      parts?: Array<{ text?: string }>;
+    };
+    groundingMetadata?: {
+      groundingChunks?: Array<{ web?: { title?: string; uri?: string } }>;
+    };
+  }>;
 }
 
 async function resolveRedirects(sources: Source[], signal?: AbortSignal): Promise<Source[]> {
@@ -149,9 +178,9 @@ async function callGemini(
     throw new Error(formatAuthError());
   }
 
-  let data: any;
+  let data: GeminiResponse;
   try {
-    data = await response.json();
+    data = (await response.json()) as GeminiResponse;
   } catch {
     const text = await response.text().catch(() => "");
     throw new Error(
@@ -164,13 +193,14 @@ async function callGemini(
       throw new Error(formatAuthError());
     }
 
-    throw new Error(data.error.message || "Unknown Gemini API error");
+    throw new Error(data.error.message ?? "Unknown Gemini API error");
   }
 
-  const answer = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
-  const chunks: Array<{ web?: { title: string; uri: string } }> =
-    data.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
-  const rawSources = chunks.map((c) => c.web).filter((x): x is Source => !!(x?.title && x.uri));
+  const answer = data.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
+  const chunks = data.candidates?.[0]?.groundingMetadata?.groundingChunks ?? [];
+  const rawSources = chunks
+    .map((c) => c.web)
+    .filter((x): x is Source => typeof x?.title === "string" && x.title.length > 0 && typeof x.uri === "string");
 
   const sources = await resolveRedirects(rawSources, signal);
 
@@ -257,7 +287,8 @@ async function fetchPageText(url: string, signal?: AbortSignal): Promise<string>
   }
 
   // Check fetch guard hook
-  const hook = (globalThis as any).__piFetchReviewHook;
+  const hook = (globalThis as typeof globalThis & { __piFetchReviewHook?: (url: string) => unknown })
+    .__piFetchReviewHook;
   if (typeof hook === "function") {
     await hook(url);
   }
@@ -368,10 +399,10 @@ export default function (pi: ExtensionAPI) {
           content: [{ type: "text", text: text + formatSources(sources) }],
           details: { sources: sources.length },
         };
-      } catch (err: any) {
-        if (err?.name === "AbortError") throw err;
+      } catch (err) {
+        if (isAbortError(err)) throw err;
 
-        const msg = err?.message || String(err);
+        const msg = errorMessage(err);
         // If this looks like an auth error (invalid/expired/key not valid), abort the agent turn.
         if (/GEMINI_API_KEY|invalid|not valid|expired|unauthorized|permission/i.test(msg)) {
           try {
@@ -442,10 +473,10 @@ export default function (pi: ExtensionAPI) {
           content: [{ type: "text", text: text + formatSources(sources) }],
           details: { sources: sources.length },
         };
-      } catch (err: any) {
-        if (err?.name === "AbortError") throw err;
+      } catch (err) {
+        if (isAbortError(err)) throw err;
 
-        const msg = err?.message || String(err);
+        const msg = errorMessage(err);
         if (/GEMINI_API_KEY|invalid|not valid|expired|unauthorized|permission/i.test(msg)) {
           try {
             if (ctx?.hasUI) {
@@ -498,8 +529,8 @@ export default function (pi: ExtensionAPI) {
           content: [{ type: "text", text: extracted }],
           details: { chars: extracted.length, url: params.url },
         };
-      } catch (err: any) {
-        if (err?.name === "AbortError") throw err;
+      } catch (err) {
+        if (isAbortError(err)) throw err;
         if (err instanceof BlockedDomainError) {
           return {
             content: [
@@ -509,7 +540,7 @@ export default function (pi: ExtensionAPI) {
           };
         }
         return {
-          content: [{ type: "text", text: err?.message || String(err) }],
+          content: [{ type: "text", text: errorMessage(err) }],
           details: { error: true },
         };
       }
