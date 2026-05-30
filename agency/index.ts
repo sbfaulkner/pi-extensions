@@ -43,7 +43,7 @@ export default function (pi: ExtensionAPI) {
     if (depth <= 0) return "...";
     if (v === null || v === undefined) return v;
     const t = typeof v;
-    if (t === "string") return v.length > 120 ? v.slice(0, 120) + "..." : v;
+    if (t === "string") return v.length > 120 ? `${v.slice(0, 120)}...` : v;
     if (t === "number" || t === "boolean") return v;
     if (Array.isArray(v)) {
       const out = v.slice(0, 3).map((x) => truncateDeep(x, depth - 1));
@@ -612,7 +612,7 @@ export default function (pi: ExtensionAPI) {
     const session = sessions.get(memberId);
     if (!session || !session.proc || !session.proc.stdin) return false;
     try {
-      session.proc.stdin.write(JSON.stringify(obj) + "\n");
+      session.proc.stdin.write(`${JSON.stringify(obj)}\n`);
       return true;
     } catch (e) {
       return false;
