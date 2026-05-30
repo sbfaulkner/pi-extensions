@@ -898,7 +898,8 @@ export default function (pi: ExtensionAPI) {
         // Reserved commands (handled below) should take precedence over role verbs.
         const reservedCommands = new Set(["help", "add", "remove", "list", "assign", "clear", "events"]);
         if (verb && !reservedCommands.has(verb.toLowerCase()) && verbMap.has(verb.toLowerCase())) {
-          const role = verbMap.get(verb.toLowerCase())!;
+          const role = verbMap.get(verb.toLowerCase());
+          if (!role) return;
           const taskText = parts.slice(1).join(" ").trim();
 
           if (!taskText) {

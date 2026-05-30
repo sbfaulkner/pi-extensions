@@ -97,7 +97,7 @@ export default function (pi: ExtensionAPI) {
         const vars = loadSecretsFromEjson(params.name);
         loadedSecrets = { ...loadedSecrets, ...vars };
         for (const [key, value] of Object.entries(vars)) {
-          process.env[key] = value!;
+          process.env[key] = value;
           loadedEnvVarNames.add(key);
         }
         if (!loadedNames.includes(params.name)) {
@@ -151,7 +151,7 @@ export default function (pi: ExtensionAPI) {
         const vars = loadSecretsFromEjson(name);
         loadedSecrets = { ...loadedSecrets, ...vars };
         for (const [key, value] of Object.entries(vars)) {
-          process.env[key] = value!;
+          process.env[key] = value;
           loadedEnvVarNames.add(key);
         }
         if (!loadedNames.includes(name)) {
@@ -183,7 +183,7 @@ export default function (pi: ExtensionAPI) {
             const vars = loadSecretsFromEjson(name);
             loadedSecrets = { ...loadedSecrets, ...vars };
             for (const [key, value] of Object.entries(vars)) {
-              process.env[key] = value!;
+              process.env[key] = value;
               loadedEnvVarNames.add(key);
             }
             if (!loadedNames.includes(name)) {
