@@ -20,15 +20,15 @@ import { promisify } from "node:util";
 
 const execFileAsync = promisify(execFile);
 
-type Config = {
+export type Config = {
   darkTheme: string;
   lightTheme: string;
   pollMs: number;
 };
 
-type Appearance = "dark" | "light";
+export type Appearance = "dark" | "light";
 
-const DEFAULT_CONFIG: Config = {
+export const DEFAULT_CONFIG: Config = {
   darkTheme: "dark",
   lightTheme: "light",
   pollMs: 2000,
@@ -40,7 +40,7 @@ const MIN_POLL_MS = 500;
 
 // --- Config persistence ---
 
-function getOverrides(config: Config): Partial<Config> {
+export function getOverrides(config: Config): Partial<Config> {
   const overrides: Partial<Config> = {};
   if (config.darkTheme !== DEFAULT_CONFIG.darkTheme) overrides.darkTheme = config.darkTheme;
   if (config.lightTheme !== DEFAULT_CONFIG.lightTheme) overrides.lightTheme = config.lightTheme;
@@ -48,7 +48,7 @@ function getOverrides(config: Config): Partial<Config> {
   return overrides;
 }
 
-async function loadConfig(): Promise<Config> {
+export async function loadConfig(): Promise<Config> {
   const config = { ...DEFAULT_CONFIG };
   try {
     const raw = await readFile(GLOBAL_CONFIG_PATH, "utf8");
@@ -67,7 +67,7 @@ async function loadConfig(): Promise<Config> {
   return config;
 }
 
-async function saveConfig(config: Config): Promise<number> {
+export async function saveConfig(config: Config): Promise<number> {
   const overrides = getOverrides(config);
   const count = Object.keys(overrides).length;
   if (count === 0) {
@@ -91,7 +91,7 @@ async function detectAppearance(): Promise<Appearance | null> {
   return null;
 }
 
-async function detectMacAppearance(): Promise<Appearance | null> {
+export async function detectMacAppearance(): Promise<Appearance | null> {
   try {
     const { stdout } = await execFileAsync("/usr/bin/defaults", ["read", "-g", "AppleInterfaceStyle"], {
       timeout: DETECTION_TIMEOUT_MS,
@@ -105,7 +105,7 @@ async function detectMacAppearance(): Promise<Appearance | null> {
   }
 }
 
-async function detectLinuxAppearance(): Promise<Appearance | null> {
+export async function detectLinuxAppearance(): Promise<Appearance | null> {
   try {
     const { stdout } = await execFileAsync("gsettings", ["get", "org.gnome.desktop.interface", "color-scheme"], {
       timeout: DETECTION_TIMEOUT_MS,
