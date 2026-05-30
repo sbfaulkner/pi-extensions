@@ -1,6 +1,6 @@
 import type { ExtensionAPI, ExtensionCommandContext, ExtensionContext } from "@mariozechner/pi-coding-agent";
 import { truncateToWidth } from "@mariozechner/pi-tui";
-import { spawn } from "node:child_process";
+import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { EventEmitter } from "node:events";
@@ -20,39 +20,82 @@ type Member = {
 };
 
 type Session = {
-  proc: any;
+  proc: ChildProcessWithoutNullStreams | null;
   buffer: string;
   status: "idle" | "busy" | "offline" | "initializing" | "pending" | "error";
   currentTaskId?: string | null;
   lastActivity?: number | null;
 };
 
+type RoleDefinition = {
+  displayName?: string;
+  provider?: string | null;
+  modelId?: string | null;
+  thinking?: string | null;
+  verbs?: string | string[];
+  names?: string[];
+};
+
+type TruncatedValue = string | number | boolean | null | undefined | TruncatedValue[] | TruncatedObject;
+interface TruncatedObject {
+  [key: string]: TruncatedValue;
+}
+
+type AppendEntryAPI = {
+  appendEntry(type: string, data: unknown): Promise<void> | void;
+};
+
+type WidgetTui = {
+  requestRender(): void;
+};
+
+type WidgetTheme = {
+  fg(style: string, text: string): string;
+};
+
+type ConfirmingUI = {
+  confirm?: (message: string) => boolean | Promise<boolean>;
+};
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function optionalString(value: unknown): string | null {
+  return typeof value === "string" ? value : null;
+}
+
+function modelField(model: unknown, field: "id" | "thinking"): string | null {
+  if (!isRecord(model)) return null;
+  return optionalString(model[field]);
+}
+
 export default function (pi: ExtensionAPI) {
   let visible = false;
   const members = new Map<string, Member>();
   const sessions = new Map<string, Session>();
   const events = new EventEmitter();
-  const roles = new Map<string, any>();
+  const roles = new Map<string, RoleDefinition>();
   const verbMap = new Map<string, string>(); // verb -> role id
 
   // Per-member recent event buffer (in-memory, capped)
   const memberEvents = new Map<string, string[]>();
   const MAX_EVENTS_PER_MEMBER = 100;
 
-  function truncateDeep(v: any, depth: number): any {
+  function truncateDeep(v: unknown, depth: number): TruncatedValue {
     if (depth <= 0) return "...";
-    if (v === null || v === undefined) return v;
-    const t = typeof v;
-    if (t === "string") return v.length > 120 ? `${v.slice(0, 120)}...` : v;
-    if (t === "number" || t === "boolean") return v;
+    if (v === null) return null;
+    if (v === undefined) return undefined;
+    if (typeof v === "string") return v.length > 120 ? `${v.slice(0, 120)}...` : v;
+    if (typeof v === "number" || typeof v === "boolean") return v;
     if (Array.isArray(v)) {
-      const out = v.slice(0, 3).map((x) => truncateDeep(x, depth - 1));
+      const out: TruncatedValue[] = v.slice(0, 3).map((x) => truncateDeep(x, depth - 1));
       if (v.length > 3) out.push("...");
       return out;
     }
-    if (t === "object") {
+    if (isRecord(v)) {
       const keys = Object.keys(v);
-      const out: any = {};
+      const out: Record<string, TruncatedValue> = {};
       let i = 0;
       for (const k of keys) {
         if (i >= 6) {
@@ -67,23 +110,26 @@ export default function (pi: ExtensionAPI) {
     try {
       return String(v).slice(0, 120);
     } catch {
-      return v;
+      return String(v);
     }
   }
 
-  function summarizeEvent(ev: any): string {
+  function summarizeEvent(ev: unknown): string {
     try {
-      if (ev && typeof ev === "object") {
-        if (ev.type === "message_end" || ev.type === "done" || ev.type === "tool_execution_end") {
-          return `${ev.type}${ev.id ? ` id=${ev.id}` : ""}`;
+      if (isRecord(ev)) {
+        const eventType = optionalString(ev.type);
+        if (eventType === "message_end" || eventType === "done" || eventType === "tool_execution_end") {
+          const id = optionalString(ev.id);
+          return `${eventType}${id ? ` id=${id}` : ""}`;
         }
-        if (ev.type === "message_update") {
-          const rep: any = { type: ev.type };
-          try {
-            rep.assistantMessageEvent = ev.assistantMessageEvent?.type
-              ? { type: ev.assistantMessageEvent.type }
-              : undefined;
-          } catch {}
+        if (eventType === "message_update") {
+          const assistantMessageEvent = isRecord(ev.assistantMessageEvent) ? ev.assistantMessageEvent : undefined;
+          const rep: Record<string, TruncatedValue> = {
+            type: eventType,
+            assistantMessageEvent: optionalString(assistantMessageEvent?.type)
+              ? { type: optionalString(assistantMessageEvent?.type) }
+              : undefined,
+          };
           return JSON.stringify(truncateDeep(rep, 2));
         }
         // Fallback to truncated JSON
@@ -95,7 +141,7 @@ export default function (pi: ExtensionAPI) {
     }
   }
 
-  function pushMemberEvent(memberId: string, ev: any) {
+  function pushMemberEvent(memberId: string, ev: unknown) {
     try {
       const s = summarizeEvent(ev);
       const arr = memberEvents.get(memberId) || [];
@@ -195,13 +241,16 @@ export default function (pi: ExtensionAPI) {
   async function loadRoles() {
     try {
       const raw = await readFile(path.join(__dirname, "roles.json"), "utf8");
-      const parsed = JSON.parse(raw);
-      for (const [k, v] of Object.entries(parsed || {})) {
+      const parsed = JSON.parse(raw) as unknown;
+      if (!isRecord(parsed)) return;
+      for (const [k, v] of Object.entries(parsed)) {
+        if (!isRecord(v)) continue;
+        const roleDef = v as RoleDefinition;
         // roles/<role>/SYSTEM.md is read at spawn time if present. Store the role definition as-is.
-        roles.set(k, v);
+        roles.set(k, roleDef);
         // collect verbs (if present) for shorthand commands
         try {
-          const verbs = (v as any).verbs;
+          const { verbs } = roleDef;
           if (verbs) {
             if (Array.isArray(verbs)) {
               for (const vb of verbs) verbMap.set(String(vb).toLowerCase(), String(k));
@@ -222,11 +271,13 @@ export default function (pi: ExtensionAPI) {
       if (ctx?.sessionManager) {
         const entries = ctx.sessionManager.getEntries();
         for (let i = entries.length - 1; i >= 0; i--) {
-          const e: any = entries[i];
-          if (e && e.type === "custom" && e.customType === "agency" && e.data && Array.isArray(e.data.members)) {
+          const e = entries[i];
+          if (!isRecord(e) || e.type !== "custom" || e.customType !== "agency" || !isRecord(e.data)) continue;
+          const entryMembers = e.data.members;
+          if (Array.isArray(entryMembers)) {
             members.clear();
-            for (const m of e.data.members) {
-              if (m && typeof m.id === "string") members.set(m.id, m as Member);
+            for (const m of entryMembers) {
+              if (isRecord(m) && typeof m.id === "string") members.set(m.id, m as Member);
             }
             return;
           }
@@ -241,8 +292,9 @@ export default function (pi: ExtensionAPI) {
   // Persist state to the current session only.
   async function saveState(ctx?: ExtensionContext | ExtensionCommandContext): Promise<void> {
     try {
-      if (ctx && typeof (pi as any).appendEntry === "function") {
-        await (pi as any).appendEntry("agency", { members: Array.from(members.values()) });
+      const appendEntry = (pi as unknown as Partial<AppendEntryAPI>).appendEntry;
+      if (ctx && typeof appendEntry === "function") {
+        await appendEntry("agency", { members: Array.from(members.values()) });
       }
     } catch {
       // ignore persistence failure in headless contexts
@@ -250,7 +302,7 @@ export default function (pi: ExtensionAPI) {
   }
 
   function makeWidgetFactory(_ctx: ExtensionContext | ExtensionCommandContext) {
-    return (tui: any, theme: any) => {
+    return (tui: WidgetTui, theme: WidgetTheme) => {
       let cachedWidth: number | undefined;
       let cachedLines: string[] | undefined;
 
@@ -412,7 +464,7 @@ export default function (pi: ExtensionAPI) {
     args.push("--mode", "rpc");
     if (m.provider) args.push("--provider", String(m.provider));
     if (m.modelId) args.push("--model", String(m.modelId));
-    if ((m as any).thinking) args.push("--thinking", String((m as any).thinking));
+    if (m.thinking) args.push("--thinking", String(m.thinking));
 
     // If a roles/<role>/SYSTEM.md file exists, pass its path via --system-prompt; otherwise do not override the default
     const roleDef = m.role ? roles.get(m.role) : undefined;
@@ -432,7 +484,7 @@ export default function (pi: ExtensionAPI) {
     try {
       const proc = spawn(cmd, args, {
         cwd: m.cwd || process.cwd(),
-        env: { ...(process.env as any), ...(m.env || {}) },
+        env: { ...process.env, ...(m.env || {}) },
         stdio: ["pipe", "pipe", "pipe"],
       });
 
@@ -486,7 +538,7 @@ export default function (pi: ExtensionAPI) {
 
       proc.on("exit", (_code) => {
         session.status = "offline";
-        session.proc = null as any;
+        session.proc = null;
         // Notify listeners to re-render if widget is present
         try {
           events.emit("change");
@@ -508,13 +560,16 @@ export default function (pi: ExtensionAPI) {
 
   let commandRegistered = false;
 
-  function handleMemberMessage(memberId: string, msg: any) {
+  function handleMemberMessage(memberId: string, msg: unknown) {
     const session = sessions.get(memberId);
     if (!session) return;
 
+    const message = isRecord(msg) ? msg : {};
+    const messageType = optionalString(message.type);
+
     // Ignore UI-only extension requests that don't represent activity
     try {
-      if (msg && msg.type === "extension_ui_request" && msg.method === "setStatus") return;
+      if (messageType === "extension_ui_request" && message.method === "setStatus") return;
     } catch {}
 
     session.lastActivity = Date.now();
@@ -523,20 +578,20 @@ export default function (pi: ExtensionAPI) {
     const maybeNotifyCompletion = (label: string, finishedTaskId: string | null) => {
       if (!finishedTaskId) return;
       try {
-        if (uiCtx?.ui && typeof (uiCtx.ui as any).notify === "function") {
+        if (uiCtx?.ui && typeof uiCtx.ui.notify === "function") {
           const m = members.get(memberId);
           const disp = m ? (m.displayName ?? m.id) : memberId;
           try {
-            (uiCtx.ui as any).notify(`${disp} ${label}${finishedTaskId ? ` (${finishedTaskId})` : ""}`, "info");
+            uiCtx.ui.notify(`${disp} ${label}${finishedTaskId ? ` (${finishedTaskId})` : ""}`, "info");
           } catch {}
         }
       } catch {}
     };
 
     // RPC-mode event handling: treat streaming and tool events as busy, message_end/tool_execution_end as idle
-    if (msg.type === "response") {
+    if (messageType === "response") {
       // command responses — no-op here (handshake handled elsewhere)
-    } else if (msg.type === "message_start" || msg.type === "message_update") {
+    } else if (messageType === "message_start" || messageType === "message_update") {
       session.status = "busy";
       // cancel any pending minimize while active
       try {
@@ -544,7 +599,7 @@ export default function (pi: ExtensionAPI) {
       } catch {}
       // clear highlight when activity resumes
       highlightMemberId = null;
-    } else if (msg.type === "message_end") {
+    } else if (messageType === "message_end") {
       // Member finished a message: mark idle and highlight/expand widget briefly
       const finishedTaskId = session.currentTaskId ?? null;
       session.status = "idle";
@@ -561,13 +616,13 @@ export default function (pi: ExtensionAPI) {
 
       // Notify lead of final task completion if we had a task id
       maybeNotifyCompletion("completed task", finishedTaskId);
-    } else if (msg.type === "tool_execution_start" || msg.type === "tool_execution_update") {
+    } else if (messageType === "tool_execution_start" || messageType === "tool_execution_update") {
       session.status = "busy";
       try {
         cancelAutoHide();
       } catch {}
       highlightMemberId = null;
-    } else if (msg.type === "tool_execution_end") {
+    } else if (messageType === "tool_execution_end") {
       // Finish of tool execution
       const finishedTaskId = session.currentTaskId ?? null;
       session.status = "idle";
@@ -583,8 +638,8 @@ export default function (pi: ExtensionAPI) {
       maybeNotifyCompletion("finished tool execution", finishedTaskId);
     } else {
       // Fallback for simple messages
-      if (msg.type === "ack") session.status = "busy";
-      if (msg.type === "done") {
+      if (messageType === "ack") session.status = "busy";
+      if (messageType === "done") {
         const finishedTaskId = session.currentTaskId ?? null;
         session.status = "idle";
         session.currentTaskId = null;
@@ -607,7 +662,7 @@ export default function (pi: ExtensionAPI) {
   }
 
   // Simple send utility
-  function sendToMember(memberId: string, obj: any) {
+  function sendToMember(memberId: string, obj: unknown) {
     const session = sessions.get(memberId);
     if (!session?.proc?.stdin) return false;
     try {
@@ -631,7 +686,7 @@ export default function (pi: ExtensionAPI) {
     const taskId = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
     sess.currentTaskId = taskId;
     // mark as pending until we confirm the child accepted the prompt
-    sess.status = "pending" as any;
+    sess.status = "pending";
 
     const sent = sendToMember(member.id, { id: taskId, type: "prompt", message: text });
     if (!sent) {
@@ -658,9 +713,9 @@ export default function (pi: ExtensionAPI) {
             confirmationTimeout = undefined;
           }
         };
-        const onRaw = (memberId: string, parsed: any) => {
-          if (memberId !== member.id) return;
-          if (parsed && parsed.type === "response" && parsed.id === taskId) {
+        const onRaw = (memberId: string, parsed: unknown) => {
+          if (memberId !== member.id || !isRecord(parsed)) return;
+          if (parsed.type === "response" && parsed.id === taskId) {
             cleanup();
             resolve(parsed.success === true);
           }
@@ -774,8 +829,8 @@ export default function (pi: ExtensionAPI) {
       }
       // Default provider/model/thinking to the current session if missing in the role definition
       const sessionProvider = innerCtx.model?.provider ?? null;
-      const sessionModelId = (innerCtx.model as any)?.id ?? null;
-      const sessionThinking = (innerCtx.model as any)?.thinking ?? null;
+      const sessionModelId = modelField(innerCtx.model, "id");
+      const sessionThinking = modelField(innerCtx.model, "thinking");
       const provider = roleDef.provider ?? sessionProvider;
       const modelId = roleDef.modelId ?? sessionModelId;
       const thinking = roleDef.thinking ?? sessionThinking;
@@ -944,8 +999,8 @@ export default function (pi: ExtensionAPI) {
           }
           // Default provider/model/thinking to the current session if missing in the role definition
           const sessionProvider = innerCtx.model?.provider ?? null;
-          const sessionModelId = (innerCtx.model as any)?.id ?? null;
-          const sessionThinking = (innerCtx.model as any)?.thinking ?? null;
+          const sessionModelId = modelField(innerCtx.model, "id");
+          const sessionThinking = modelField(innerCtx.model, "thinking");
           const provider = roleDef.provider ?? sessionProvider;
           const modelId = roleDef.modelId ?? sessionModelId;
           const thinking = roleDef.thinking ?? sessionThinking;
@@ -1047,8 +1102,9 @@ export default function (pi: ExtensionAPI) {
             if (busy) {
               // Prefer a UI confirmation if available
               try {
-                if (innerCtx?.ui && typeof (innerCtx.ui as any).confirm === "function") {
-                  const ok = await (innerCtx.ui as any).confirm("Some members are busy. Stop and remove all members?");
+                const confirm = (innerCtx.ui as unknown as ConfirmingUI).confirm;
+                if (typeof confirm === "function") {
+                  const ok = await confirm("Some members are busy. Stop and remove all members?");
                   if (!ok) {
                     innerCtx.ui.notify("Clear cancelled", "info");
                     return;
