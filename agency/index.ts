@@ -1,4 +1,4 @@
-import type { ExtensionAPI, ExtensionCommandContext } from "@mariozechner/pi-coding-agent";
+import type { ExtensionAPI, ExtensionCommandContext, ExtensionContext } from "@mariozechner/pi-coding-agent";
 import { truncateToWidth } from "@mariozechner/pi-tui";
 import { spawn } from "node:child_process";
 import { readFile } from "node:fs/promises";
@@ -110,7 +110,7 @@ export default function (pi: ExtensionAPI) {
   const AUTO_HIDE_DELAY = 5000; // ms
 
   // Reference to an interactive context for UI actions (widget)
-  let uiCtx: ExtensionCommandContext | undefined = undefined;
+  let uiCtx: ExtensionContext | ExtensionCommandContext | undefined = undefined;
 
   // Minimized state: when true the widget renders as a single-line summary.
   let minimized = true;
@@ -126,7 +126,7 @@ export default function (pi: ExtensionAPI) {
     }
   }
 
-  function showAgencyWidget(ctx?: ExtensionCommandContext) {
+  function showAgencyWidget(ctx?: ExtensionContext | ExtensionCommandContext) {
     const c = ctx || uiCtx;
     if (!c || !c.hasUI) return;
     try {
@@ -144,7 +144,7 @@ export default function (pi: ExtensionAPI) {
     cancelAutoHide();
   }
 
-  function hideAgencyWidget(ctx?: ExtensionCommandContext) {
+  function hideAgencyWidget(ctx?: ExtensionContext | ExtensionCommandContext) {
     // Minimize the widget to a single-line summary (do not unregister)
     const c = ctx || uiCtx;
     if (!c || !c.hasUI) return;
@@ -215,7 +215,7 @@ export default function (pi: ExtensionAPI) {
   }
 
   // Load state from the current session only (no global fallback).
-  async function loadState(ctx?: ExtensionCommandContext) {
+  async function loadState(ctx?: ExtensionContext | ExtensionCommandContext) {
     try {
       if (ctx && ctx.sessionManager) {
         const entries = ctx.sessionManager.getEntries();
@@ -237,7 +237,7 @@ export default function (pi: ExtensionAPI) {
   }
 
   // Persist state to the current session only.
-  async function saveState(ctx?: ExtensionCommandContext): Promise<void> {
+  async function saveState(ctx?: ExtensionContext | ExtensionCommandContext): Promise<void> {
     try {
       if (ctx && typeof (pi as any).appendEntry === "function") {
         await (pi as any).appendEntry("agency", { members: Array.from(members.values()) });
@@ -247,7 +247,7 @@ export default function (pi: ExtensionAPI) {
     }
   }
 
-  function makeWidgetFactory(ctx: ExtensionCommandContext) {
+  function makeWidgetFactory(ctx: ExtensionContext | ExtensionCommandContext) {
     return (tui: any, theme: any) => {
       let cachedWidth: number | undefined;
       let cachedLines: string[] | undefined;

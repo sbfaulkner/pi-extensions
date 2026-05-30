@@ -15,8 +15,9 @@
     "format": "biome format --write .",
     "format:check": "biome format .",
     "lint": "biome lint .",
+    "typecheck": "tsc --noEmit",
     "test": "node --disable-warning=ExperimentalWarning --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test $(find . -path ./node_modules -prune -o -name '*.test.ts' -print)",
-    "check": "pnpm format:check && pnpm lint && pnpm test"
+    "check": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test"
   },
   "pi": {
     "extensions": [
@@ -36,6 +37,13 @@
     ]
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.4.16"
+    "@biomejs/biome": "^2.4.16",
+    "@mariozechner/pi-agent-core": "npm:@earendil-works/pi-agent-core@0.77.0",
+    "@mariozechner/pi-ai": "npm:@earendil-works/pi-ai@0.77.0",
+    "@mariozechner/pi-coding-agent": "npm:@earendil-works/pi-coding-agent@0.77.0",
+    "@mariozechner/pi-tui": "npm:@earendil-works/pi-tui@0.77.0",
+    "@sinclair/typebox": "^0.34.49",
+    "@types/node": "24.12.4",
+    "typescript": "5.9.3"
   }
 }

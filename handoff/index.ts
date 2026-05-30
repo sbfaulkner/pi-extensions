@@ -145,6 +145,7 @@ export default function (pi: ExtensionAPI) {
         ctx.ui.notify("No model selected", "error");
         return;
       }
+      const model = ctx.model;
 
       const goal = args.trim();
       if (!goal) {
@@ -170,16 +171,17 @@ export default function (pi: ExtensionAPI) {
 
       // Generate the handoff prompt with loader UI.
       const result = await ctx.ui.custom<string | null>((tui, theme, _kb, done) => {
-        const loader = new BorderedLoader(tui, theme, `Generating handoff prompt using ${ctx.model!.id}...`);
+        const loader = new BorderedLoader(tui, theme, `Generating handoff prompt using ${model.id}...`);
         loader.onAbort = () => done(null);
 
         const doGenerate = async () => {
-          const auth = await ctx.modelRegistry.getApiKeyAndHeaders(ctx.model!);
+          const auth = await ctx.modelRegistry.getApiKeyAndHeaders(model);
           if (!auth.ok) {
-            throw new Error(auth.error || `Authentication failed for ${ctx.model!.provider}/${ctx.model!.id}`);
+            const authError = (auth as { error?: string }).error;
+            throw new Error(authError || `Authentication failed for ${model.provider}/${model.id}`);
           }
           if (!auth.apiKey) {
-            throw new Error(`No API key for ${ctx.model!.provider}/${ctx.model!.id}`);
+            throw new Error(`No API key for ${model.provider}/${model.id}`);
           }
 
           const userMessage: UserMessage = {
@@ -194,7 +196,7 @@ export default function (pi: ExtensionAPI) {
           };
 
           const response = await complete(
-            ctx.model!,
+            model,
             { systemPrompt: SYSTEM_PROMPT, messages: [userMessage] },
             { apiKey: auth.apiKey, headers: auth.headers, signal: loader.signal },
           );

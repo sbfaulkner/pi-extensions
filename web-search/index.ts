@@ -401,10 +401,11 @@ export default function (pi: ExtensionAPI) {
     },
     renderResult(result, _opts, theme, context) {
       const text = (context.lastComponent as Text | undefined) ?? new Text("", 0, 0);
+      const details = result.details as { error?: boolean; sources?: number } | undefined;
       text.setText(
-        context.isError || result.details?.error
+        context.isError || details?.error
           ? theme.fg("error", "✗")
-          : theme.fg("success", `✓ ${result.details?.sources ?? 0} sources`),
+          : theme.fg("success", `✓ ${details?.sources ?? 0} sources`),
       );
       return text;
     },
@@ -473,10 +474,11 @@ export default function (pi: ExtensionAPI) {
     },
     renderResult(result, _opts, theme, context) {
       const text = (context.lastComponent as Text | undefined) ?? new Text("", 0, 0);
+      const details = result.details as { error?: boolean; sources?: number } | undefined;
       text.setText(
-        context.isError || result.details?.error
+        context.isError || details?.error
           ? theme.fg("error", "✗")
-          : theme.fg("success", `✓ ${result.details?.sources ?? 0} sources`),
+          : theme.fg("success", `✓ ${details?.sources ?? 0} sources`),
       );
       return text;
     },
@@ -520,10 +522,11 @@ export default function (pi: ExtensionAPI) {
     },
     renderResult(result, _opts, theme, context) {
       const text = (context.lastComponent as Text | undefined) ?? new Text("", 0, 0);
+      const details = result.details as { chars?: number; error?: boolean } | undefined;
       text.setText(
-        context.isError || result.details?.error
+        context.isError || details?.error
           ? theme.fg("error", "✗")
-          : theme.fg("success", `✓ ${result.details?.chars ? result.details.chars + " chars" : ""}`),
+          : theme.fg("success", `✓ ${details?.chars ? `${details.chars} chars` : ""}`),
       );
       return text;
     },
