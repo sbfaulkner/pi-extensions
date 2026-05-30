@@ -181,6 +181,56 @@ test("agency add, list, and remove manage a named member", async () => {
   }
 });
 
+test("agency assign clears confirmation timeout after child response", async () => {
+  const originalPath = process.env.PATH;
+  const fixture = await createFakePiBin();
+  process.env.PATH = `${fixture.binDir}${path.delimiter}${process.env.PATH ?? ""}`;
+
+  const harness = createHarness();
+  const originalSetTimeout = globalThis.setTimeout;
+  const originalClearTimeout = globalThis.clearTimeout;
+  const confirmationTimers = new Set<ReturnType<typeof setTimeout>>();
+  const clearedTimers = new Set<ReturnType<typeof setTimeout>>();
+
+  try {
+    await harness.emit("session_start");
+    const command = harness.commands.get("agency");
+    assert.ok(command, "agency command should be registered");
+
+    await command.handler("add developer Alice", harness.ctx);
+
+    (globalThis as any).setTimeout = (handler: any, timeout?: any, ...args: any[]) => {
+      const timer = originalSetTimeout(handler, timeout, ...args);
+      if (timeout === 6000) confirmationTimers.add(timer);
+      return timer;
+    };
+    (globalThis as any).clearTimeout = (timer: any) => {
+      if (timer) clearedTimers.add(timer);
+      return originalClearTimeout(timer);
+    };
+
+    await command.handler("assign alice Fix the bug", harness.ctx);
+
+    assert.deepEqual(harness.notifications.at(-1), { message: "Assigned developer task to Alice", level: "info" });
+    assert.equal(confirmationTimers.size, 1);
+    assert.ok(
+      clearedTimers.has(Array.from(confirmationTimers)[0]),
+      "assign confirmation timeout should be cleared after response",
+    );
+
+    await command.handler("list", harness.ctx);
+    assert.match(harness.notifications.at(-1)?.message ?? "", /Alice \(developer\): busy/);
+  } finally {
+    (globalThis as any).setTimeout = originalSetTimeout;
+    (globalThis as any).clearTimeout = originalClearTimeout;
+    for (const timer of confirmationTimers) {
+      originalClearTimeout(timer);
+    }
+    await harness.emit("session_shutdown");
+    process.env.PATH = originalPath;
+  }
+});
+
 test("agency clear without force preserves busy members when confirmation is unavailable", async () => {
   const originalPath = process.env.PATH;
   const fixture = await createFakePiBin({ type: "message_start" });
