@@ -330,7 +330,7 @@ export default function (pi: ExtensionAPI) {
           "web-search: GEMINI_API_KEY environment variable is not set. The web_search/web_search_summary tools will fail. Get a key at https://aistudio.google.com/apikey",
           "warning",
         );
-      } catch (e) {
+      } catch {
         // ignore notification errors
       }
     }
@@ -352,7 +352,7 @@ export default function (pi: ExtensionAPI) {
               "error",
             );
           }
-        } catch (e) {
+        } catch {
           // ignore UI errors
         }
         // Cancel the current agent turn so the model doesn't attempt workarounds.
@@ -427,7 +427,7 @@ export default function (pi: ExtensionAPI) {
               "error",
             );
           }
-        } catch (e) {
+        } catch {
           // ignore UI errors
         }
         try {
