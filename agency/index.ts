@@ -250,7 +250,7 @@ export default function (pi: ExtensionAPI) {
     }
   }
 
-  function makeWidgetFactory(ctx: ExtensionContext | ExtensionCommandContext) {
+  function makeWidgetFactory(_ctx: ExtensionContext | ExtensionCommandContext) {
     return (tui: any, theme: any) => {
       let cachedWidth: number | undefined;
       let cachedLines: string[] | undefined;
@@ -485,7 +485,7 @@ export default function (pi: ExtensionAPI) {
       proc.stderr.setEncoding("utf8");
       proc.stderr.on("data", (s) => console.warn(`[agency:${m.id}] stderr:`, s));
 
-      proc.on("exit", (code) => {
+      proc.on("exit", (_code) => {
         session.status = "offline";
         session.proc = null as any;
         // Notify listeners to re-render if widget is present
