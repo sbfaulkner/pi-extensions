@@ -5,5 +5,5 @@ This extension displays provider usage information (e.g., GitHub Copilot) in the
 ## Features
 
 - Shows current usage in the status bar.
-- Provides a `/refresh-usage` command to update the data.
+- Refreshes automatically when sessions start and after agent turns complete.
 
