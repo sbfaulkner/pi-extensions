@@ -21,7 +21,6 @@
       },
       "correctness": {
         "noUnusedFunctionParameters": "off",
-        "noUnusedPrivateClassMembers": "off",
         "noUnusedVariables": "off"
       },
       "style": {
