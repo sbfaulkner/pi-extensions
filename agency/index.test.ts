@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { chmod, mkdir, mkdtemp, writeFile } from "node:fs/promises";
+import { chmod, mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
@@ -7,7 +7,7 @@ import agencyExtension from "./index.ts";
 
 type Handler = (...args: any[]) => unknown;
 
-async function createFakePiBin(startupMessage?: unknown) {
+async function createFakePiBin(startupMessage?: unknown, signalFile?: string) {
   const root = await mkdtemp(path.join(tmpdir(), "pi-extensions-agency-"));
   const binDir = path.join(root, "bin");
   await mkdir(binDir, { recursive: true });
@@ -17,6 +17,7 @@ async function createFakePiBin(startupMessage?: unknown) {
     piPath,
     `#!/usr/bin/env node
 const startupMessage = ${JSON.stringify(startupMessage)};
+const signalFile = ${JSON.stringify(signalFile)};
 if (startupMessage) {
   setTimeout(() => process.stdout.write(JSON.stringify(startupMessage) + "\\n"), 0);
 }
@@ -38,7 +39,12 @@ process.stdin.on("data", (chunk) => {
     } catch {}
   }
 });
-process.on("SIGTERM", () => process.exit(0));
+process.on("SIGTERM", () => {
+  if (signalFile) {
+    require("node:fs").writeFileSync(signalFile, "SIGTERM");
+  }
+  process.exit(0);
+});
 setInterval(() => {}, 1000);
 `,
   );
@@ -89,8 +95,8 @@ function createHarness(options: { entries?: any[] } = {}) {
       notify(message: string, level: string) {
         notifications.push({ message, level });
       },
-      setWidget(name: string | undefined) {
-        widgetName = name;
+      setWidget(name: string, factory?: unknown) {
+        widgetName = factory === undefined ? undefined : name;
       },
       setStatus() {},
       theme: {
@@ -302,6 +308,45 @@ test("session_start restores persisted agency members", async () => {
     assert.equal(harness.appendedEntries.length, 0);
   } finally {
     await harness.emit("session_shutdown");
+    process.env.PATH = originalPath;
+  }
+});
+
+test("session_shutdown kills spawned members and clears the widget", async () => {
+  const originalPath = process.env.PATH;
+  const signalRoot = await mkdtemp(path.join(tmpdir(), "pi-extensions-agency-signal-"));
+  const signalFile = path.join(signalRoot, "signal");
+  const fixture = await createFakePiBin({ type: "message_start" }, signalFile);
+  process.env.PATH = `${fixture.binDir}${path.delimiter}${process.env.PATH ?? ""}`;
+
+  const harness = createHarness();
+  let didShutdown = false;
+
+  try {
+    await harness.emit("session_start");
+    const command = harness.commands.get("agency");
+    assert.ok(command, "agency command should be registered");
+
+    await command.handler("add developer Alice", harness.ctx);
+    assert.equal(harness.widgetName, "agency");
+    await waitFor(async () => {
+      await command.handler("list", harness.ctx);
+      return /Alice \(developer\): busy/.test(harness.notifications.at(-1)?.message ?? "");
+    });
+
+    await harness.emit("session_shutdown");
+    didShutdown = true;
+
+    await waitFor(async () => {
+      try {
+        return (await readFile(signalFile, "utf8")) === "SIGTERM";
+      } catch {
+        return false;
+      }
+    });
+    assert.equal(harness.widgetName, undefined);
+  } finally {
+    if (!didShutdown) await harness.emit("session_shutdown");
     process.env.PATH = originalPath;
   }
 });
