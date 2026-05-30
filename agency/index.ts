@@ -649,21 +649,27 @@ export default function (pi: ExtensionAPI) {
     let confirmed: boolean | undefined;
     try {
       confirmed = await new Promise<boolean | undefined>((resolve) => {
+        let confirmationTimeout: ReturnType<typeof setTimeout> | undefined;
+        const cleanup = () => {
+          try {
+            events.off("raw", onRaw);
+          } catch {}
+          if (confirmationTimeout) {
+            clearTimeout(confirmationTimeout);
+            confirmationTimeout = undefined;
+          }
+        };
         const onRaw = (memberId: string, parsed: any) => {
           if (memberId !== member.id) return;
           if (parsed && parsed.type === "response" && parsed.id === taskId) {
-            try {
-              events.off("raw", onRaw);
-            } catch {}
+            cleanup();
             resolve(parsed.success === true);
           }
         };
         events.on("raw", onRaw);
         // Timeout after 6s
-        setTimeout(() => {
-          try {
-            events.off("raw", onRaw);
-          } catch {}
+        confirmationTimeout = setTimeout(() => {
+          cleanup();
           resolve(undefined);
         }, 6000);
       });
