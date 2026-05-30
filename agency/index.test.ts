@@ -237,6 +237,52 @@ test("agency assign clears confirmation timeout after child response", async () 
   }
 });
 
+test("agency role verb shorthand creates a member and assigns the task", async () => {
+  const originalPath = process.env.PATH;
+  const fixture = await createFakePiBin();
+  process.env.PATH = `${fixture.binDir}${path.delimiter}${process.env.PATH ?? ""}`;
+
+  const harness = createHarness();
+  const originalSetTimeout = globalThis.setTimeout;
+  const originalClearTimeout = globalThis.clearTimeout;
+  const confirmationTimers = new Set<ReturnType<typeof setTimeout>>();
+
+  try {
+    await harness.emit("session_start");
+    const command = harness.commands.get("agency");
+    assert.ok(command, "agency command should be registered");
+
+    (globalThis as any).setTimeout = (handler: any, timeout?: any, ...args: any[]) => {
+      const timer = originalSetTimeout(handler, timeout, ...args);
+      if (timeout === 6000) confirmationTimers.add(timer);
+      return timer;
+    };
+
+    await command.handler("develop Build the feature", harness.ctx);
+
+    const savedMembers = (harness.appendedEntries.at(-1)?.data as any).members;
+    assert.equal(savedMembers.length, 1);
+    assert.equal(savedMembers[0].role, "developer");
+    assert.deepEqual(harness.notifications.at(-1), {
+      message: `Assigned developer task to ${savedMembers[0].displayName}`,
+      level: "info",
+    });
+
+    await command.handler("list", harness.ctx);
+    assert.match(
+      harness.notifications.at(-1)?.message ?? "",
+      new RegExp(`${savedMembers[0].displayName} \\(developer\\): busy`),
+    );
+  } finally {
+    (globalThis as any).setTimeout = originalSetTimeout;
+    for (const timer of confirmationTimers) {
+      originalClearTimeout(timer);
+    }
+    await harness.emit("session_shutdown");
+    process.env.PATH = originalPath;
+  }
+});
+
 test("agency events shows member and all event buffers", async () => {
   const originalPath = process.env.PATH;
   const fixture = await createFakePiBin({ type: "message_start", id: "evt-1" });
