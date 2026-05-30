@@ -27,6 +27,6 @@ The `load_secrets` tool is available for the LLM to call when a command needs AP
 
 ## Requirements
 
-- `ejson2env` installed (e.g. `brew install shopify/shopify/ejson2env`)
+- `ejson` CLI installed and available on `PATH`
 - Encrypted ejson files in `${XDG_CONFIG_HOME:-$HOME/.config}/secrets`
 - Corresponding private keys in `/opt/ejson/keys/`

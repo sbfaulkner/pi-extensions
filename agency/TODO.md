@@ -1,14 +1,5 @@
 Agency extension — TODO
 
-Short-term (docs/cleanup) — completed
-
-- Removed user-facing mention of the removed mock-member.js from the README (README updated).
-- Removed the /agency logs command from the code and cleaned references to persisted 'agency-log' entries.
-- Cleaned up roles.json by removing explicit null values for provider/modelId where fallback to session is intended.
-- Removed mentions of /agency stop from the built-in help text.
-
-(These changes are committed to feat/agency-extension.)
-
 Medium-term (UX & safety)
 
 - Consider an interactive overlay or richer widget that can show live "working..." messages or allow quick inspection of a member's current task and recent messages.
