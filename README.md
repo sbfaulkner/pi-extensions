@@ -88,14 +88,19 @@ If you keep a local clone, add to settings:
 - Prefer small, testable modules. For extensions with meaningful logic, expose a dependency-injected factory such as `createExampleExtension(pi, deps)` and keep the default export as a thin wrapper.
 - Put tests next to the extension they cover and name them `*.test.ts`.
 
-### Formatting, linting, and testing direction
+### Formatting, linting, and testing
 
-This repo is moving toward a simple quality toolchain:
+Use the root `pnpm` scripts for local validation:
 
-- `pnpm` for package management and scripts.
-- Biome for formatting and linting.
-- TypeScript `tsc --noEmit` for type checking.
-- Node's built-in test runner (`node --test`) for unit tests.
-- A single `pnpm check` command that runs formatting checks, linting, type checking, and tests.
+```bash
+pnpm format       # apply Biome formatting
+pnpm format:check # check formatting without writing changes
+pnpm lint         # run Biome linting
+pnpm typecheck    # run TypeScript with no emit
+pnpm test         # run Node's built-in test runner
+pnpm check        # run format:check, lint, typecheck, and test
+```
 
-Formatting should converge on 2-space indentation, double quotes, semicolons, and an approximately 120-character line width once formatter config lands.
+Formatting is enforced with Biome: 2-space indentation, double quotes, semicolons, and an approximately 120-character line width.
+
+CI runs `pnpm check` for pull requests and pushes to `main`.
