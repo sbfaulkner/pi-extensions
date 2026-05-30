@@ -1,17 +1,40 @@
-// @ts-nocheck -- lightweight fakes intentionally implement only the ExtensionAPI surface used by nodoz.
 import assert from "node:assert/strict";
 import { EventEmitter } from "node:events";
 import test from "node:test";
+import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 import { createNodozExtension, getInhibitorCommand } from "./index.ts";
 
-class FakeChild extends EventEmitter {
-  constructor() {
-    super();
-    this.killed = false;
-    this.killCalls = 0;
-  }
+type HarnessEvent = "agent_start" | "agent_end" | "session_shutdown";
+type HarnessHandler = (event: unknown, ctx?: unknown) => void;
+type ProcessEvent = "exit";
 
-  kill(signal) {
+type SpawnOptions = {
+  stdio: "ignore";
+  detached: false;
+};
+
+type SpawnCall = {
+  command: string;
+  args: string[];
+  options: SpawnOptions;
+  child?: FakeChild;
+};
+
+type SpawnFake = ((command: string, args: string[], options: SpawnOptions) => FakeChild) & {
+  calls: SpawnCall[];
+};
+
+type ProcessOptions = {
+  isTTY?: boolean;
+  platform?: string;
+};
+
+class FakeChild extends EventEmitter {
+  killed = false;
+  killCalls = 0;
+  lastSignal?: string | number;
+
+  kill(signal?: string | number): boolean {
     this.killCalls += 1;
     this.lastSignal = signal;
     this.killed = true;
@@ -20,17 +43,17 @@ class FakeChild extends EventEmitter {
 }
 
 function createPi() {
-  const handlers = new Map();
+  const handlers = new Map<HarnessEvent, HarnessHandler[]>();
   return {
     handlers,
     pi: {
-      on(event, handler) {
+      on(event: HarnessEvent, handler: HarnessHandler) {
         const list = handlers.get(event) ?? [];
         list.push(handler);
         handlers.set(event, list);
       },
-    },
-    emit(event, ctx = {}) {
+    } as unknown as ExtensionAPI,
+    emit(event: HarnessEvent, ctx: unknown = {}) {
       for (const handler of handlers.get(event) ?? []) {
         handler({}, ctx);
       }
@@ -38,26 +61,26 @@ function createPi() {
   };
 }
 
-function createProcess(options = {}) {
+function createProcess(options: ProcessOptions = {}) {
   const isTTY = Object.hasOwn(options, "isTTY") ? options.isTTY : true;
   const platform = options.platform ?? "darwin";
-  const listeners = new Map();
+  const listeners = new Map<ProcessEvent, Array<() => void>>();
   return {
     platform,
     stdout: isTTY === undefined ? {} : { isTTY },
     listeners,
-    on(event, listener) {
+    on(event: ProcessEvent, listener: () => void) {
       const list = listeners.get(event) ?? [];
       list.push(listener);
       listeners.set(event, list);
     },
-    off(event, listener) {
+    off(event: ProcessEvent, listener: () => void) {
       listeners.set(
         event,
         (listeners.get(event) ?? []).filter((candidate) => candidate !== listener),
       );
     },
-    emit(event) {
+    emit(event: ProcessEvent) {
       for (const listener of [...(listeners.get(event) ?? [])]) {
         listener();
       }
@@ -65,29 +88,30 @@ function createProcess(options = {}) {
   };
 }
 
-function createSpawn({ throwFirst = false } = {}) {
-  const calls = [];
+function createSpawn({ throwFirst = false }: { throwFirst?: boolean } = {}): SpawnFake {
+  const calls: SpawnCall[] = [];
   let throwNext = throwFirst;
-  const spawn = (command, args, options) => {
-    calls.push({ command, args, options });
+  const spawn = ((command: string, args: string[], options: SpawnOptions) => {
+    const call: SpawnCall = { command, args, options };
+    calls.push(call);
     if (throwNext) {
       throwNext = false;
       throw new Error("spawn failed");
     }
     const child = new FakeChild();
-    calls.at(-1).child = child;
+    call.child = child;
     return child;
-  };
+  }) as SpawnFake;
   spawn.calls = calls;
   return spawn;
 }
 
 function createLogger() {
-  const warnings = [];
+  const warnings: string[] = [];
   return {
     warnings,
     logger: {
-      warn(message) {
+      warn(message?: unknown) {
         warnings.push(String(message));
       },
     },
@@ -95,18 +119,18 @@ function createLogger() {
 }
 
 function createUI() {
-  const statuses = new Map();
-  const calls = [];
+  const statuses = new Map<string, string>();
+  const calls: Array<{ id: string; text: string | undefined }> = [];
   return {
     statuses,
     calls,
     ui: {
       theme: {
-        fg(style, text) {
+        fg(style: string, text: string) {
           return `<${style}>${text}</${style}>`;
         },
       },
-      setStatus(id, text) {
+      setStatus(id: string, text: string | undefined) {
         calls.push({ id, text });
         if (text === undefined) {
           statuses.delete(id);
