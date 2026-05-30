@@ -231,6 +231,39 @@ test("agency assign clears confirmation timeout after child response", async () 
   }
 });
 
+test("agency events shows member and all event buffers", async () => {
+  const originalPath = process.env.PATH;
+  const fixture = await createFakePiBin({ type: "message_start", id: "evt-1" });
+  process.env.PATH = `${fixture.binDir}${path.delimiter}${process.env.PATH ?? ""}`;
+
+  const harness = createHarness();
+
+  try {
+    await harness.emit("session_start");
+    const command = harness.commands.get("agency");
+    assert.ok(command, "agency command should be registered");
+
+    await command.handler("add developer Alice", harness.ctx);
+    await waitFor(async () => {
+      await command.handler("events alice 5", harness.ctx);
+      const notification = harness.notifications.at(-1);
+      return notification?.level === "info" && /Events for alice \(last 1\):/.test(notification.message);
+    });
+
+    assert.match(harness.notifications.at(-1)?.message ?? "", /message_start/);
+
+    await command.handler("events all 5", harness.ctx);
+    assert.match(harness.notifications.at(-1)?.message ?? "", /Member events \(per member, last 5\):/);
+    assert.match(harness.notifications.at(-1)?.message ?? "", /alice> .*message_start/);
+
+    await command.handler("events unknown", harness.ctx);
+    assert.deepEqual(harness.notifications.at(-1), { message: "No events for member unknown", level: "info" });
+  } finally {
+    await harness.emit("session_shutdown");
+    process.env.PATH = originalPath;
+  }
+});
+
 test("agency clear without force preserves busy members when confirmation is unavailable", async () => {
   const originalPath = process.env.PATH;
   const fixture = await createFakePiBin({ type: "message_start" });
