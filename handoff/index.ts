@@ -20,7 +20,7 @@ import { complete, type AssistantMessage, type UserMessage } from "@mariozechner
 import type { ExtensionAPI, SessionEntry } from "@mariozechner/pi-coding-agent";
 import { BorderedLoader, convertToLlm, serializeConversation } from "@mariozechner/pi-coding-agent";
 
-const SYSTEM_PROMPT = `You are a context transfer assistant. Given a conversation history and the user's goal for a new thread, generate a focused prompt that:
+export const SYSTEM_PROMPT = `You are a context transfer assistant. Given a conversation history and the user's goal for a new thread, generate a focused prompt that:
 
 1. Summarizes relevant context from the conversation (decisions made, approaches taken, key findings)
 2. Lists any relevant files that were discussed or modified
@@ -83,7 +83,7 @@ function entryToMessage(entry: SessionEntry): AgentMessage | undefined {
   return undefined;
 }
 
-function getHandoffMessages(branch: SessionEntry[]): AgentMessage[] {
+export function getHandoffMessages(branch: SessionEntry[]): AgentMessage[] {
   let compactionIndex = -1;
   for (let i = branch.length - 1; i >= 0; i--) {
     if (branch[i].type === "compaction") {
@@ -113,7 +113,7 @@ function truncateForNotification(text: string, maxChars = 900): string {
   return `${text.slice(0, maxChars - 1)}…`;
 }
 
-function responseDiagnostics(response: AssistantMessage): string {
+export function responseDiagnostics(response: AssistantMessage): string {
   const contentTypes = response.content.map((content) => content.type).join(",") || "none";
   const diagnostics = response.diagnostics
     ?.map((diagnostic) => diagnostic.error?.message || diagnostic.type)
@@ -132,7 +132,33 @@ function responseDiagnostics(response: AssistantMessage): string {
   );
 }
 
-export default function (pi: ExtensionAPI) {
+type HandoffLoader = {
+  signal?: AbortSignal;
+  onAbort?: () => void;
+};
+
+interface HandoffDependencies {
+  complete?: typeof complete;
+  convertToLlm?: typeof convertToLlm;
+  serializeConversation?: typeof serializeConversation;
+  createLoader?: (tui: unknown, theme: unknown, message: string) => HandoffLoader;
+  now?: () => number;
+}
+
+export function createHandoffExtension(pi: ExtensionAPI, deps: HandoffDependencies = {}) {
+  const completePrompt = deps.complete ?? complete;
+  const toLlm = deps.convertToLlm ?? convertToLlm;
+  const serialize = deps.serializeConversation ?? serializeConversation;
+  const createLoader =
+    deps.createLoader ??
+    ((tui, theme, message) =>
+      new BorderedLoader(
+        tui as ConstructorParameters<typeof BorderedLoader>[0],
+        theme as ConstructorParameters<typeof BorderedLoader>[1],
+        message,
+      ));
+  const now = deps.now ?? Date.now;
+
   pi.registerCommand("handoff", {
     description: "Transfer context to a new focused session",
     handler: async (args, ctx) => {
@@ -163,15 +189,15 @@ export default function (pi: ExtensionAPI) {
         return;
       }
 
-      const llmMessages = convertToLlm(messages);
-      const conversationText = serializeConversation(llmMessages);
+      const llmMessages = toLlm(messages);
+      const conversationText = serialize(llmMessages);
       const currentSessionFile = ctx.sessionManager.getSessionFile();
 
       let generationError: string | undefined;
 
       // Generate the handoff prompt with loader UI.
       const result = await ctx.ui.custom<string | null>((tui, theme, _kb, done) => {
-        const loader = new BorderedLoader(tui, theme, `Generating handoff prompt using ${model.id}...`);
+        const loader = createLoader(tui, theme, `Generating handoff prompt using ${model.id}...`);
         loader.onAbort = () => done(null);
 
         const doGenerate = async () => {
@@ -192,10 +218,10 @@ export default function (pi: ExtensionAPI) {
                 text: `## Conversation History\n\n${conversationText}\n\n## User's Goal for New Thread\n\n${goal}`,
               },
             ],
-            timestamp: Date.now(),
+            timestamp: now(),
           };
 
-          const response = await complete(
+          const response = await completePrompt(
             model,
             { systemPrompt: SYSTEM_PROMPT, messages: [userMessage] },
             { apiKey: auth.apiKey, headers: auth.headers, signal: loader.signal },
@@ -228,7 +254,7 @@ export default function (pi: ExtensionAPI) {
             done(null);
           });
 
-        return loader;
+        return loader as any;
       });
 
       if (result === null) {
@@ -264,4 +290,8 @@ export default function (pi: ExtensionAPI) {
       }
     },
   });
+}
+
+export default function (pi: ExtensionAPI) {
+  createHandoffExtension(pi);
 }
