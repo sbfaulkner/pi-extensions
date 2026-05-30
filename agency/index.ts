@@ -113,7 +113,7 @@ export default function (pi: ExtensionAPI) {
   const AUTO_HIDE_DELAY = 5000; // ms
 
   // Reference to an interactive context for UI actions (widget)
-  let uiCtx: ExtensionContext | ExtensionCommandContext | undefined = undefined;
+  let uiCtx: ExtensionContext | ExtensionCommandContext | undefined;
 
   // Minimized state: when true the widget renders as a single-line summary.
   let minimized = true;
@@ -646,7 +646,7 @@ export default function (pi: ExtensionAPI) {
     }
 
     // Wait for a response with matching id (response.type === 'response' && id === taskId)
-    let confirmed: boolean | undefined = undefined;
+    let confirmed: boolean | undefined;
     try {
       confirmed = await new Promise<boolean | undefined>((resolve) => {
         const onRaw = (memberId: string, parsed: any) => {
@@ -789,7 +789,7 @@ export default function (pi: ExtensionAPI) {
           .filter((s) => !!s),
       );
 
-      let displayName: string | undefined = undefined;
+      let displayName: string | undefined;
       if (explicitName) {
         if (usedNames.has(explicitName.toLowerCase())) {
           innerCtx.ui.notify(`Failed to add member ${roleId} ${explicitName} - name already in use`, "error");
@@ -953,7 +953,7 @@ export default function (pi: ExtensionAPI) {
 
           // Determine displayName: optional user-provided name as parts[2], otherwise pick an unused name from role definition
           const explicitName = parts[2] ? parts.slice(2).join(" ").trim() : undefined;
-          let displayName: string | undefined = undefined;
+          let displayName: string | undefined;
 
           // Build set of used display names (case-insensitive)
           const usedNames = new Set(
@@ -1122,7 +1122,7 @@ export default function (pi: ExtensionAPI) {
             return;
           }
           // Allow removing by id or by displayName (case-insensitive)
-          let idToRemove: string | undefined = undefined;
+          let idToRemove: string | undefined;
           const maybeId = target.toLowerCase();
           if (members.has(maybeId)) {
             idToRemove = maybeId;
