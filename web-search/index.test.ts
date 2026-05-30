@@ -212,6 +212,110 @@ test("web_search_summary aborts and notifies when Gemini authentication fails", 
   }
 });
 
+test("web_search reports non-JSON Gemini responses as tool errors", async () => {
+  const restoreFetch = installFetch(async () => {
+    return new Response("<html>bad gateway</html>", {
+      status: 502,
+      statusText: "Bad Gateway",
+      headers: { "content-type": "text/html" },
+    });
+  });
+  const harness = await setupExtension("test-key");
+
+  try {
+    const context = createContext();
+
+    const result = await getTool(harness.tools, "web_search").execute(
+      "tool-call",
+      { query: "pi extensions" },
+      undefined,
+      undefined,
+      context.ctx,
+    );
+
+    assert.deepEqual(result.details, { error: true });
+    assert.equal(
+      result.content[0].text,
+      "Gemini API returned non-JSON response (502 Bad Gateway): <html>bad gateway</html>",
+    );
+    assert.equal(context.abortCount, 0);
+    assert.equal(context.notifications.length, 0);
+  } finally {
+    restoreFetch();
+    harness.restoreEnv();
+  }
+});
+
+test("web_search reports non-auth Gemini JSON errors without aborting", async () => {
+  const restoreFetch = installFetch(async () => {
+    return new Response(JSON.stringify({ error: { code: 429, message: "Quota exceeded" } }), {
+      status: 429,
+      statusText: "Too Many Requests",
+      headers: { "content-type": "application/json" },
+    });
+  });
+  const harness = await setupExtension("test-key");
+
+  try {
+    const context = createContext();
+
+    const result = await getTool(harness.tools, "web_search").execute(
+      "tool-call",
+      { query: "pi extensions" },
+      undefined,
+      undefined,
+      context.ctx,
+    );
+
+    assert.deepEqual(result.details, { error: true });
+    assert.equal(result.content[0].text, "Quota exceeded");
+    assert.equal(context.abortCount, 0);
+    assert.equal(context.notifications.length, 0);
+  } finally {
+    restoreFetch();
+    harness.restoreEnv();
+  }
+});
+
+test("web_search reports Gemini responses with missing answer candidates", async () => {
+  const cases: Array<{ name: string; body: unknown }> = [
+    { name: "missing candidates", body: {} },
+    { name: "empty candidates", body: { candidates: [] } },
+    { name: "missing answer parts", body: { candidates: [{ content: { parts: [] } }] } },
+  ];
+
+  for (const { name, body } of cases) {
+    const restoreFetch = installFetch(async () => {
+      return new Response(JSON.stringify(body), {
+        status: 200,
+        statusText: "OK",
+        headers: { "content-type": "application/json" },
+      });
+    });
+    const harness = await setupExtension("test-key");
+
+    try {
+      const context = createContext();
+
+      const result = await getTool(harness.tools, "web_search").execute(
+        "tool-call",
+        { query: `pi extensions ${name}` },
+        undefined,
+        undefined,
+        context.ctx,
+      );
+
+      assert.deepEqual(result.details, { error: true }, name);
+      assert.equal(result.content[0].text, "Gemini API response did not include any answer text.", name);
+      assert.equal(context.abortCount, 0, name);
+      assert.equal(context.notifications.length, 0, name);
+    } finally {
+      restoreFetch();
+      harness.restoreEnv();
+    }
+  }
+});
+
 test("search tools call Gemini with concise and detailed prompts", async () => {
   const calls: Array<{ url: string; body: GeminiRequest }> = [];
   const restoreFetch = installFetch(async (input: FetchInput, init: FetchInit) => {
