@@ -1,3 +1,4 @@
+// @ts-nocheck -- lightweight fakes intentionally implement only the ExtensionAPI surface used by nodoz.
 import assert from "node:assert/strict";
 import { EventEmitter } from "node:events";
 import test from "node:test";

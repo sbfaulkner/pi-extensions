@@ -86,6 +86,7 @@ export default function (pi: ExtensionAPI) {
         ctx.ui.notify("No model selected", "error");
         return;
       }
+      const model = ctx.model;
 
       const lastAssistantText = findLastAssistantText(ctx);
       if (!lastAssistantText) {
@@ -97,16 +98,17 @@ export default function (pi: ExtensionAPI) {
       let extractionError: string | undefined;
 
       const extractionResult = await ctx.ui.custom<ExtractionResult | null>((tui, theme, _kb, done) => {
-        const loader = new BorderedLoader(tui, theme, `Extracting questions using ${ctx.model!.id}...`);
+        const loader = new BorderedLoader(tui, theme, `Extracting questions using ${model.id}...`);
         loader.onAbort = () => done(null);
 
         const doExtract = async () => {
-          const auth = await ctx.modelRegistry.getApiKeyAndHeaders(ctx.model!);
+          const auth = await ctx.modelRegistry.getApiKeyAndHeaders(model);
           if (!auth.ok) {
-            throw new Error(auth.error || `Authentication failed for ${ctx.model!.provider}/${ctx.model!.id}`);
+            const authError = (auth as { error?: string }).error;
+            throw new Error(authError || `Authentication failed for ${model.provider}/${model.id}`);
           }
           if (!auth.apiKey) {
-            throw new Error(`No API key for ${ctx.model!.provider}/${ctx.model!.id}`);
+            throw new Error(`No API key for ${model.provider}/${model.id}`);
           }
 
           const userMessage: UserMessage = {
@@ -116,7 +118,7 @@ export default function (pi: ExtensionAPI) {
           };
 
           const response = await complete(
-            ctx.model!,
+            model,
             { systemPrompt: EXTRACTION_PROMPT, messages: [userMessage] },
             { apiKey: auth.apiKey, headers: auth.headers, signal: loader.signal },
           );
@@ -164,6 +166,13 @@ export default function (pi: ExtensionAPI) {
 
         const editorTheme: EditorTheme = {
           borderColor: (s: string) => theme.fg("accent", s),
+          selectList: {
+            selectedPrefix: (s: string) => theme.fg("accent", s),
+            selectedText: (s: string) => theme.fg("accent", s),
+            description: (s: string) => theme.fg("muted", s),
+            scrollInfo: (s: string) => theme.fg("dim", s),
+            noMatch: (s: string) => theme.fg("warning", s),
+          },
         };
 
         const editors: Editor[] = questions.map(() => {

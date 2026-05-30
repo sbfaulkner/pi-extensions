@@ -160,7 +160,7 @@ export default function (pi: ExtensionAPI) {
         ctx.ui.setStatus("secrets", `🔑 ${loadedNames.join(", ")}`);
         ctx.ui.notify(
           `Loaded ${Object.keys(vars).length} secret(s) from ${name}: ${Object.keys(vars).join(", ")}`,
-          "success",
+          "info",
         );
       } catch (e: any) {
         ctx.ui.notify(e.message, "error");

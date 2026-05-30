@@ -336,7 +336,7 @@ export default function (pi: ExtensionAPI) {
 
   // --- Inject workflow context into every LLM call ---
 
-  pi.on("context", async (_event, ctx) => {
+  (pi.on as any)("context", async (_event: any, ctx: any) => {
     const cwd = ctx.cwd;
     if (!cwd) return undefined;
 
