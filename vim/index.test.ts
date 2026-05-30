@@ -5,6 +5,9 @@ import vimExtension, { ViEditor } from "./index.ts";
 const ESCAPE = "\x1b";
 const CTRL_R = "\x12";
 
+type Handler = (...args: unknown[]) => void;
+type ViEditorArgs = ConstructorParameters<typeof ViEditor>;
+
 function createTui() {
   let renderRequests = 0;
 
@@ -45,7 +48,11 @@ function createKeybindings() {
 
 function createEditor(text = "") {
   const tuiHarness = createTui();
-  const editor = new ViEditor(tuiHarness.tui as any, createTheme() as any, createKeybindings() as any);
+  const editor = new ViEditor(
+    tuiHarness.tui as ViEditorArgs[0],
+    createTheme() as unknown as ViEditorArgs[1],
+    createKeybindings() as unknown as ViEditorArgs[2],
+  );
 
   if (text) {
     editor.setText(text);
@@ -67,10 +74,10 @@ function typeText(editor: ViEditor, text: string) {
 }
 
 test("session_start installs ViEditor as the editor component", () => {
-  const handlers = new Map<string, (...args: any[]) => void>();
+  const handlers = new Map<string, Handler>();
   let editorFactory: ((tui: unknown, theme: unknown, keybindings: unknown) => unknown) | undefined;
   const pi = {
-    on(event: string, handler: (...args: any[]) => void) {
+    on(event: string, handler: Handler) {
       handlers.set(event, handler);
     },
   };
@@ -82,7 +89,7 @@ test("session_start installs ViEditor as the editor component", () => {
     },
   };
 
-  vimExtension(pi as any);
+  vimExtension(pi as Parameters<typeof vimExtension>[0]);
   handlers.get("session_start")?.({}, ctx);
 
   assert.equal(typeof editorFactory, "function");
