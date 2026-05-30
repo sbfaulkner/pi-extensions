@@ -37,6 +37,16 @@ case "$2" in
   */other.ejson)
     printf '%s\n' '{"environment":{"OTHER_TOKEN":"other-secret"}}'
     ;;
+  */broken.ejson)
+    echo "decrypt failed" >&2
+    exit 42
+    ;;
+  */malformed.ejson)
+    printf '%s\n' 'not-json'
+    ;;
+  */missing-environment.ejson)
+    printf '%s\n' '{"secrets":{"API_TOKEN":"secret-token"}}'
+    ;;
   *)
     echo "unknown file: $2" >&2
     exit 2
@@ -185,6 +195,73 @@ test("secrets command and tool report missing files with available names", async
     await assert.rejects(
       () => getTool(harness.tools, "load_secrets").execute("tool-call", { name: "missing" }),
       /Secrets file not found:/,
+    );
+  } finally {
+    harness.restoreEnv();
+  }
+});
+
+test("secrets command and tool report ejson decrypt failures", async () => {
+  const harness = await setupExtension();
+  try {
+    await writeFile(path.join(harness.secretsDir, "broken.ejson"), "{}\n");
+    const { ctx, notifications, statuses } = createContext();
+
+    await getCommand(harness.commands, "secrets").handler("broken", ctx);
+
+    assert.equal(notifications.at(-1)?.level, "error");
+    assert.match(notifications.at(-1)?.message ?? "", /Failed to decrypt broken\.ejson/);
+    assert.match(notifications.at(-1)?.message ?? "", /decrypt failed/);
+    assert.equal(statuses.has("secrets"), false);
+
+    await assert.rejects(
+      () => getTool(harness.tools, "load_secrets").execute("tool-call", { name: "broken" }),
+      /Failed to decrypt broken\.ejson[\s\S]*decrypt failed/,
+    );
+  } finally {
+    harness.restoreEnv();
+  }
+});
+
+test("secrets command and tool report malformed decrypted JSON", async () => {
+  const harness = await setupExtension();
+  try {
+    await writeFile(path.join(harness.secretsDir, "malformed.ejson"), "{}\n");
+    const { ctx, notifications, statuses } = createContext();
+
+    await getCommand(harness.commands, "secrets").handler("malformed", ctx);
+
+    assert.equal(notifications.at(-1)?.level, "error");
+    assert.match(notifications.at(-1)?.message ?? "", /Invalid JSON in decrypted secrets file malformed\.ejson/);
+    assert.equal(statuses.has("secrets"), false);
+
+    await assert.rejects(
+      () => getTool(harness.tools, "load_secrets").execute("tool-call", { name: "malformed" }),
+      /Invalid JSON in decrypted secrets file malformed\.ejson/,
+    );
+  } finally {
+    harness.restoreEnv();
+  }
+});
+
+test("secrets command and tool require decrypted environment objects", async () => {
+  const harness = await setupExtension();
+  try {
+    await writeFile(path.join(harness.secretsDir, "missing-environment.ejson"), "{}\n");
+    const { ctx, notifications, statuses } = createContext();
+
+    await getCommand(harness.commands, "secrets").handler("missing-environment", ctx);
+
+    assert.equal(notifications.at(-1)?.level, "error");
+    assert.equal(
+      notifications.at(-1)?.message,
+      "Decrypted secrets file missing-environment.ejson must contain an environment object",
+    );
+    assert.equal(statuses.has("secrets"), false);
+
+    await assert.rejects(
+      () => getTool(harness.tools, "load_secrets").execute("tool-call", { name: "missing-environment" }),
+      /Decrypted secrets file missing-environment\.ejson must contain an environment object/,
     );
   } finally {
     harness.restoreEnv();
