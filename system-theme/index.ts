@@ -38,6 +38,21 @@ const GLOBAL_CONFIG_PATH = path.join(getAgentDir(), "system-theme.json");
 const DETECTION_TIMEOUT_MS = 1200;
 const MIN_POLL_MS = 500;
 
+type ErrorLike = {
+  code?: unknown;
+  message?: unknown;
+  stderr?: unknown;
+};
+
+function errorLike(error: unknown): ErrorLike {
+  return typeof error === "object" && error !== null ? (error as ErrorLike) : {};
+}
+
+function errorMessage(error: unknown): string {
+  const message = errorLike(error).message;
+  return typeof message === "string" ? message : String(error);
+}
+
 // --- Config persistence ---
 
 export function getOverrides(config: Config): Partial<Config> {
@@ -59,9 +74,9 @@ export async function loadConfig(): Promise<Config> {
     if (typeof parsed.lightTheme === "string" && parsed.lightTheme.trim()) config.lightTheme = parsed.lightTheme.trim();
     if (typeof parsed.pollMs === "number" && Number.isFinite(parsed.pollMs))
       config.pollMs = Math.max(MIN_POLL_MS, Math.round(parsed.pollMs));
-  } catch (e: any) {
-    if (e?.code !== "ENOENT") {
-      console.warn(`[system-theme] Failed to read ${GLOBAL_CONFIG_PATH}: ${e?.message}`);
+  } catch (error) {
+    if (errorLike(error).code !== "ENOENT") {
+      console.warn(`[system-theme] Failed to read ${GLOBAL_CONFIG_PATH}: ${errorMessage(error)}`);
     }
   }
   return config;
@@ -97,10 +112,11 @@ export async function detectMacAppearance(): Promise<Appearance | null> {
       timeout: DETECTION_TIMEOUT_MS,
     });
     return stdout.trim().toLowerCase() === "dark" ? "dark" : "light";
-  } catch (e: any) {
+  } catch (error) {
     // "does not exist" means light mode (no AppleInterfaceStyle key set)
-    const stderr = typeof e?.stderr === "string" ? e.stderr.toLowerCase() : "";
-    if (stderr.includes("does not exist")) return "light";
+    const { stderr } = errorLike(error);
+    const stderrText = typeof stderr === "string" ? stderr.toLowerCase() : "";
+    if (stderrText.includes("does not exist")) return "light";
     return null;
   }
 }
@@ -243,8 +259,8 @@ export default function (pi: ExtensionAPI) {
                 : "Using defaults (config file removed).",
               "info",
             );
-          } catch (e: any) {
-            ctx.ui.notify(`Failed to save: ${e?.message}`, "error");
+          } catch (error) {
+            ctx.ui.notify(`Failed to save: ${errorMessage(error)}`, "error");
             return;
           }
           await syncTheme(ctx);
