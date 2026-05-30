@@ -252,7 +252,8 @@ export default function (pi: ExtensionAPI) {
       let cachedWidth: number | undefined;
       let cachedLines: string[] | undefined;
 
-      const stripAnsi = (s: string) => s.replace(/\x1b\[[0-9;]*m/g, "");
+      const ansiEscapePattern = new RegExp(`${String.fromCharCode(27)}\\[[0-9;]*m`, "g");
+      const stripAnsi = (s: string) => s.replace(ansiEscapePattern, "");
 
       const build = (width: number) => {
         if (cachedLines && cachedWidth === width) return cachedLines;
@@ -446,11 +447,12 @@ export default function (pi: ExtensionAPI) {
       proc.stdout.on("data", (chunk: string) => {
         session.buffer += chunk;
         session.lastActivity = Date.now();
-        let idx: number;
-        while ((idx = session.buffer.indexOf("\n")) >= 0) {
+        let idx = session.buffer.indexOf("\n");
+        while (idx >= 0) {
           // Use strict LF framing per RPC docs
           const line = session.buffer.slice(0, idx).replace(/\r$/, "").trim();
           session.buffer = session.buffer.slice(idx + 1);
+          idx = session.buffer.indexOf("\n");
           if (!line) continue;
           try {
             const parsed = JSON.parse(line);

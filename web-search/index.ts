@@ -70,7 +70,6 @@ function formatAuthError(): string {
 function makeAbortError(message: string): Error {
   try {
     // DOMException exists in newer Node versions; prefer it when present.
-    // @ts-ignore - DOMException may not be in the TS lib for this project
     if (typeof DOMException !== "undefined") return new DOMException(message, "AbortError");
   } catch {}
   const e = new Error(message);

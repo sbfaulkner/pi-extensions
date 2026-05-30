@@ -106,7 +106,6 @@ function findCharTarget(
   const forward = motion === "f" || motion === "t";
   const till = motion === "t" || motion === "T";
 
-  let pos = col;
   let found = 0;
 
   if (forward) {
@@ -586,7 +585,8 @@ export class ViEditor extends CustomEditor {
   handleInput(data: string): void {
     // Escape / Ctrl+[ always handled
     if (matchesKey(data, "escape") || matchesKey(data, "ctrl+[")) {
-      return this.handleEscape();
+      this.handleEscape();
+      return;
     }
 
     if (this.mode === "insert") {

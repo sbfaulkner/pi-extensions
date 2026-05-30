@@ -89,8 +89,7 @@ export default function (pi: ExtensionAPI) {
     ],
     parameters: Type.Object({
       name: Type.String({
-        description:
-          'Name of the secrets file (without .ejson extension). Defaults to "secrets". Available files are in ${XDG_CONFIG_HOME:-$HOME/.config}/secrets.',
+        description: `Name of the secrets file (without .ejson extension). Defaults to "secrets". Available files are in \${XDG_CONFIG_HOME:-$HOME/.config}/secrets.`,
       }),
     }),
     async execute(_toolCallId, params) {

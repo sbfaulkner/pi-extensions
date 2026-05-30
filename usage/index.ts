@@ -22,8 +22,8 @@ async function updateUsage(provider: string) {
     case "github-copilot":
       try {
         // Get authenticated user
-        const { exec } = await import("child_process");
-        const { promisify } = await import("util");
+        const { exec } = await import("node:child_process");
+        const { promisify } = await import("node:util");
         const execAsync = promisify(exec);
 
         const { stdout: username } = await execAsync("gh api /user --jq '.login'");
