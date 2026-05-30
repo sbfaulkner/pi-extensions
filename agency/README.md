@@ -27,7 +27,7 @@ All commands are exposed via the single interactive command "/agency". Examples 
   - Role names are case-insensitive and must exist in roles.json.
   - If no explicit name is supplied and all configured names for the role are already in use, the command fails with "no unused names available".
   - Each member gets a stable id (slugified name) to reference for assign/remove operations.
-  - The extension will attempt to spawn a process for the new member when run inside an interactive UI session.
+  - The extension will attempt to spawn a process for the new member when run inside an interactive UI session. If spawning fails (for example, the local `pi` binary is missing or cannot be executed), the command reports an error and does not persist the new member.
 
 - /agency remove <id|displayName>
   - Remove a member by id or display name (case-insensitive). If the member process is running it will be killed.
@@ -87,6 +87,7 @@ Known limitations and notes
 - Use /agency events to inspect recent member events; the extension no longer emits raw RPC events to the host console by default.
 - Lead feedback on member completion is surfaced by temporarily expanding and highlighting the relevant member in the widget; a short notify is also emitted when a task with an id completes.
 - Persistence is session-scoped — members persist only within the Pi session entries and will be re-spawned on an interactive session start if the session includes agency entries.
+- If a persisted member cannot be re-spawned during session resume, the extension notifies the user and keeps that member visible with `error` status for inspection or later retry; it does not write a new persisted state entry for the failure.
 
 
 
@@ -105,7 +106,7 @@ Decisions (current)
 
 The following decisions reflect the intended behavior and have been applied to the README/docs:
 
-- The extension spawns the "pi" binary in RPC mode by default and passes role-based provider/model/thinking values or falls back to the active session model when role settings are null.
+- The extension spawns the "pi" binary in RPC mode by default and passes role-based provider/model/thinking values or falls back to the active session model when role settings are null. Spawn failures for newly added members are reported without persisting the new member; spawn failures while restoring persisted members leave those members visible in `error` status.
 - Persistence remains session-scoped (members persisted to the current Pi session only).
 - Role presets may contain null provider/modelId/thinking values; the extension falls back to session defaults in those cases.
 - UX: widget uses minimized (summary) and expanded views. Completion feedback is shown by expanding/highlighting the member in the widget; a short notify is also emitted when a task with an id completes.

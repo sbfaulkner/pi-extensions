@@ -9,6 +9,7 @@ Loads environment variables from encrypted ejson files (`${XDG_CONFIG_HOME:-$HOM
 - **`/secrets` command** — manually load, list, or clear secrets
 - **Session restore** — secrets are automatically reloaded when resuming a session; unavailable files are skipped silently
 - **Robust process environment injection** — secrets are available in both bash commands and Node.js (process.env), cleared from both with `/secrets clear`
+- **Explicit load errors** — decrypt failures, malformed decrypted JSON, and missing decrypted `environment` objects are reported without marking secrets as loaded
 
 ## Usage
 
@@ -23,10 +24,11 @@ Loads environment variables from encrypted ejson files (`${XDG_CONFIG_HOME:-$HOM
 
 ### Via LLM
 
-The `load_secrets` tool is available for the LLM to call when a command needs API tokens or secrets. Missing files report the available ejson names so the caller can choose a valid secret set.
+The `load_secrets` tool is available for the LLM to call when a command needs API tokens or secrets. Missing files report the available ejson names so the caller can choose a valid secret set. Decrypt, JSON parse, and missing-`environment` failures are surfaced as tool errors without exposing loaded secret values.
 
 ## Requirements
 
 - `ejson` CLI installed and available on `PATH`
 - Encrypted ejson files in `${XDG_CONFIG_HOME:-$HOME/.config}/secrets`
+- Decrypted ejson content must be valid JSON with an `environment` object; only string values in that object are loaded, and `_public_key` is ignored
 - Corresponding private keys in `/opt/ejson/keys/`
