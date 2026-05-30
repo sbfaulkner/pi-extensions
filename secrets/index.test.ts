@@ -204,6 +204,33 @@ test("load_secrets tool loads named secrets and reports variable names", async (
   }
 });
 
+test("session_start skips unavailable secrets from earlier tool results", async () => {
+  const harness = await setupExtension();
+  try {
+    const branch = [
+      {
+        type: "message",
+        message: {
+          role: "toolResult",
+          toolName: "load_secrets",
+          isError: false,
+          details: { name: "missing" },
+        },
+      },
+    ];
+    const { ctx, statuses } = createContext(branch);
+
+    for (const handler of harness.handlers.get("session_start") ?? []) {
+      await handler({}, ctx);
+    }
+
+    assert.equal(process.env.OTHER_TOKEN, undefined);
+    assert.equal(statuses.has("secrets"), false);
+  } finally {
+    harness.restoreEnv();
+  }
+});
+
 test("session_start restores secrets loaded by earlier tool results", async () => {
   const harness = await setupExtension();
   try {
