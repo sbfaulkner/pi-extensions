@@ -7,7 +7,12 @@ import agencyExtension from "./index.ts";
 
 type Handler = (...args: any[]) => unknown;
 
-async function createFakePiBin(startupMessage?: unknown, signalFile?: string, argvFile?: string) {
+async function createFakePiBin(
+  startupMessage?: unknown,
+  signalFile?: string,
+  argvFile?: string,
+  promptSuccess: boolean | null = true,
+) {
   const root = await mkdtemp(path.join(tmpdir(), "pi-extensions-agency-"));
   const binDir = path.join(root, "bin");
   await mkdir(binDir, { recursive: true });
@@ -19,6 +24,7 @@ async function createFakePiBin(startupMessage?: unknown, signalFile?: string, ar
 const startupMessage = ${JSON.stringify(startupMessage)};
 const signalFile = ${JSON.stringify(signalFile)};
 const argvFile = ${JSON.stringify(argvFile)};
+const promptSuccess = ${JSON.stringify(promptSuccess)};
 if (argvFile) {
   require("node:fs").writeFileSync(argvFile, JSON.stringify(process.argv.slice(2)));
 }
@@ -37,8 +43,8 @@ process.stdin.on("data", (chunk) => {
     if (!line) continue;
     try {
       const message = JSON.parse(line);
-      if (message.type === "prompt") {
-        process.stdout.write(JSON.stringify({ type: "response", id: message.id, success: true }) + "\\n");
+      if (message.type === "prompt" && promptSuccess !== null) {
+        process.stdout.write(JSON.stringify({ type: "response", id: message.id, success: promptSuccess }) + "\\n");
       }
     } catch {}
   }
@@ -339,6 +345,66 @@ test("agency assign clears confirmation timeout after child response", async () 
     for (const timer of confirmationTimers) {
       originalClearTimeout(timer);
     }
+    await harness.emit("session_shutdown");
+    process.env.PATH = originalPath;
+  }
+});
+
+test("agency assign reports child rejection and returns member to idle", async () => {
+  const originalPath = process.env.PATH;
+  const fixture = await createFakePiBin(undefined, undefined, undefined, false);
+  process.env.PATH = `${fixture.binDir}${path.delimiter}${process.env.PATH ?? ""}`;
+
+  const harness = createHarness();
+
+  try {
+    await harness.emit("session_start");
+    const command = harness.commands.get("agency");
+    assert.ok(command, "agency command should be registered");
+
+    await command.handler("add developer Alice", harness.ctx);
+    await command.handler("assign alice Fix the bug", harness.ctx);
+
+    assert.deepEqual(harness.notifications.at(-1), {
+      message: "Failed to assign task to alice - rejected",
+      level: "error",
+    });
+
+    await command.handler("list", harness.ctx);
+    assert.match(harness.notifications.at(-1)?.message ?? "", /Alice \(developer\): idle/);
+  } finally {
+    await harness.emit("session_shutdown");
+    process.env.PATH = originalPath;
+  }
+});
+
+test("agency assign assumes success when child confirmation times out", async () => {
+  const originalPath = process.env.PATH;
+  const fixture = await createFakePiBin(undefined, undefined, undefined, null);
+  process.env.PATH = `${fixture.binDir}${path.delimiter}${process.env.PATH ?? ""}`;
+
+  const harness = createHarness();
+  const originalSetTimeout = globalThis.setTimeout;
+
+  try {
+    await harness.emit("session_start");
+    const command = harness.commands.get("agency");
+    assert.ok(command, "agency command should be registered");
+
+    await command.handler("add developer Alice", harness.ctx);
+
+    (globalThis as any).setTimeout = (handler: any, timeout?: any, ...args: any[]) => {
+      return originalSetTimeout(handler, timeout === 6000 ? 0 : timeout, ...args);
+    };
+
+    await command.handler("assign alice Fix the bug", harness.ctx);
+
+    assert.deepEqual(harness.notifications.at(-1), { message: "Assigned developer task to Alice", level: "info" });
+
+    await command.handler("list", harness.ctx);
+    assert.match(harness.notifications.at(-1)?.message ?? "", /Alice \(developer\): busy/);
+  } finally {
+    (globalThis as any).setTimeout = originalSetTimeout;
     await harness.emit("session_shutdown");
     process.env.PATH = originalPath;
   }
