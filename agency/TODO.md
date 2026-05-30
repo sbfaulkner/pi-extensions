@@ -12,7 +12,7 @@ Short-term (docs/cleanup) — completed
 Medium-term (UX & safety)
 
 - Consider an interactive overlay or richer widget that can show live "working..." messages or allow quick inspection of a member's current task and recent messages.
-- Add a simple in-widget debug view or an output panel integration to surface recent raw events when the /agency log toggle is enabled.
+- Add a simple in-widget debug view or an output panel integration to surface recent raw events beyond the `/agency events` summary.
 - Add optional limits: enforce maximum member count per role (already implicitly limited by number of available names) and document behavior when limits reached.
 
 Top-priority: Systematically audit RPC events and decide handling
@@ -94,4 +94,3 @@ Long-term / out of scope for this change
 Notes
 
 - Members always spawn the local "pi" binary in RPC mode; custom command overrides are not supported.
-- Any code changes should target the feat/agency-extension branch.
