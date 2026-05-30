@@ -68,7 +68,6 @@ interface CharMotionMemory {
 
 // --- Constants ---
 
-const ESC_LEFT = "\x1b[D";
 const ESC_RIGHT = "\x1b[C";
 const ESC_UP = "\x1b[A";
 const ESC_DOWN = "\x1b[B";
@@ -78,8 +77,6 @@ const CTRL_K = "\x0b"; // kill to end
 const CTRL_UNDERSCORE = "\x1f"; // undo
 const CTRL_R = "\x12"; // redo
 const NEWLINE = "\n";
-const DELETE = "\x1b[3~"; // delete key
-const BACKSPACE = "\x7f";
 
 const MAX_COUNT = 9999;
 

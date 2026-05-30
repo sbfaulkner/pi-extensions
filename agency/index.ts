@@ -90,7 +90,7 @@ export default function (pi: ExtensionAPI) {
         return JSON.stringify(truncateDeep(ev, 2));
       }
       return String(ev);
-    } catch (e) {
+    } catch {
       return String(ev);
     }
   }
@@ -102,7 +102,7 @@ export default function (pi: ExtensionAPI) {
       arr.push(s);
       if (arr.length > MAX_EVENTS_PER_MEMBER) arr.splice(0, arr.length - MAX_EVENTS_PER_MEMBER);
       memberEvents.set(memberId, arr);
-    } catch (e) {
+    } catch {
       /* ignore */
     }
   }
@@ -140,7 +140,7 @@ export default function (pi: ExtensionAPI) {
       try {
         events.emit("change");
       } catch {}
-    } catch (e) {
+    } catch {
       // ignore
     }
     cancelAutoHide();
@@ -156,7 +156,7 @@ export default function (pi: ExtensionAPI) {
       try {
         events.emit("change");
       } catch {}
-    } catch (e) {
+    } catch {
       // ignore
     }
     cancelAutoHide();
@@ -187,7 +187,7 @@ export default function (pi: ExtensionAPI) {
         try {
           events.emit("change");
         } catch {}
-      } catch (e) {}
+      } catch {}
       minimizeTimer = null;
     }, AUTO_HIDE_DELAY);
   }
@@ -211,7 +211,7 @@ export default function (pi: ExtensionAPI) {
           }
         } catch {}
       }
-    } catch (e) {
+    } catch {
       // ignore - roles may be missing; defaults are minimal
     }
   }
@@ -232,7 +232,7 @@ export default function (pi: ExtensionAPI) {
           }
         }
       }
-    } catch (e) {
+    } catch {
       // ignore session restore failures
     }
     // No fallback: leave members empty if no session entry found
@@ -244,7 +244,7 @@ export default function (pi: ExtensionAPI) {
       if (ctx && typeof (pi as any).appendEntry === "function") {
         await (pi as any).appendEntry("agency", { members: Array.from(members.values()) });
       }
-    } catch (e) {
+    } catch {
       // ignore persistence failure in headless contexts
     }
   }
@@ -288,6 +288,7 @@ export default function (pi: ExtensionAPI) {
             if (idle > 0) parts.push(`${idle} idle`);
             if (pending > 0) parts.push(`${pending} pending`);
             if (initializing > 0) parts.push(`${initializing} starting`);
+            if (error > 0) parts.push(`${error} error`);
             if (offline > 0 && parts.length === 0) parts.push(`${offline} offline`);
             const summary = parts.join("; ");
             lines.push(theme.fg("muted", `${members.size} members — ${summary}`));
@@ -357,7 +358,7 @@ export default function (pi: ExtensionAPI) {
                     lines.push(theme.fg("dim", `  ${e}`));
                   }
                 }
-              } catch (e) {
+              } catch {
                 /* ignore */
               }
             }
@@ -460,12 +461,12 @@ export default function (pi: ExtensionAPI) {
             // Emit raw parsed events for listeners (handshake, debugging)
             try {
               events.emit("raw", m.id, parsed);
-            } catch (e) {}
+            } catch {}
 
             // Push a summarized, in-memory event for the member for quick inspection
             try {
               pushMemberEvent(m.id, parsed);
-            } catch (e) {}
+            } catch {}
 
             // If we were initializing, the first parsed event means the process is alive; mark idle unless the event indicates activity
             if (session.status === "initializing") session.status = "idle";
@@ -474,7 +475,7 @@ export default function (pi: ExtensionAPI) {
             try {
               scheduleAutoHide();
             } catch {}
-          } catch (e) {
+          } catch {
             // ignore parse errors
           }
         }
@@ -495,7 +496,7 @@ export default function (pi: ExtensionAPI) {
       // trigger UI update
       try {
         events.emit("change");
-      } catch (e) {
+      } catch {
         /* ignore */
       }
       return session;
@@ -514,7 +515,7 @@ export default function (pi: ExtensionAPI) {
     // Ignore UI-only extension requests that don't represent activity
     try {
       if (msg && msg.type === "extension_ui_request" && msg.method === "setStatus") return;
-    } catch (e) {}
+    } catch {}
 
     session.lastActivity = Date.now();
 
@@ -612,7 +613,7 @@ export default function (pi: ExtensionAPI) {
     try {
       session.proc.stdin.write(`${JSON.stringify(obj)}\n`);
       return true;
-    } catch (e) {
+    } catch {
       return false;
     }
   }
@@ -671,7 +672,7 @@ export default function (pi: ExtensionAPI) {
           resolve(undefined);
         }, 6000);
       });
-    } catch (e) {
+    } catch {
       confirmed = undefined;
     }
 
@@ -748,14 +749,14 @@ export default function (pi: ExtensionAPI) {
               ctx.ui.notify(`Failed to spawn member ${m.role} ${m.displayName ?? m.id} - spawn failed`, "error");
             } catch {}
           }
-        } catch (e) {
+        } catch {
           try {
             ctx.ui.notify(`Failed to spawn member ${m.role} ${m.displayName ?? m.id} - spawn failed`, "error");
           } catch {}
         }
         await new Promise((r) => setTimeout(r, 150));
       }
-    } catch (e) {
+    } catch {
       // ignore spawn errors during resume
     }
 
@@ -840,7 +841,7 @@ export default function (pi: ExtensionAPI) {
       } as Member;
       members.set(id, member);
       await saveState(innerCtx);
-      const sess = await spawnMemberProcess(member);
+      await spawnMemberProcess(member);
       try {
         events.emit("change");
       } catch {}
@@ -1066,7 +1067,7 @@ export default function (pi: ExtensionAPI) {
                         if (s?.proc) {
                           try {
                             s.proc.kill();
-                          } catch (e) {
+                          } catch {
                             /* ignore */
                           }
                         }
@@ -1088,7 +1089,7 @@ export default function (pi: ExtensionAPI) {
                     return;
                   }
                 }
-              } catch (e) {
+              } catch {
                 // If confirmation UI throws or rejects, abort
                 innerCtx.ui.notify("Clear cancelled", "info");
                 return;
@@ -1096,11 +1097,11 @@ export default function (pi: ExtensionAPI) {
             }
 
             // Either no busy members or confirmation was obtained: remove everything
-            for (const [id, s] of sessions.entries()) {
+            for (const s of sessions.values()) {
               if (s?.proc) {
                 try {
                   s.proc.kill();
-                } catch (e) {
+                } catch {
                   /* ignore individual failures */
                 }
               }
@@ -1147,7 +1148,7 @@ export default function (pi: ExtensionAPI) {
           if (s?.proc) {
             try {
               s.proc.kill();
-            } catch (e) {
+            } catch {
               /* ignore */
             }
             sessions.delete(idToRemove);
@@ -1252,7 +1253,7 @@ export default function (pi: ExtensionAPI) {
     if (ctx?.ui) {
       try {
         ctx.ui.setWidget("agency", undefined);
-      } catch (e) {
+      } catch {
         // ignore - some hosts may not provide full UI on shutdown
       }
     }
@@ -1261,7 +1262,7 @@ export default function (pi: ExtensionAPI) {
     uiCtx = undefined;
 
     // Kill any spawned procs we own
-    for (const [id, s] of sessions.entries()) {
+    for (const s of sessions.values()) {
       if (s?.proc) {
         try {
           s.proc.kill();
