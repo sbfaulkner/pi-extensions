@@ -16,7 +16,6 @@
     "rules": {
       "recommended": true,
       "complexity": {
-        "noUselessUndefinedInitialization": "off",
         "useOptionalChain": "off"
       },
       "correctness": {
