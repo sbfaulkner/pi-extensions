@@ -84,6 +84,36 @@ export default function (pi: ExtensionAPI) {
   let loadedNames: string[] = [];
   const loadedEnvVarNames = new Set<string>();
 
+  function rememberLoadedSecrets(name: string, vars: Record<string, string>): string[] {
+    loadedSecrets = { ...loadedSecrets, ...vars };
+    for (const [key, value] of Object.entries(vars)) {
+      process.env[key] = value;
+      loadedEnvVarNames.add(key);
+    }
+    if (!loadedNames.includes(name)) {
+      loadedNames.push(name);
+    }
+    return Object.keys(vars);
+  }
+
+  function loadAndRememberSecrets(name: string): string[] {
+    const vars = loadSecretsFromEjson(name);
+    return rememberLoadedSecrets(name, vars);
+  }
+
+  function clearLoadedSecrets(): void {
+    loadedSecrets = {};
+    loadedNames = [];
+    for (const key of loadedEnvVarNames) {
+      delete process.env[key];
+    }
+    loadedEnvVarNames.clear();
+  }
+
+  function loadedSecretsStatus(): string {
+    return `🔑 ${loadedNames.join(", ")}`;
+  }
+
   // Override bash tool to inject secrets via spawnHook
   const bashTool = createBashTool(cwd, {
     spawnHook: ({ command, cwd, env }) => ({
@@ -118,17 +148,7 @@ export default function (pi: ExtensionAPI) {
     }),
     async execute(_toolCallId, params) {
       try {
-        const vars = loadSecretsFromEjson(params.name);
-        loadedSecrets = { ...loadedSecrets, ...vars };
-        for (const [key, value] of Object.entries(vars)) {
-          process.env[key] = value;
-          loadedEnvVarNames.add(key);
-        }
-        if (!loadedNames.includes(params.name)) {
-          loadedNames.push(params.name);
-        }
-
-        const varNames = Object.keys(vars);
+        const varNames = loadAndRememberSecrets(params.name);
         return {
           content: [
             {
@@ -160,32 +180,16 @@ export default function (pi: ExtensionAPI) {
       }
 
       if (name === "clear") {
-        loadedSecrets = {};
-        loadedNames = [];
-        for (const key of loadedEnvVarNames) {
-          delete process.env[key];
-        }
-        loadedEnvVarNames.clear();
+        clearLoadedSecrets();
         ctx.ui.setStatus("secrets", undefined);
         ctx.ui.notify("Secrets cleared", "info");
         return;
       }
 
       try {
-        const vars = loadSecretsFromEjson(name);
-        loadedSecrets = { ...loadedSecrets, ...vars };
-        for (const [key, value] of Object.entries(vars)) {
-          process.env[key] = value;
-          loadedEnvVarNames.add(key);
-        }
-        if (!loadedNames.includes(name)) {
-          loadedNames.push(name);
-        }
-        ctx.ui.setStatus("secrets", `🔑 ${loadedNames.join(", ")}`);
-        ctx.ui.notify(
-          `Loaded ${Object.keys(vars).length} secret(s) from ${name}: ${Object.keys(vars).join(", ")}`,
-          "info",
-        );
+        const varNames = loadAndRememberSecrets(name);
+        ctx.ui.setStatus("secrets", loadedSecretsStatus());
+        ctx.ui.notify(`Loaded ${varNames.length} secret(s) from ${name}: ${varNames.join(", ")}`, "info");
       } catch (error) {
         ctx.ui.notify(errorMessage(error), "error");
       }
@@ -204,15 +208,7 @@ export default function (pi: ExtensionAPI) {
         const name = entry.message.details?.name;
         if (name && typeof name === "string") {
           try {
-            const vars = loadSecretsFromEjson(name);
-            loadedSecrets = { ...loadedSecrets, ...vars };
-            for (const [key, value] of Object.entries(vars)) {
-              process.env[key] = value;
-              loadedEnvVarNames.add(key);
-            }
-            if (!loadedNames.includes(name)) {
-              loadedNames.push(name);
-            }
+            loadAndRememberSecrets(name);
           } catch {
             // Silently skip if ejson file no longer available
           }
@@ -221,14 +217,14 @@ export default function (pi: ExtensionAPI) {
     }
 
     if (loadedNames.length > 0) {
-      ctx.ui.setStatus("secrets", `🔑 ${loadedNames.join(", ")}`);
+      ctx.ui.setStatus("secrets", loadedSecretsStatus());
     }
   });
 
   // Show status when secrets are loaded
   pi.on("turn_start", async (_event, ctx) => {
     if (loadedNames.length > 0) {
-      ctx.ui.setStatus("secrets", `🔑 ${loadedNames.join(", ")}`);
+      ctx.ui.setStatus("secrets", loadedSecretsStatus());
     }
   });
 }

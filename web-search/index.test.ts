@@ -6,6 +6,21 @@ type FetchInput = Parameters<typeof fetch>[0];
 type FetchInit = Parameters<typeof fetch>[1];
 type ToolResult = { content: Array<{ type: string; text: string }>; details: Record<string, unknown> };
 type Tool = { name: string; execute: (...args: unknown[]) => Promise<ToolResult> };
+type RenderedComponent = { render(width: number): string[] };
+type RenderTheme = { bold(text: string): string; fg(style: string, text: string): string };
+type RenderableTool = Tool & {
+  renderCall(
+    args: Record<string, string>,
+    theme: RenderTheme,
+    context: { lastComponent?: RenderedComponent },
+  ): RenderedComponent;
+  renderResult(
+    result: { details?: Record<string, unknown> },
+    opts: unknown,
+    theme: RenderTheme,
+    context: { lastComponent?: RenderedComponent; isError?: boolean },
+  ): RenderedComponent;
+};
 type GeminiRequest = { contents: Array<{ parts: Array<{ text: string }> }> };
 
 let importCounter = 0;
@@ -89,6 +104,10 @@ function getTool(tools: Map<string, Tool>, name: string): Tool {
   return tool;
 }
 
+function getRenderableTool(tools: Map<string, Tool>, name: string): RenderableTool {
+  return getTool(tools, name) as RenderableTool;
+}
+
 function installFetch(fetchImpl: typeof fetch) {
   const originalFetch = globalThis.fetch;
   globalThis.fetch = fetchImpl;
@@ -115,30 +134,33 @@ test("session_start warns when GEMINI_API_KEY is missing", async () => {
   }
 });
 
-test("web_search aborts and notifies when GEMINI_API_KEY is missing", async () => {
-  const harness = await setupExtension();
+test("search tools abort and notify when GEMINI_API_KEY is missing", async () => {
+  for (const toolName of ["web_search", "web_search_summary"]) {
+    const harness = await setupExtension();
 
-  try {
-    const context = createContext();
+    try {
+      const context = createContext();
 
-    await assert.rejects(
-      () =>
-        getTool(harness.tools, "web_search").execute(
-          "tool-call",
-          { query: "pi extensions" },
-          undefined,
-          undefined,
-          context.ctx,
-        ),
-      { name: "AbortError", message: /GEMINI_API_KEY is not set/ },
-    );
+      await assert.rejects(
+        () =>
+          getTool(harness.tools, toolName).execute(
+            "tool-call",
+            { query: "pi extensions" },
+            undefined,
+            undefined,
+            context.ctx,
+          ),
+        { name: "AbortError", message: /GEMINI_API_KEY is not set/ },
+      );
 
-    assert.equal(context.abortCount, 1);
-    assert.equal(context.notifications.length, 1);
-    assert.equal(context.notifications[0].level, "error");
-    assert.match(context.notifications[0].message, /GEMINI_API_KEY environment variable is not set/);
-  } finally {
-    harness.restoreEnv();
+      assert.equal(context.abortCount, 1, toolName);
+      assert.equal(context.notifications.length, 1, toolName);
+      assert.equal(context.notifications[0].level, "error", toolName);
+      assert.match(context.notifications[0].message, /GEMINI_API_KEY environment variable is not set/, toolName);
+      assert.match(context.notifications[0].message, new RegExp(toolName), toolName);
+    } finally {
+      harness.restoreEnv();
+    }
   }
 });
 
@@ -212,83 +234,49 @@ test("web_search_summary aborts and notifies when Gemini authentication fails", 
   }
 });
 
-test("web_search reports non-JSON Gemini responses as tool errors", async () => {
-  const restoreFetch = installFetch(async () => {
-    return new Response("<html>bad gateway</html>", {
-      status: 502,
-      statusText: "Bad Gateway",
-      headers: { "content-type": "text/html" },
-    });
-  });
-  const harness = await setupExtension("test-key");
-
-  try {
-    const context = createContext();
-
-    const result = await getTool(harness.tools, "web_search").execute(
-      "tool-call",
-      { query: "pi extensions" },
-      undefined,
-      undefined,
-      context.ctx,
-    );
-
-    assert.deepEqual(result.details, { error: true });
-    assert.equal(
-      result.content[0].text,
-      "Gemini API returned non-JSON response (502 Bad Gateway): <html>bad gateway</html>",
-    );
-    assert.equal(context.abortCount, 0);
-    assert.equal(context.notifications.length, 0);
-  } finally {
-    restoreFetch();
-    harness.restoreEnv();
-  }
-});
-
-test("web_search reports non-auth Gemini JSON errors without aborting", async () => {
-  const restoreFetch = installFetch(async () => {
-    return new Response(JSON.stringify({ error: { code: 429, message: "Quota exceeded" } }), {
-      status: 429,
-      statusText: "Too Many Requests",
-      headers: { "content-type": "application/json" },
-    });
-  });
-  const harness = await setupExtension("test-key");
-
-  try {
-    const context = createContext();
-
-    const result = await getTool(harness.tools, "web_search").execute(
-      "tool-call",
-      { query: "pi extensions" },
-      undefined,
-      undefined,
-      context.ctx,
-    );
-
-    assert.deepEqual(result.details, { error: true });
-    assert.equal(result.content[0].text, "Quota exceeded");
-    assert.equal(context.abortCount, 0);
-    assert.equal(context.notifications.length, 0);
-  } finally {
-    restoreFetch();
-    harness.restoreEnv();
-  }
-});
-
-test("web_search reports Gemini responses with missing answer candidates", async () => {
-  const cases: Array<{ name: string; body: unknown }> = [
-    { name: "missing candidates", body: {} },
-    { name: "empty candidates", body: { candidates: [] } },
-    { name: "missing answer parts", body: { candidates: [{ content: { parts: [] } }] } },
-  ];
-
-  for (const { name, body } of cases) {
+test("search tools report non-JSON Gemini responses as tool errors", async () => {
+  for (const toolName of ["web_search", "web_search_summary"]) {
     const restoreFetch = installFetch(async () => {
-      return new Response(JSON.stringify(body), {
-        status: 200,
-        statusText: "OK",
+      return new Response("<html>bad gateway</html>", {
+        status: 502,
+        statusText: "Bad Gateway",
+        headers: { "content-type": "text/html" },
+      });
+    });
+    const harness = await setupExtension("test-key");
+
+    try {
+      const context = createContext();
+
+      const result = await getTool(harness.tools, toolName).execute(
+        "tool-call",
+        { query: "pi extensions" },
+        undefined,
+        undefined,
+        context.ctx,
+      );
+
+      assert.deepEqual(result.details, { error: true }, toolName);
+      assert.equal(
+        result.content[0].text,
+        "Gemini API returned non-JSON response (502 Bad Gateway): <html>bad gateway</html>",
+        toolName,
+      );
+      assert.equal(context.abortCount, 0, toolName);
+      assert.equal(context.notifications.length, 0, toolName);
+    } finally {
+      restoreFetch();
+      harness.restoreEnv();
+    }
+  }
+});
+
+test("search tools report non-auth Gemini JSON errors without aborting", async () => {
+  for (const toolName of ["web_search", "web_search_summary"]) {
+    const restoreFetch = installFetch(async () => {
+      return new Response(JSON.stringify({ error: { code: 429, message: "Quota exceeded" } }), {
+        status: 429,
+        statusText: "Too Many Requests",
         headers: { "content-type": "application/json" },
       });
     });
@@ -297,21 +285,63 @@ test("web_search reports Gemini responses with missing answer candidates", async
     try {
       const context = createContext();
 
-      const result = await getTool(harness.tools, "web_search").execute(
+      const result = await getTool(harness.tools, toolName).execute(
         "tool-call",
-        { query: `pi extensions ${name}` },
+        { query: "pi extensions" },
         undefined,
         undefined,
         context.ctx,
       );
 
-      assert.deepEqual(result.details, { error: true }, name);
-      assert.equal(result.content[0].text, "Gemini API response did not include any answer text.", name);
-      assert.equal(context.abortCount, 0, name);
-      assert.equal(context.notifications.length, 0, name);
+      assert.deepEqual(result.details, { error: true }, toolName);
+      assert.equal(result.content[0].text, "Quota exceeded", toolName);
+      assert.equal(context.abortCount, 0, toolName);
+      assert.equal(context.notifications.length, 0, toolName);
     } finally {
       restoreFetch();
       harness.restoreEnv();
+    }
+  }
+});
+
+test("search tools report Gemini responses with missing answer candidates", async () => {
+  const cases: Array<{ name: string; body: unknown }> = [
+    { name: "missing candidates", body: {} },
+    { name: "empty candidates", body: { candidates: [] } },
+    { name: "missing answer parts", body: { candidates: [{ content: { parts: [] } }] } },
+  ];
+
+  for (const toolName of ["web_search", "web_search_summary"]) {
+    for (const { name, body } of cases) {
+      const restoreFetch = installFetch(async () => {
+        return new Response(JSON.stringify(body), {
+          status: 200,
+          statusText: "OK",
+          headers: { "content-type": "application/json" },
+        });
+      });
+      const harness = await setupExtension("test-key");
+
+      try {
+        const context = createContext();
+        const label = `${toolName}: ${name}`;
+
+        const result = await getTool(harness.tools, toolName).execute(
+          "tool-call",
+          { query: `pi extensions ${name}` },
+          undefined,
+          undefined,
+          context.ctx,
+        );
+
+        assert.deepEqual(result.details, { error: true }, label);
+        assert.equal(result.content[0].text, "Gemini API response did not include any answer text.", label);
+        assert.equal(context.abortCount, 0, label);
+        assert.equal(context.notifications.length, 0, label);
+      } finally {
+        restoreFetch();
+        harness.restoreEnv();
+      }
     }
   }
 });
@@ -369,6 +399,37 @@ test("search tools call Gemini with concise and detailed prompts", async () => {
     assert.equal(summaryResult.details.sources, 1);
   } finally {
     restoreFetch();
+    harness.restoreEnv();
+  }
+});
+
+test("search tool renderers show queries, source counts, and errors", async () => {
+  const harness = await setupExtension("test-key");
+
+  try {
+    const theme: RenderTheme = {
+      bold: (text) => `**${text}**`,
+      fg: (style, text) => `<${style}>${text}</${style}>`,
+    };
+
+    const searchTool = getRenderableTool(harness.tools, "web_search");
+    const summaryTool = getRenderableTool(harness.tools, "web_search_summary");
+
+    const searchCall = searchTool.renderCall({ query: "pi testing" }, theme, {});
+    assert.equal(searchCall.render(80)[0].trimEnd(), "**web_search** <muted>pi testing</muted>");
+
+    const searchResult = searchTool.renderResult({ details: { sources: 2 } }, {}, theme, {
+      lastComponent: searchCall,
+    });
+    assert.equal(searchResult, searchCall);
+    assert.equal(searchResult.render(80)[0].trimEnd(), "<success>✓ 2 sources</success>");
+
+    const summaryCall = summaryTool.renderCall({ query: "pi testing" }, theme, {});
+    assert.equal(summaryCall.render(80)[0].trimEnd(), "**web_search_summary** <muted>pi testing</muted>");
+
+    const summaryError = summaryTool.renderResult({ details: { error: true } }, {}, theme, {});
+    assert.equal(summaryError.render(80)[0].trimEnd(), "<error>✗</error>");
+  } finally {
     harness.restoreEnv();
   }
 });

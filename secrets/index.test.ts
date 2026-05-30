@@ -281,6 +281,22 @@ test("load_secrets tool loads named secrets and reports variable names", async (
   }
 });
 
+test("turn_start shows status for secrets loaded by tool", async () => {
+  const harness = await setupExtension();
+  try {
+    await getTool(harness.tools, "load_secrets").execute("tool-call", { name: "other" });
+    const { ctx, statuses } = createContext();
+
+    for (const handler of harness.handlers.get("turn_start") ?? []) {
+      await handler({}, ctx);
+    }
+
+    assert.equal(statuses.get("secrets"), "🔑 other");
+  } finally {
+    harness.restoreEnv();
+  }
+});
+
 test("session_start skips unavailable secrets from earlier tool results", async () => {
   const harness = await setupExtension();
   try {
