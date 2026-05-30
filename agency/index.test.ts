@@ -140,6 +140,32 @@ test("agency help lists implemented commands and omits removed log/stop commands
   assert.doesNotMatch(help, /\/agency stop/);
 });
 
+test("agency assign validates required member and task", async () => {
+  const harness = createHarness();
+  await harness.emit("session_start");
+
+  const command = harness.commands.get("agency");
+  assert.ok(command, "agency command should be registered");
+
+  await command.handler("assign", harness.ctx);
+  assert.deepEqual(harness.notifications.at(-1), {
+    message: "Usage: /agency assign <id> <task text>",
+    level: "warning",
+  });
+
+  await command.handler("assign alice", harness.ctx);
+  assert.deepEqual(harness.notifications.at(-1), {
+    message: "Usage: /agency assign <id> <task text>",
+    level: "warning",
+  });
+
+  await command.handler("assign alice Fix the bug", harness.ctx);
+  assert.deepEqual(harness.notifications.at(-1), {
+    message: "Failed to assign member alice - unknown member",
+    level: "warning",
+  });
+});
+
 test("agency add, list, and remove manage a named member", async () => {
   const originalPath = process.env.PATH;
   const fixture = await createFakePiBin();
