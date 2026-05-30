@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
 
-type Handler = (...args: any[]) => unknown;
+type Handler = (...args: unknown[]) => unknown;
 
 let importCounter = 0;
 
@@ -111,7 +111,7 @@ async function setupExtension(binDir?: string) {
   const { mod, restoreEnv } = await loadUsageModule(binDir);
   const harness = createPi();
 
-  mod.default(harness.pi as any);
+  mod.default(harness.pi as Parameters<typeof mod.default>[0]);
 
   return { ...harness, restoreEnv };
 }
