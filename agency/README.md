@@ -107,7 +107,6 @@ The following decisions reflect the intended behavior and have been applied to t
 - The extension spawns the "pi" binary in RPC mode by default and passes role-based provider/model/thinking values or falls back to the active session model when role settings are null.
 - Persistence remains session-scoped (members persisted to the current Pi session only).
 - Role presets may contain null provider/modelId/thinking values; the extension falls back to session defaults in those cases.
-- The /agency logs and /agency log commands have been removed. Use the in-widget preview (highlight) or the /agency events command to inspect recent member events.
 - UX: widget uses minimized (summary) and expanded views. Completion feedback is shown by expanding/highlighting the member in the widget; a short notify is also emitted when a task with an id completes.
 
 If you'd like additional changes (e.g., add workspace persistence or a dev-mode test harness), I can prepare follow-up PRs with the necessary changes.
