@@ -316,7 +316,7 @@ export default function (pi: ExtensionAPI) {
       pi.sendMessage(
         {
           customType: "answers",
-          content: "I answered your questions:\n\n" + parts.join("\n").trim(),
+          content: `I answered your questions:\n\n${parts.join("\n").trim()}`,
           display: true,
         },
         { triggerTurn: true },

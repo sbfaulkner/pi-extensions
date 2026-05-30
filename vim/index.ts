@@ -491,7 +491,7 @@ export class ViEditor extends CustomEditor {
     const lines = this.allLines();
     if (lines.length === 0) return;
 
-    this.register = (lines[lineIdx] ?? "") + "\n";
+    this.register = `${lines[lineIdx] ?? ""}\n`;
 
     if (lines.length === 1) {
       this.replaceBuffer("", 0);
@@ -967,7 +967,7 @@ export class ViEditor extends CustomEditor {
       if (op === "y") {
         // Yank lines
         const endLine = Math.min(lineIdx + count - 1, lines.length - 1);
-        this.register = lines.slice(lineIdx, endLine + 1).join("\n") + "\n";
+        this.register = `${lines.slice(lineIdx, endLine + 1).join("\n")}\n`;
       } else {
         // Delete/change lines
         for (let i = 0; i < count && this.allLines().length > 0; i++) {

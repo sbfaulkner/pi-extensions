@@ -312,7 +312,7 @@ async function fetchPageText(url: string, signal?: AbortSignal): Promise<string>
 
 function formatSources(sources: Source[]): string {
   if (sources.length === 0) return "";
-  return "\n\n## Sources\n" + sources.map((s, i) => `${i + 1}. ${s.title} — ${s.uri}`).join("\n");
+  return `\n\n## Sources\n${sources.map((s, i) => `${i + 1}. ${s.title} — ${s.uri}`).join("\n")}`;
 }
 
 // ---------------------------------------------------------------------------
@@ -396,7 +396,7 @@ export default function (pi: ExtensionAPI) {
     },
     renderCall(args, theme, context) {
       const text = (context.lastComponent as Text | undefined) ?? new Text("", 0, 0);
-      text.setText(theme.bold("web_search") + " " + theme.fg("muted", args.query));
+      text.setText(`${theme.bold("web_search")} ${theme.fg("muted", args.query)}`);
       return text;
     },
     renderResult(result, _opts, theme, context) {
@@ -469,7 +469,7 @@ export default function (pi: ExtensionAPI) {
     },
     renderCall(args, theme, context) {
       const text = (context.lastComponent as Text | undefined) ?? new Text("", 0, 0);
-      text.setText(theme.bold("web_search_summary") + " " + theme.fg("muted", args.query));
+      text.setText(`${theme.bold("web_search_summary")} ${theme.fg("muted", args.query)}`);
       return text;
     },
     renderResult(result, _opts, theme, context) {
@@ -517,7 +517,7 @@ export default function (pi: ExtensionAPI) {
 
     renderCall(args, theme, context) {
       const text = (context.lastComponent as Text | undefined) ?? new Text("", 0, 0);
-      text.setText(theme.bold("web_fetch") + " " + theme.fg("muted", args.url));
+      text.setText(`${theme.bold("web_fetch")} ${theme.fg("muted", args.url)}`);
       return text;
     },
     renderResult(result, _opts, theme, context) {
