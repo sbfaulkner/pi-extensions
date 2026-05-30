@@ -12,248 +12,245 @@ type Platform = string;
 type Signal = string;
 
 export interface InhibitorCommand {
-	command: string;
-	args: string[];
+  command: string;
+  args: string[];
 }
 
 interface InhibitorProcess {
-	pid?: number;
-	killed?: boolean;
-	kill: (signal?: Signal | number) => boolean;
-	on: (event: "error" | "exit", listener: (...args: any[]) => void) => unknown;
-	off?: (event: "error" | "exit", listener: (...args: any[]) => void) => unknown;
-	removeListener?: (event: "error" | "exit", listener: (...args: any[]) => void) => unknown;
+  pid?: number;
+  killed?: boolean;
+  kill: (signal?: Signal | number) => boolean;
+  on: (event: "error" | "exit", listener: (...args: any[]) => void) => unknown;
+  off?: (event: "error" | "exit", listener: (...args: any[]) => void) => unknown;
+  removeListener?: (event: "error" | "exit", listener: (...args: any[]) => void) => unknown;
 }
 
 interface ProcessLike {
-	platform: Platform;
-	stdout: { isTTY?: boolean };
-	on: (event: "exit", listener: () => void) => unknown;
-	off?: (event: "exit", listener: () => void) => unknown;
-	removeListener?: (event: "exit", listener: () => void) => unknown;
+  platform: Platform;
+  stdout: { isTTY?: boolean };
+  on: (event: "exit", listener: () => void) => unknown;
+  off?: (event: "exit", listener: () => void) => unknown;
+  removeListener?: (event: "exit", listener: () => void) => unknown;
 }
 
 interface SpawnOptions {
-	stdio: "ignore";
-	detached: false;
+  stdio: "ignore";
+  detached: false;
 }
 
 interface NodozDependencies {
-	process?: ProcessLike;
-	spawn?: (command: string, args: string[], options: SpawnOptions) => InhibitorProcess;
-	logger?: { warn: (message?: unknown, ...optionalParams: unknown[]) => void };
-	getInhibitorCommand?: (platform: Platform) => InhibitorCommand | undefined;
+  process?: ProcessLike;
+  spawn?: (command: string, args: string[], options: SpawnOptions) => InhibitorProcess;
+  logger?: { warn: (message?: unknown, ...optionalParams: unknown[]) => void };
+  getInhibitorCommand?: (platform: Platform) => InhibitorCommand | undefined;
 }
 
 interface NodozUI {
-	setStatus: (id: string, text: string | undefined) => void;
-	theme: { fg: (style: string, text: string) => string };
+  setStatus: (id: string, text: string | undefined) => void;
+  theme: { fg: (style: string, text: string) => string };
 }
 
 interface NodozContext {
-	ui?: NodozUI;
+  ui?: NodozUI;
 }
 
 export interface NodozState {
-	activeTurns: number;
-	isInhibiting: boolean;
+  activeTurns: number;
+  isInhibiting: boolean;
 }
 
 const STATUS_PREFIX = "[nodoz]";
 
 export function getInhibitorCommand(platform: Platform): InhibitorCommand | undefined {
-	if (platform === "darwin") {
-		return {
-			command: "caffeinate",
-			args: ["-d", "-i", "-s"],
-		};
-	}
+  if (platform === "darwin") {
+    return {
+      command: "caffeinate",
+      args: ["-d", "-i", "-s"],
+    };
+  }
 
-	// Future Linux support can use:
-	// systemd-inhibit --what=idle:sleep --mode=block sleep infinity
-	return undefined;
+  // Future Linux support can use:
+  // systemd-inhibit --what=idle:sleep --mode=block sleep infinity
+  return undefined;
 }
 
 function detachChildListener(
-	child: InhibitorProcess,
-	event: "error" | "exit",
-	listener: (...args: any[]) => void,
+  child: InhibitorProcess,
+  event: "error" | "exit",
+  listener: (...args: any[]) => void,
 ): void {
-	if (child.off) {
-		child.off(event, listener);
-	} else if (child.removeListener) {
-		child.removeListener(event, listener);
-	}
+  if (child.off) {
+    child.off(event, listener);
+  } else if (child.removeListener) {
+    child.removeListener(event, listener);
+  }
 }
 
 function detachProcessExitListener(processLike: ProcessLike, listener: () => void): void {
-	if (processLike.off) {
-		processLike.off("exit", listener);
-	} else if (processLike.removeListener) {
-		processLike.removeListener("exit", listener);
-	}
+  if (processLike.off) {
+    processLike.off("exit", listener);
+  } else if (processLike.removeListener) {
+    processLike.removeListener("exit", listener);
+  }
 }
 
 function formatExit(code: number | null, signal: Signal | null): string {
-	if (signal) return `signal ${signal}`;
-	if (code !== null) return `code ${code}`;
-	return "unknown status";
+  if (signal) return `signal ${signal}`;
+  if (code !== null) return `code ${code}`;
+  return "unknown status";
 }
 
 export function createNodozExtension(pi: ExtensionAPI, deps: NodozDependencies = {}): NodozState | undefined {
-	const processLike = deps.process ?? ((globalThis as any).process as ProcessLike);
-	const spawn = deps.spawn ?? ((command, args, options) => nodeSpawn(command, args, options) as InhibitorProcess);
-	const logger = deps.logger ?? console;
-	const commandForPlatform = deps.getInhibitorCommand ?? getInhibitorCommand;
+  const processLike = deps.process ?? ((globalThis as any).process as ProcessLike);
+  const spawn = deps.spawn ?? ((command, args, options) => nodeSpawn(command, args, options) as InhibitorProcess);
+  const logger = deps.logger ?? console;
+  const commandForPlatform = deps.getInhibitorCommand ?? getInhibitorCommand;
 
-	// Only the interactive parent pi session should hold a sleep inhibitor.
-	// Non-TTY sessions/subagents intentionally register nothing.
-	if (!processLike.stdout?.isTTY) return undefined;
+  // Only the interactive parent pi session should hold a sleep inhibitor.
+  // Non-TTY sessions/subagents intentionally register nothing.
+  if (!processLike.stdout?.isTTY) return undefined;
 
-	const state: NodozState = {
-		activeTurns: 0,
-		isInhibiting: false,
-	};
+  const state: NodozState = {
+    activeTurns: 0,
+    isInhibiting: false,
+  };
 
-	let child: InhibitorProcess | undefined;
-	let childErrorHandler: ((error: Error) => void) | undefined;
-	let childExitHandler: ((code: number | null, signal: Signal | null) => void) | undefined;
-	let currentUI: NodozUI | undefined;
+  let child: InhibitorProcess | undefined;
+  let childErrorHandler: ((error: Error) => void) | undefined;
+  let childExitHandler: ((code: number | null, signal: Signal | null) => void) | undefined;
+  let currentUI: NodozUI | undefined;
 
-	function rememberUI(ctx?: NodozContext): void {
-		if (ctx?.ui) currentUI = ctx.ui;
-	}
+  function rememberUI(ctx?: NodozContext): void {
+    if (ctx?.ui) currentUI = ctx.ui;
+  }
 
-	function updateStatus(): void {
-		if (!currentUI) return;
-		currentUI.setStatus(
-			"nodoz",
-			state.isInhibiting ? currentUI.theme.fg("dim", "👀 nodoz ") : undefined,
-		);
-	}
+  function updateStatus(): void {
+    if (!currentUI) return;
+    currentUI.setStatus("nodoz", state.isInhibiting ? currentUI.theme.fg("dim", "👀 nodoz ") : undefined);
+  }
 
-	function clearChild(): void {
-		if (child && childErrorHandler) {
-			detachChildListener(child, "error", childErrorHandler);
-		}
-		if (child && childExitHandler) {
-			detachChildListener(child, "exit", childExitHandler);
-		}
-		child = undefined;
-		childErrorHandler = undefined;
-		childExitHandler = undefined;
-		state.isInhibiting = false;
-		updateStatus();
-	}
+  function clearChild(): void {
+    if (child && childErrorHandler) {
+      detachChildListener(child, "error", childErrorHandler);
+    }
+    if (child && childExitHandler) {
+      detachChildListener(child, "exit", childExitHandler);
+    }
+    child = undefined;
+    childErrorHandler = undefined;
+    childExitHandler = undefined;
+    state.isInhibiting = false;
+    updateStatus();
+  }
 
-	function resetAfterFailure(): void {
-		clearChild();
-		state.activeTurns = 0;
-	}
+  function resetAfterFailure(): void {
+    clearChild();
+    state.activeTurns = 0;
+  }
 
-	function startInhibitor(): boolean {
-		if (child) {
-			updateStatus();
-			return true;
-		}
+  function startInhibitor(): boolean {
+    if (child) {
+      updateStatus();
+      return true;
+    }
 
-		const inhibitor = commandForPlatform(processLike.platform);
-		if (!inhibitor) return false;
+    const inhibitor = commandForPlatform(processLike.platform);
+    if (!inhibitor) return false;
 
-		let spawned: InhibitorProcess;
-		try {
-			spawned = spawn(inhibitor.command, inhibitor.args, {
-				stdio: "ignore",
-				detached: false,
-			});
-		} catch (error: any) {
-			state.activeTurns = 0;
-			logger.warn(`${STATUS_PREFIX} failed to start sleep inhibitor: ${error?.message ?? String(error)}`);
-			return false;
-		}
+    let spawned: InhibitorProcess;
+    try {
+      spawned = spawn(inhibitor.command, inhibitor.args, {
+        stdio: "ignore",
+        detached: false,
+      });
+    } catch (error: any) {
+      state.activeTurns = 0;
+      logger.warn(`${STATUS_PREFIX} failed to start sleep inhibitor: ${error?.message ?? String(error)}`);
+      return false;
+    }
 
-		child = spawned;
-		state.isInhibiting = true;
-		updateStatus();
+    child = spawned;
+    state.isInhibiting = true;
+    updateStatus();
 
-		childErrorHandler = (error: Error) => {
-			if (child !== spawned) return;
-			logger.warn(`${STATUS_PREFIX} sleep inhibitor error: ${error?.message ?? String(error)}`);
-			resetAfterFailure();
-		};
+    childErrorHandler = (error: Error) => {
+      if (child !== spawned) return;
+      logger.warn(`${STATUS_PREFIX} sleep inhibitor error: ${error?.message ?? String(error)}`);
+      resetAfterFailure();
+    };
 
-		childExitHandler = (code: number | null, signal: Signal | null) => {
-			if (child !== spawned) return;
-			const wasActive = state.activeTurns > 0;
-			resetAfterFailure();
-			if (wasActive) {
-				logger.warn(`${STATUS_PREFIX} sleep inhibitor exited unexpectedly (${formatExit(code, signal)})`);
-			}
-		};
+    childExitHandler = (code: number | null, signal: Signal | null) => {
+      if (child !== spawned) return;
+      const wasActive = state.activeTurns > 0;
+      resetAfterFailure();
+      if (wasActive) {
+        logger.warn(`${STATUS_PREFIX} sleep inhibitor exited unexpectedly (${formatExit(code, signal)})`);
+      }
+    };
 
-		spawned.on("error", childErrorHandler);
-		spawned.on("exit", childExitHandler);
-		return true;
-	}
+    spawned.on("error", childErrorHandler);
+    spawned.on("exit", childExitHandler);
+    return true;
+  }
 
-	function stopInhibitor(): void {
-		const proc = child;
-		if (!proc) return;
+  function stopInhibitor(): void {
+    const proc = child;
+    if (!proc) return;
 
-		clearChild();
-		if (!proc.killed) {
-			try {
-				proc.kill();
-			} catch (error: any) {
-				logger.warn(`${STATUS_PREFIX} failed to stop sleep inhibitor: ${error?.message ?? String(error)}`);
-			}
-		}
-	}
+    clearChild();
+    if (!proc.killed) {
+      try {
+        proc.kill();
+      } catch (error: any) {
+        logger.warn(`${STATUS_PREFIX} failed to stop sleep inhibitor: ${error?.message ?? String(error)}`);
+      }
+    }
+  }
 
-	function cleanupForProcessExit(): void {
-		const proc = child;
-		if (!proc) return;
-		clearChild();
-		if (!proc.killed) {
-			try {
-				proc.kill();
-			} catch {
-				// Node's exit event is synchronous; do not do anything noisy here.
-			}
-		}
-		state.activeTurns = 0;
-	}
+  function cleanupForProcessExit(): void {
+    const proc = child;
+    if (!proc) return;
+    clearChild();
+    if (!proc.killed) {
+      try {
+        proc.kill();
+      } catch {
+        // Node's exit event is synchronous; do not do anything noisy here.
+      }
+    }
+    state.activeTurns = 0;
+  }
 
-	const processExitHandler = () => cleanupForProcessExit();
-	processLike.on("exit", processExitHandler);
+  const processExitHandler = () => cleanupForProcessExit();
+  processLike.on("exit", processExitHandler);
 
-	pi.on("agent_start", (_event, ctx) => {
-		rememberUI(ctx as NodozContext | undefined);
-		state.activeTurns += 1;
-		if (!startInhibitor()) {
-			state.activeTurns = 0;
-			updateStatus();
-		}
-	});
+  pi.on("agent_start", (_event, ctx) => {
+    rememberUI(ctx as NodozContext | undefined);
+    state.activeTurns += 1;
+    if (!startInhibitor()) {
+      state.activeTurns = 0;
+      updateStatus();
+    }
+  });
 
-	pi.on("agent_end", (_event, ctx) => {
-		rememberUI(ctx as NodozContext | undefined);
-		if (state.activeTurns > 0) state.activeTurns -= 1;
-		if (state.activeTurns === 0) stopInhibitor();
-	});
+  pi.on("agent_end", (_event, ctx) => {
+    rememberUI(ctx as NodozContext | undefined);
+    if (state.activeTurns > 0) state.activeTurns -= 1;
+    if (state.activeTurns === 0) stopInhibitor();
+  });
 
-	pi.on("session_shutdown", (_event, ctx) => {
-		rememberUI(ctx as NodozContext | undefined);
-		state.activeTurns = 0;
-		stopInhibitor();
-		updateStatus();
-		currentUI = undefined;
-		detachProcessExitListener(processLike, processExitHandler);
-	});
+  pi.on("session_shutdown", (_event, ctx) => {
+    rememberUI(ctx as NodozContext | undefined);
+    state.activeTurns = 0;
+    stopInhibitor();
+    updateStatus();
+    currentUI = undefined;
+    detachProcessExitListener(processLike, processExitHandler);
+  });
 
-	return state;
+  return state;
 }
 
 export default function (pi: ExtensionAPI) {
-	createNodozExtension(pi);
+  createNodozExtension(pi);
 }

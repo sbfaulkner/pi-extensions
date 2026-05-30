@@ -20,14 +20,12 @@
     "names": ["Iris", "Ian", "Ines", "Ivan"]
   },
 
-
   "planner": {
     "displayName": "Planner",
     "thinking": "medium",
     "verbs": ["plan"],
     "names": ["Paula", "Peter", "Priya", "Parker"]
   },
-
 
   "reviewer": {
     "displayName": "Reviewer",
