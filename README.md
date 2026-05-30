@@ -97,7 +97,8 @@ pnpm format       # apply Biome formatting
 pnpm format:check # check formatting without writing changes
 pnpm lint         # run Biome linting
 pnpm typecheck    # run TypeScript with no emit
-pnpm test         # run Node's built-in test runner
+pnpm test         # run Node's built-in test runner for all tests
+pnpm test <path>  # run tests for one extension, directory, or test file
 pnpm check        # run format:check, lint, typecheck, and test
 ```
 
