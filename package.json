@@ -16,7 +16,7 @@
     "format:check": "biome format .",
     "lint": "biome lint .",
     "typecheck": "tsc --noEmit",
-    "test": "node --disable-warning=ExperimentalWarning --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test $(find . -path ./node_modules -prune -o -name '*.test.ts' -print)",
+    "test": "node scripts/run-tests.mjs",
     "check": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test"
   },
   "pi": {
