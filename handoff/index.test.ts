@@ -4,6 +4,43 @@ import { createHandoffExtension, getHandoffMessages, responseDiagnostics } from 
 
 const timestamp = "2026-01-01T00:00:00.000Z";
 
+type HandoffDeps = NonNullable<Parameters<typeof createHandoffExtension>[1]>;
+type ConvertToLlm = NonNullable<HandoffDeps["convertToLlm"]>;
+type Notification = { message: string; level: string };
+type Command = { name: string; handler: (args: string, ctx: TestContext) => Promise<void> };
+type ReplacementContext = {
+  ui: {
+    setEditorText(text: string): void;
+    notify(message: string, level: string): void;
+  };
+};
+type NewSessionOptions = {
+  parentSession?: string;
+  withSession(ctx: ReplacementContext): void | Promise<void>;
+};
+type CustomRenderer = (tui: unknown, theme: unknown, keybindings: unknown, done: (value: unknown) => void) => unknown;
+type TestContext = {
+  hasUI: boolean;
+  model?: { provider: string; id: string };
+  modelRegistry: { getApiKeyAndHeaders(): Promise<Record<string, unknown>> };
+  sessionManager: { getBranch(): ReturnType<typeof messageEntry>[]; getSessionFile(): string };
+  waitForIdle(): Promise<void>;
+  ui: {
+    notify(message: string, level: string): void;
+    custom(render: CustomRenderer): Promise<unknown>;
+    editor(title: string, text: string): Promise<string | undefined>;
+  };
+  newSession(options: NewSessionOptions): Promise<{ cancelled: boolean }>;
+  testState: {
+    branch: ReturnType<typeof messageEntry>[];
+    notifications: Notification[];
+    editorInput: { title: string; text: string } | undefined;
+    newSessionOptions: NewSessionOptions | undefined;
+    stagedPrompt: string | undefined;
+    waitedForIdle: boolean;
+  };
+} & Record<string, unknown>;
+
 function messageEntry(id: string, role: "user" | "assistant", text: string) {
   return {
     id,
@@ -22,40 +59,42 @@ function flush() {
 }
 
 function createHarness(deps: Record<string, unknown> = {}) {
-  let command: any;
+  let command: Command | undefined;
   const pi = {
     registerCommand(name: string, options: unknown) {
-      command = { name, ...(options as Record<string, unknown>) };
+      command = { name, ...(options as Omit<Command, "name">) };
     },
   };
 
-  createHandoffExtension(pi as any, {
-    convertToLlm: (messages: unknown) => messages as any,
+  createHandoffExtension(pi as Parameters<typeof createHandoffExtension>[0], {
+    convertToLlm: (messages: unknown) => messages as ReturnType<ConvertToLlm>,
     serializeConversation: () => "serialized conversation",
     createLoader: () => ({ signal: new AbortController().signal }),
     now: () => 1234567890,
-    ...(deps as any),
+    ...(deps as Partial<HandoffDeps>),
   });
 
+  assert.ok(command, "handoff command should be registered");
   assert.equal(command.name, "handoff");
+  const registeredCommand = command;
 
   return {
     async run(args: string, ctx = createContext()) {
-      await command.handler(args, ctx);
+      await registeredCommand.handler(args, ctx);
       return ctx;
     },
   };
 }
 
 function createContext(overrides: Record<string, unknown> = {}) {
-  const notifications: Array<{ message: string; level: string }> = [];
+  const notifications: Notification[] = [];
   const branch = [messageEntry("m1", "user", "hello")];
   let editorInput: { title: string; text: string } | undefined;
-  let newSessionOptions: any;
+  let newSessionOptions: NewSessionOptions | undefined;
   let stagedPrompt: string | undefined;
   let waitedForIdle = false;
 
-  const ctx: any = {
+  const ctx: TestContext = {
     hasUI: true,
     model: { provider: "test-provider", id: "test-model" },
     modelRegistry: {
@@ -72,7 +111,7 @@ function createContext(overrides: Record<string, unknown> = {}) {
       notify(message: string, level: string) {
         notifications.push({ message, level });
       },
-      async custom(render: any) {
+      async custom(render: CustomRenderer) {
         let doneCalled = false;
         let value: unknown;
         render({}, {}, {}, (nextValue: unknown) => {
@@ -92,7 +131,7 @@ function createContext(overrides: Record<string, unknown> = {}) {
         return "edited prompt";
       },
     },
-    async newSession(options: any) {
+    async newSession(options: NewSessionOptions) {
       newSessionOptions = options;
       await options.withSession({
         ui: {
@@ -141,13 +180,15 @@ test("getHandoffMessages keeps latest compaction and entries from firstKeptEntry
       firstKeptEntryId: "kept",
     },
     messageEntry("new", "user", "new context"),
-  ] as any);
+  ] as unknown as Parameters<typeof getHandoffMessages>[0]);
 
   assert.deepEqual(
     messages.map((message) => message.role),
     ["compactionSummary", "assistant", "user"],
   );
-  assert.equal((messages[0] as any).summary, "summary text");
+  const firstMessage = messages[0];
+  assert.equal(firstMessage.role, "compactionSummary");
+  assert.equal(firstMessage.summary, "summary text");
 });
 
 test("responseDiagnostics includes stop reason, content types, error message, and diagnostics", () => {
@@ -156,7 +197,7 @@ test("responseDiagnostics includes stop reason, content types, error message, an
     content: [],
     errorMessage: "provider returned 401",
     diagnostics: [{ type: "provider_error", error: { message: "bad credentials" } }],
-  } as any);
+  } as unknown as Parameters<typeof responseDiagnostics>[0]);
 
   assert.match(diagnostics, /stopReason=error/);
   assert.match(diagnostics, /contentTypes=none/);
@@ -165,10 +206,10 @@ test("responseDiagnostics includes stop reason, content types, error message, an
 });
 
 test("handoff generates a prompt, opens the editor, and stages the edited prompt in a new session", async () => {
-  const completeCalls: any[] = [];
+  const completeCalls: Array<{ request: unknown; options: { apiKey?: string } }> = [];
   const harness = createHarness({
     complete: async (_model: unknown, request: unknown, options: unknown) => {
-      completeCalls.push({ request, options });
+      completeCalls.push({ request, options: options as { apiKey?: string } });
       return {
         stopReason: "end_turn",
         content: [{ type: "text", text: "generated prompt" }],
