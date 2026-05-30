@@ -5,7 +5,38 @@ import path from "node:path";
 import test from "node:test";
 import agencyExtension from "./index.ts";
 
-type Handler = (...args: any[]) => unknown;
+type Handler = (...args: unknown[]) => unknown;
+type Command = { handler: (args: string, ctx: TestContext) => Promise<void> };
+type Notification = { message: string; level: string };
+type TestContext = {
+  hasUI: boolean;
+  model: { provider: string; id: string; thinking: string } | undefined;
+  sessionManager: { getEntries(): unknown[] };
+  ui: {
+    notify(message: string, level: string): void;
+    setWidget(name: string, factory?: unknown, options?: unknown): void;
+    setStatus(): void;
+    confirm?: (message: string) => Promise<boolean>;
+    theme: { fg(style: string, text: string): string };
+  };
+};
+type SavedMember = { role: string; displayName: string };
+type MembersSnapshot = { members: SavedMember[] };
+
+function isMembersSnapshot(value: unknown): value is MembersSnapshot {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    Array.isArray((value as { members?: unknown }).members) &&
+    (value as { members: unknown[] }).members.every(
+      (member) =>
+        typeof member === "object" &&
+        member !== null &&
+        typeof (member as { role?: unknown }).role === "string" &&
+        typeof (member as { displayName?: unknown }).displayName === "string",
+    )
+  );
+}
 
 async function createFakePiBin(
   startupMessage?: unknown,
@@ -72,10 +103,10 @@ async function waitFor(predicate: () => boolean | Promise<boolean>, timeoutMs = 
   assert.fail("timed out waiting for condition");
 }
 
-function createHarness(options: { entries?: any[] } = {}) {
+function createHarness(options: { entries?: unknown[] } = {}) {
   const handlers = new Map<string, Handler[]>();
-  const commands = new Map<string, any>();
-  const notifications: Array<{ message: string; level: string }> = [];
+  const commands = new Map<string, Command>();
+  const notifications: Notification[] = [];
   const appendedEntries: Array<{ type: string; data: unknown }> = [];
   let widgetName: string | undefined;
 
@@ -85,7 +116,7 @@ function createHarness(options: { entries?: any[] } = {}) {
       list.push(handler);
       handlers.set(event, list);
     },
-    registerCommand(name: string, options: any) {
+    registerCommand(name: string, options: Command) {
       commands.set(name, options);
     },
     async appendEntry(type: string, data: unknown) {
@@ -93,9 +124,9 @@ function createHarness(options: { entries?: any[] } = {}) {
     },
   };
 
-  agencyExtension(pi as any);
+  agencyExtension(pi as unknown as Parameters<typeof agencyExtension>[0]);
 
-  const ctx: any = {
+  const ctx: TestContext = {
     hasUI: true,
     model: { provider: "test-provider", id: "test-model", thinking: "medium" },
     sessionManager: {
@@ -357,15 +388,19 @@ test("agency assign clears confirmation timeout after child response", async () 
 
     await command.handler("add developer Alice", harness.ctx);
 
-    (globalThis as any).setTimeout = (handler: any, timeout?: any, ...args: any[]) => {
+    globalThis.setTimeout = ((
+      handler: Parameters<typeof setTimeout>[0],
+      timeout?: Parameters<typeof setTimeout>[1],
+      ...args: unknown[]
+    ) => {
       const timer = originalSetTimeout(handler, timeout, ...args);
       if (timeout === 6000) confirmationTimers.add(timer);
       return timer;
-    };
-    (globalThis as any).clearTimeout = (timer: any) => {
-      if (timer) clearedTimers.add(timer);
+    }) as typeof setTimeout;
+    globalThis.clearTimeout = ((timer: Parameters<typeof clearTimeout>[0]) => {
+      if (timer) clearedTimers.add(timer as ReturnType<typeof setTimeout>);
       return originalClearTimeout(timer);
-    };
+    }) as typeof clearTimeout;
 
     await command.handler("assign alice Fix the bug", harness.ctx);
 
@@ -379,8 +414,8 @@ test("agency assign clears confirmation timeout after child response", async () 
     await command.handler("list", harness.ctx);
     assert.match(harness.notifications.at(-1)?.message ?? "", /Alice \(developer\): busy/);
   } finally {
-    (globalThis as any).setTimeout = originalSetTimeout;
-    (globalThis as any).clearTimeout = originalClearTimeout;
+    globalThis.setTimeout = originalSetTimeout;
+    globalThis.clearTimeout = originalClearTimeout;
     for (const timer of confirmationTimers) {
       originalClearTimeout(timer);
     }
@@ -432,9 +467,13 @@ test("agency assign assumes success when child confirmation times out", async ()
 
     await command.handler("add developer Alice", harness.ctx);
 
-    (globalThis as any).setTimeout = (handler: any, timeout?: any, ...args: any[]) => {
+    globalThis.setTimeout = ((
+      handler: Parameters<typeof setTimeout>[0],
+      timeout?: Parameters<typeof setTimeout>[1],
+      ...args: unknown[]
+    ) => {
       return originalSetTimeout(handler, timeout === 6000 ? 0 : timeout, ...args);
-    };
+    }) as typeof setTimeout;
 
     await command.handler("assign alice Fix the bug", harness.ctx);
 
@@ -443,7 +482,7 @@ test("agency assign assumes success when child confirmation times out", async ()
     await command.handler("list", harness.ctx);
     assert.match(harness.notifications.at(-1)?.message ?? "", /Alice \(developer\): busy/);
   } finally {
-    (globalThis as any).setTimeout = originalSetTimeout;
+    globalThis.setTimeout = originalSetTimeout;
     await harness.emit("session_shutdown");
     process.env.PATH = originalPath;
   }
@@ -464,15 +503,21 @@ test("agency role verb shorthand creates a member and assigns the task", async (
     const command = harness.commands.get("agency");
     assert.ok(command, "agency command should be registered");
 
-    (globalThis as any).setTimeout = (handler: any, timeout?: any, ...args: any[]) => {
+    globalThis.setTimeout = ((
+      handler: Parameters<typeof setTimeout>[0],
+      timeout?: Parameters<typeof setTimeout>[1],
+      ...args: unknown[]
+    ) => {
       const timer = originalSetTimeout(handler, timeout, ...args);
       if (timeout === 6000) confirmationTimers.add(timer);
       return timer;
-    };
+    }) as typeof setTimeout;
 
     await command.handler("develop Build the feature", harness.ctx);
 
-    const savedMembers = (harness.appendedEntries.at(-1)?.data as any).members;
+    const savedMembersData = harness.appendedEntries.at(-1)?.data;
+    assert.ok(isMembersSnapshot(savedMembersData), "saved agency entry should include members");
+    const savedMembers = savedMembersData.members;
     assert.equal(savedMembers.length, 1);
     assert.equal(savedMembers[0].role, "developer");
     assert.deepEqual(harness.notifications.at(-1), {
@@ -486,7 +531,7 @@ test("agency role verb shorthand creates a member and assigns the task", async (
       new RegExp(`${savedMembers[0].displayName} \\(developer\\): busy`),
     );
   } finally {
-    (globalThis as any).setTimeout = originalSetTimeout;
+    globalThis.setTimeout = originalSetTimeout;
     for (const timer of confirmationTimers) {
       originalClearTimeout(timer);
     }
