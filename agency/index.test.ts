@@ -688,6 +688,32 @@ test("session_shutdown kills spawned members and clears the widget", async () =>
   }
 });
 
+test("agency clear removes non-busy members without confirmation", async () => {
+  const originalPath = process.env.PATH;
+  const fixture = await createFakePiBin();
+  process.env.PATH = `${fixture.binDir}${path.delimiter}${process.env.PATH ?? ""}`;
+
+  const harness = createHarness();
+
+  try {
+    await harness.emit("session_start");
+    const command = harness.commands.get("agency");
+    assert.ok(command, "agency command should be registered");
+
+    await command.handler("add developer Alice", harness.ctx);
+    await command.handler("clear", harness.ctx);
+
+    assert.deepEqual(harness.notifications.at(-1), { message: "Removed all members", level: "info" });
+    assert.deepEqual(harness.appendedEntries.at(-1)?.data, { members: [] });
+
+    await command.handler("list", harness.ctx);
+    assert.deepEqual(harness.notifications.at(-1), { message: "No members configured", level: "info" });
+  } finally {
+    await harness.emit("session_shutdown");
+    process.env.PATH = originalPath;
+  }
+});
+
 test("agency clear cancels when busy member confirmation is declined", async () => {
   const originalPath = process.env.PATH;
   const fixture = await createFakePiBin({ type: "message_start" });
