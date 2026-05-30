@@ -80,10 +80,9 @@ export default function (pi: ExtensionAPI) {
         if (ev.type === "message_update") {
           const rep: any = { type: ev.type };
           try {
-            rep.assistantMessageEvent =
-              ev.assistantMessageEvent && ev.assistantMessageEvent.type
-                ? { type: ev.assistantMessageEvent.type }
-                : undefined;
+            rep.assistantMessageEvent = ev.assistantMessageEvent?.type
+              ? { type: ev.assistantMessageEvent.type }
+              : undefined;
           } catch {}
           return JSON.stringify(truncateDeep(rep, 2));
         }
@@ -131,7 +130,7 @@ export default function (pi: ExtensionAPI) {
 
   function showAgencyWidget(ctx?: ExtensionContext | ExtensionCommandContext) {
     const c = ctx || uiCtx;
-    if (!c || !c.hasUI) return;
+    if (!c?.hasUI) return;
     try {
       // Ensure widget is registered
       c.ui.setWidget("agency", makeWidgetFactory(c), { placement: "belowEditor" });
@@ -150,7 +149,7 @@ export default function (pi: ExtensionAPI) {
   function hideAgencyWidget(ctx?: ExtensionContext | ExtensionCommandContext) {
     // Minimize the widget to a single-line summary (do not unregister)
     const c = ctx || uiCtx;
-    if (!c || !c.hasUI) return;
+    if (!c?.hasUI) return;
     try {
       minimized = true;
       highlightMemberId = null;
@@ -220,7 +219,7 @@ export default function (pi: ExtensionAPI) {
   // Load state from the current session only (no global fallback).
   async function loadState(ctx?: ExtensionContext | ExtensionCommandContext) {
     try {
-      if (ctx && ctx.sessionManager) {
+      if (ctx?.sessionManager) {
         const entries = ctx.sessionManager.getEntries();
         for (let i = entries.length - 1; i >= 0; i--) {
           const e: any = entries[i];
@@ -323,8 +322,7 @@ export default function (pi: ExtensionAPI) {
             }
             const name = m.displayName ?? m.id;
             const roleName = m.role ?? "unknown";
-            const pidColored =
-              s && s.proc && typeof s.proc.pid === "number" ? theme.fg("dim", ` [pid:${s.proc.pid}]`) : "";
+            const pidColored = s?.proc && typeof s.proc.pid === "number" ? theme.fg("dim", ` [pid:${s.proc.pid}]`) : "";
 
             const leftRaw = `${name} (${roleName}): ${statusText}`;
 
@@ -404,7 +402,7 @@ export default function (pi: ExtensionAPI) {
   async function spawnMemberProcess(m: Member): Promise<Session | null> {
     // If already spawned return
     const existing = sessions.get(m.id);
-    if (existing && existing.proc && !existing.proc.killed) return existing;
+    if (existing?.proc && !existing.proc.killed) return existing;
 
     // Always spawn the pi binary in RPC mode; do not allow overriding the command.
     const cmd = "pi";
@@ -524,7 +522,7 @@ export default function (pi: ExtensionAPI) {
     const maybeNotifyCompletion = (label: string, finishedTaskId: string | null) => {
       if (!finishedTaskId) return;
       try {
-        if (uiCtx && uiCtx.ui && typeof (uiCtx.ui as any).notify === "function") {
+        if (uiCtx?.ui && typeof (uiCtx.ui as any).notify === "function") {
           const m = members.get(memberId);
           const disp = m ? (m.displayName ?? m.id) : memberId;
           try {
@@ -610,7 +608,7 @@ export default function (pi: ExtensionAPI) {
   // Simple send utility
   function sendToMember(memberId: string, obj: any) {
     const session = sessions.get(memberId);
-    if (!session || !session.proc || !session.proc.stdin) return false;
+    if (!session?.proc?.stdin) return false;
     try {
       session.proc.stdin.write(`${JSON.stringify(obj)}\n`);
       return true;
@@ -720,7 +718,7 @@ export default function (pi: ExtensionAPI) {
     await loadState(ctx);
 
     // If we have a UI context, keep a reference so we can perform UI actions.
-    if (ctx && ctx.hasUI) uiCtx = ctx;
+    if (ctx?.hasUI) uiCtx = ctx;
 
     // Register interactive command only when UI is available
     if (!ctx.hasUI) return;
@@ -732,7 +730,7 @@ export default function (pi: ExtensionAPI) {
     try {
       for (const m of Array.from(members.values())) {
         const existing = sessions.get(m.id);
-        if (existing && existing.proc && !existing.proc.killed) continue;
+        if (existing?.proc && !existing.proc.killed) continue;
         try {
           const sess = await spawnMemberProcess(m);
           if (sess) {
@@ -1041,7 +1039,7 @@ export default function (pi: ExtensionAPI) {
             if (busy) {
               // Prefer a UI confirmation if available
               try {
-                if (innerCtx && innerCtx.ui && typeof (innerCtx.ui as any).confirm === "function") {
+                if (innerCtx?.ui && typeof (innerCtx.ui as any).confirm === "function") {
                   const ok = await (innerCtx.ui as any).confirm("Some members are busy. Stop and remove all members?");
                   if (!ok) {
                     innerCtx.ui.notify("Clear cancelled", "info");
@@ -1058,8 +1056,8 @@ export default function (pi: ExtensionAPI) {
                     // No confirmation available and no force token: remove only idle members and warn
                     const removed: string[] = [];
                     for (const [id, s] of sessions.entries()) {
-                      if (!s || s.status !== "busy") {
-                        if (s && s.proc) {
+                      if (s?.status !== "busy") {
+                        if (s?.proc) {
                           try {
                             s.proc.kill();
                           } catch (e) {
@@ -1093,7 +1091,7 @@ export default function (pi: ExtensionAPI) {
 
             // Either no busy members or confirmation was obtained: remove everything
             for (const [id, s] of sessions.entries()) {
-              if (s && s.proc) {
+              if (s?.proc) {
                 try {
                   s.proc.kill();
                 } catch (e) {
@@ -1140,7 +1138,7 @@ export default function (pi: ExtensionAPI) {
           }
           // Kill session if running
           const s = sessions.get(idToRemove);
-          if (s && s.proc) {
+          if (s?.proc) {
             try {
               s.proc.kill();
             } catch (e) {
@@ -1166,7 +1164,7 @@ export default function (pi: ExtensionAPI) {
           const list = Array.from(members.values())
             .map((m) => {
               const s = sessions.get(m.id);
-              const pidText = s && s.proc && typeof s.proc.pid === "number" ? ` [pid:${s.proc.pid}]` : "";
+              const pidText = s?.proc && typeof s.proc.pid === "number" ? ` [pid:${s.proc.pid}]` : "";
               return `${m.displayName ?? m.id} (${m.role ? m.role : "unknown"}): ${s ? s.status : "offline"}${pidText}`;
             })
             .join("\n");
@@ -1258,7 +1256,7 @@ export default function (pi: ExtensionAPI) {
 
     // Kill any spawned procs we own
     for (const [id, s] of sessions.entries()) {
-      if (s && s.proc) {
+      if (s?.proc) {
         try {
           s.proc.kill();
         } catch {}
