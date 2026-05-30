@@ -16,11 +16,11 @@ Web search and page fetching via Google's Gemini API with Google Search groundin
 
 `web_search` and `web_search_summary` use Gemini's Google Search grounding — a single API call where the model searches Google internally and synthesizes an answer with source URLs. The two tools differ only in the prompt (concise vs detailed).
 
-Redirect URLs from Google's grounding metadata are resolved in parallel to their final destinations. Missing or invalid Gemini credentials abort the current agent operation and show a UI notification rather than returning a partial search result.
+Redirect URLs from Google's grounding metadata are resolved in parallel to their final destinations. Missing or invalid Gemini credentials abort the current agent operation and show a UI notification rather than returning a partial search result. Other Gemini failures are returned as tool errors, including non-JSON API responses, non-auth JSON error responses, and responses that do not include answer text.
 
 ### Fetch tool
 
-`web_fetch` fetches a URL directly, strips HTML to plain text (removing scripts, styles, nav, etc.), and returns up to 20,000 characters. It only accepts `http` and `https` URLs. Binary content types (images, audio, video, PDF, etc.) and non-success HTTP responses are returned as tool errors.
+`web_fetch` fetches a URL directly, strips HTML to plain text (removing scripts, styles, nav, etc.), and returns up to 20,000 characters. It reads at most 2 MiB from the response body before truncating extraction input. It only accepts `http` and `https` URLs. Binary content types (images, audio, video, PDF, etc.), non-success HTTP responses, sandbox allowlist blocks, and pages with too little readable content are returned as tool errors.
 
 ## Setup
 
@@ -59,3 +59,4 @@ If pi uses a sandbox with domain restrictions, allow these domains:
 ## Limitations
 
 - **No image support** — `web_fetch` rejects binary content types; terminals that support inline images could display them instead
+- **Text extraction only** — `web_fetch` requires enough readable text after HTML cleanup and truncates returned text at 20,000 characters
