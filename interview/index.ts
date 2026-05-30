@@ -13,12 +13,12 @@ import type { ExtensionAPI, ExtensionContext } from "@mariozechner/pi-coding-age
 import { BorderedLoader } from "@mariozechner/pi-coding-agent";
 import { Editor, type EditorTheme, Key, matchesKey, truncateToWidth, wrapTextWithAnsi } from "@mariozechner/pi-tui";
 
-interface ExtractedQuestion {
+export interface ExtractedQuestion {
   question: string;
   context?: string;
 }
 
-interface ExtractionResult {
+export interface ExtractionResult {
   questions: ExtractedQuestion[];
 }
 
@@ -41,7 +41,7 @@ Rules:
 - Include context only when it provides essential information for answering
 - If no questions are found, return {"questions": []}`;
 
-function parseExtractionResult(text: string): ExtractionResult | null {
+export function parseExtractionResult(text: string): ExtractionResult | null {
   try {
     let json = text;
     const match = text.match(/```(?:json)?\s*([\s\S]*?)```/);
@@ -56,7 +56,7 @@ function parseExtractionResult(text: string): ExtractionResult | null {
   }
 }
 
-function findLastAssistantText(ctx: ExtensionContext): string | undefined {
+export function findLastAssistantText(ctx: ExtensionContext): string | undefined {
   const branch = ctx.sessionManager.getBranch();
   for (let i = branch.length - 1; i >= 0; i--) {
     const entry = branch[i];
