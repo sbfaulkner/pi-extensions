@@ -318,6 +318,27 @@ test("agency add spawns pi with RPC mode, model options, and role system prompt"
   }
 });
 
+test("agency remove validates required and known member", async () => {
+  const harness = createHarness();
+  await harness.emit("session_start");
+
+  const command = harness.commands.get("agency");
+  assert.ok(command, "agency command should be registered");
+
+  await command.handler("remove", harness.ctx);
+  assert.deepEqual(harness.notifications.at(-1), {
+    message: "Usage: /agency remove <id|displayName>",
+    level: "warning",
+  });
+
+  await command.handler("remove Alice", harness.ctx);
+  assert.deepEqual(harness.notifications.at(-1), {
+    message: "Failed to remove member Alice - unknown member",
+    level: "warning",
+  });
+  assert.equal(harness.appendedEntries.length, 0);
+});
+
 test("agency assign clears confirmation timeout after child response", async () => {
   const originalPath = process.env.PATH;
   const fixture = await createFakePiBin();
