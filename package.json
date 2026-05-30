@@ -14,8 +14,9 @@
   "scripts": {
     "format": "biome format --write .",
     "format:check": "biome format .",
+    "lint": "biome lint .",
     "test": "node --disable-warning=ExperimentalWarning --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test $(find . -path ./node_modules -prune -o -name '*.test.ts' -print)",
-    "check": "pnpm format:check && pnpm test"
+    "check": "pnpm format:check && pnpm lint && pnpm test"
   },
   "pi": {
     "extensions": [
