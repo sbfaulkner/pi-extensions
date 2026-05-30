@@ -26,6 +26,10 @@ function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
 function getAvailableSecrets(): string[] {
   if (!existsSync(SECRETS_DIR)) return [];
   return readdirSync(SECRETS_DIR)
@@ -41,12 +45,28 @@ function loadSecretsFromEjson(name: string): Record<string, string> {
     throw new Error(`Secrets file not found: ${ejsonPath}\nAvailable: ${available.join(", ") || "(none)"}`);
   }
 
-  const output = execFileSync("ejson", ["decrypt", ejsonPath], {
-    encoding: "utf-8",
-  });
+  let output: string;
+  try {
+    output = execFileSync("ejson", ["decrypt", ejsonPath], {
+      encoding: "utf-8",
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+  } catch (error) {
+    throw new Error(`Failed to decrypt ${name}.ejson: ${errorMessage(error)}`);
+  }
 
-  const parsed = JSON.parse(output);
-  const env = parsed.environment ?? {};
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(output);
+  } catch (error) {
+    throw new Error(`Invalid JSON in decrypted secrets file ${name}.ejson: ${errorMessage(error)}`);
+  }
+
+  if (!isRecord(parsed) || !isRecord(parsed.environment)) {
+    throw new Error(`Decrypted secrets file ${name}.ejson must contain an environment object`);
+  }
+
+  const env = parsed.environment;
   const vars: Record<string, string> = {};
   for (const [key, value] of Object.entries(env)) {
     if (key !== "_public_key" && typeof value === "string") {
