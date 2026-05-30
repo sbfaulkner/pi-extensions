@@ -208,6 +208,24 @@ test("agency add validates unknown roles and duplicate names", async () => {
   }
 });
 
+test("agency add requires role or session model defaults", async () => {
+  const harness = createHarness();
+  harness.ctx.model = undefined;
+
+  await harness.emit("session_start");
+  const command = harness.commands.get("agency");
+  assert.ok(command, "agency command should be registered");
+
+  await command.handler("add developer Alice", harness.ctx);
+
+  assert.deepEqual(harness.notifications.at(-1), {
+    message:
+      "Failed to add member developer - role definition missing provider/modelId/thinking and no session defaults available",
+    level: "error",
+  });
+  assert.equal(harness.appendedEntries.length, 0);
+});
+
 test("agency add, list, and remove manage a named member", async () => {
   const originalPath = process.env.PATH;
   const fixture = await createFakePiBin();
