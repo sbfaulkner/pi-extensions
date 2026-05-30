@@ -170,7 +170,7 @@ async function callGemini(
   const answer = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
   const chunks: Array<{ web?: { title: string; uri: string } }> =
     data.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
-  const rawSources = chunks.map((c) => c.web).filter((x): x is Source => !!(x && x.title && x.uri));
+  const rawSources = chunks.map((c) => c.web).filter((x): x is Source => !!(x?.title && x.uri));
 
   const sources = await resolveRedirects(rawSources, signal);
 

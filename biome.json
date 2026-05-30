@@ -15,9 +15,6 @@
     "enabled": true,
     "rules": {
       "recommended": true,
-      "complexity": {
-        "useOptionalChain": "off"
-      },
       "correctness": {
         "noUnusedVariables": "off"
       },
