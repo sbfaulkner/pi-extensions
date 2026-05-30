@@ -212,6 +212,110 @@ test("web_search_summary aborts and notifies when Gemini authentication fails", 
   }
 });
 
+test("web_search reports non-JSON Gemini responses as tool errors", async () => {
+  const restoreFetch = installFetch(async () => {
+    return new Response("<html>bad gateway</html>", {
+      status: 502,
+      statusText: "Bad Gateway",
+      headers: { "content-type": "text/html" },
+    });
+  });
+  const harness = await setupExtension("test-key");
+
+  try {
+    const context = createContext();
+
+    const result = await getTool(harness.tools, "web_search").execute(
+      "tool-call",
+      { query: "pi extensions" },
+      undefined,
+      undefined,
+      context.ctx,
+    );
+
+    assert.deepEqual(result.details, { error: true });
+    assert.equal(
+      result.content[0].text,
+      "Gemini API returned non-JSON response (502 Bad Gateway): <html>bad gateway</html>",
+    );
+    assert.equal(context.abortCount, 0);
+    assert.equal(context.notifications.length, 0);
+  } finally {
+    restoreFetch();
+    harness.restoreEnv();
+  }
+});
+
+test("web_search reports non-auth Gemini JSON errors without aborting", async () => {
+  const restoreFetch = installFetch(async () => {
+    return new Response(JSON.stringify({ error: { code: 429, message: "Quota exceeded" } }), {
+      status: 429,
+      statusText: "Too Many Requests",
+      headers: { "content-type": "application/json" },
+    });
+  });
+  const harness = await setupExtension("test-key");
+
+  try {
+    const context = createContext();
+
+    const result = await getTool(harness.tools, "web_search").execute(
+      "tool-call",
+      { query: "pi extensions" },
+      undefined,
+      undefined,
+      context.ctx,
+    );
+
+    assert.deepEqual(result.details, { error: true });
+    assert.equal(result.content[0].text, "Quota exceeded");
+    assert.equal(context.abortCount, 0);
+    assert.equal(context.notifications.length, 0);
+  } finally {
+    restoreFetch();
+    harness.restoreEnv();
+  }
+});
+
+test("web_search reports Gemini responses with missing answer candidates", async () => {
+  const cases: Array<{ name: string; body: unknown }> = [
+    { name: "missing candidates", body: {} },
+    { name: "empty candidates", body: { candidates: [] } },
+    { name: "missing answer parts", body: { candidates: [{ content: { parts: [] } }] } },
+  ];
+
+  for (const { name, body } of cases) {
+    const restoreFetch = installFetch(async () => {
+      return new Response(JSON.stringify(body), {
+        status: 200,
+        statusText: "OK",
+        headers: { "content-type": "application/json" },
+      });
+    });
+    const harness = await setupExtension("test-key");
+
+    try {
+      const context = createContext();
+
+      const result = await getTool(harness.tools, "web_search").execute(
+        "tool-call",
+        { query: `pi extensions ${name}` },
+        undefined,
+        undefined,
+        context.ctx,
+      );
+
+      assert.deepEqual(result.details, { error: true }, name);
+      assert.equal(result.content[0].text, "Gemini API response did not include any answer text.", name);
+      assert.equal(context.abortCount, 0, name);
+      assert.equal(context.notifications.length, 0, name);
+    } finally {
+      restoreFetch();
+      harness.restoreEnv();
+    }
+  }
+});
+
 test("search tools call Gemini with concise and detailed prompts", async () => {
   const calls: Array<{ url: string; body: GeminiRequest }> = [];
   const restoreFetch = installFetch(async (input: FetchInput, init: FetchInit) => {
@@ -293,6 +397,86 @@ test("web_fetch reports invalid and unsupported URLs", async () => {
     assert.deepEqual(protocolResult.details, { error: true });
     assert.equal(protocolResult.content[0].text, "Unsupported protocol: ftp: (only http and https are supported)");
   } finally {
+    harness.restoreEnv();
+  }
+});
+
+test("web_fetch reports pages with too little extracted text", async () => {
+  const restoreFetch = installFetch(async () => {
+    return new Response("<html><body><main>Too short.</main></body></html>", {
+      status: 200,
+      headers: { "content-type": "text/html; charset=utf-8" },
+    });
+  });
+  const harness = await setupExtension("test-key");
+
+  try {
+    const result = await getTool(harness.tools, "web_fetch").execute(
+      "tool-call",
+      { url: "https://example.com/short" },
+      undefined,
+      undefined,
+      {},
+    );
+
+    assert.deepEqual(result.details, { error: true });
+    assert.equal(result.content[0].text, "Could not extract meaningful content from the page.");
+  } finally {
+    restoreFetch();
+    harness.restoreEnv();
+  }
+});
+
+test("web_fetch truncates oversized extracted content and stops reading after the download limit", async () => {
+  const maxDownloadBytes = 2 * 1024 * 1024;
+  const maxExtractedText = 20_000;
+  const encoder = new TextEncoder();
+  let pulls = 0;
+  let canceled = false;
+  const chunks = [`<main>${"Alpha ".repeat(5_000)}`, "B".repeat(maxDownloadBytes), "UNREAD_MARKER"];
+
+  const restoreFetch = installFetch(async () => {
+    const stream = new ReadableStream<Uint8Array>(
+      {
+        pull(controller) {
+          const chunk = chunks[pulls++];
+          if (chunk === undefined) {
+            controller.close();
+            return;
+          }
+          controller.enqueue(encoder.encode(chunk));
+        },
+        cancel() {
+          canceled = true;
+        },
+      },
+      { highWaterMark: 0 },
+    );
+
+    return new Response(stream, {
+      status: 200,
+      headers: { "content-type": "text/html; charset=utf-8" },
+    });
+  });
+  const harness = await setupExtension("test-key");
+
+  try {
+    const result = await getTool(harness.tools, "web_fetch").execute(
+      "tool-call",
+      { url: "https://example.com/large" },
+      undefined,
+      undefined,
+      {},
+    );
+
+    assert.equal(result.details.chars, maxExtractedText);
+    assert.equal(result.content[0].text.length, maxExtractedText);
+    assert.match(result.content[0].text, /^Alpha /);
+    assert.doesNotMatch(result.content[0].text, /UNREAD_MARKER/);
+    assert.equal(pulls, 2, "reader should stop before pulling chunks beyond the download limit");
+    assert.equal(canceled, true, "reader should cancel the response body after reaching the download limit");
+  } finally {
+    restoreFetch();
     harness.restoreEnv();
   }
 });

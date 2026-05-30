@@ -178,13 +178,13 @@ async function callGemini(
     throw new Error(formatAuthError());
   }
 
+  const body = await response.text();
   let data: GeminiResponse;
   try {
-    data = (await response.json()) as GeminiResponse;
+    data = JSON.parse(body) as GeminiResponse;
   } catch {
-    const text = await response.text().catch(() => "");
     throw new Error(
-      `Gemini API returned non-JSON response (${response.status} ${response.statusText}): ${text.slice(0, 200)}`,
+      `Gemini API returned non-JSON response (${response.status} ${response.statusText}): ${body.slice(0, 200)}`,
     );
   }
 
@@ -196,7 +196,15 @@ async function callGemini(
     throw new Error(data.error.message ?? "Unknown Gemini API error");
   }
 
-  const answer = data.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
+  const answer =
+    data.candidates?.[0]?.content?.parts
+      ?.map((part) => part.text)
+      .filter((text): text is string => typeof text === "string")
+      .join("") ?? "";
+  if (!answer.trim()) {
+    throw new Error("Gemini API response did not include any answer text.");
+  }
+
   const chunks = data.candidates?.[0]?.groundingMetadata?.groundingChunks ?? [];
   const rawSources = chunks
     .map((c) => c.web)
