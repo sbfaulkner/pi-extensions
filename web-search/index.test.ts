@@ -1,9 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-type Handler = (...args: any[]) => unknown;
+type Handler = (...args: unknown[]) => unknown;
 type FetchInput = Parameters<typeof fetch>[0];
 type FetchInit = Parameters<typeof fetch>[1];
+type ToolResult = { content: Array<{ type: string; text: string }>; details: Record<string, unknown> };
+type Tool = { name: string; execute: (...args: unknown[]) => Promise<ToolResult> };
+type GeminiRequest = { contents: Array<{ parts: Array<{ text: string }> }> };
 
 let importCounter = 0;
 
@@ -31,11 +34,11 @@ async function loadWebSearchModule(apiKey?: string) {
 }
 
 function createPi() {
-  const tools = new Map<string, any>();
+  const tools = new Map<string, Tool>();
   const handlers = new Map<string, Handler[]>();
 
   const pi = {
-    registerTool(tool: any) {
+    registerTool(tool: Tool) {
       tools.set(tool.name, tool);
     },
     on(event: string, handler: Handler) {
@@ -75,9 +78,15 @@ async function setupExtension(apiKey?: string) {
   const { mod, restoreEnv } = await loadWebSearchModule(apiKey);
   const harness = createPi();
 
-  mod.default(harness.pi as any);
+  mod.default(harness.pi as Parameters<typeof mod.default>[0]);
 
   return { ...harness, restoreEnv };
+}
+
+function getTool(tools: Map<string, Tool>, name: string): Tool {
+  const tool = tools.get(name);
+  assert.ok(tool, `${name} should be registered`);
+  return tool;
 }
 
 function installFetch(fetchImpl: typeof fetch) {
@@ -114,9 +123,13 @@ test("web_search aborts and notifies when GEMINI_API_KEY is missing", async () =
 
     await assert.rejects(
       () =>
-        harness.tools
-          .get("web_search")
-          .execute("tool-call", { query: "pi extensions" }, undefined, undefined, context.ctx),
+        getTool(harness.tools, "web_search").execute(
+          "tool-call",
+          { query: "pi extensions" },
+          undefined,
+          undefined,
+          context.ctx,
+        ),
       { name: "AbortError", message: /GEMINI_API_KEY is not set/ },
     );
 
@@ -130,9 +143,9 @@ test("web_search aborts and notifies when GEMINI_API_KEY is missing", async () =
 });
 
 test("search tools call Gemini with concise and detailed prompts", async () => {
-  const calls: Array<{ url: string; body: any }> = [];
+  const calls: Array<{ url: string; body: GeminiRequest }> = [];
   const restoreFetch = installFetch(async (input: FetchInput, init: FetchInit) => {
-    calls.push({ url: String(input), body: JSON.parse(String(init?.body)) });
+    calls.push({ url: String(input), body: JSON.parse(String(init?.body)) as GeminiRequest });
 
     return new Response(
       JSON.stringify({
@@ -154,12 +167,20 @@ test("search tools call Gemini with concise and detailed prompts", async () => {
   const harness = await setupExtension("test-key");
 
   try {
-    const searchResult = await harness.tools
-      .get("web_search")
-      .execute("tool-call", { query: "pi testing" }, undefined, undefined, {});
-    const summaryResult = await harness.tools
-      .get("web_search_summary")
-      .execute("tool-call", { query: "pi testing" }, undefined, undefined, {});
+    const searchResult = await getTool(harness.tools, "web_search").execute(
+      "tool-call",
+      { query: "pi testing" },
+      undefined,
+      undefined,
+      {},
+    );
+    const summaryResult = await getTool(harness.tools, "web_search_summary").execute(
+      "tool-call",
+      { query: "pi testing" },
+      undefined,
+      undefined,
+      {},
+    );
 
     assert.equal(calls.length, 2);
     assert.match(calls[0].url, /generativelanguage\.googleapis\.com/);
@@ -201,9 +222,13 @@ test("web_fetch extracts readable text from HTML", async () => {
   const harness = await setupExtension("test-key");
 
   try {
-    const result = await harness.tools
-      .get("web_fetch")
-      .execute("tool-call", { url: "https://example.com/page" }, undefined, undefined, {});
+    const result = await getTool(harness.tools, "web_fetch").execute(
+      "tool-call",
+      { url: "https://example.com/page" },
+      undefined,
+      undefined,
+      {},
+    );
 
     assert.equal(result.details.url, "https://example.com/page");
     assert.equal(result.details.chars, result.content[0].text.length);
@@ -224,9 +249,13 @@ test("web_fetch reports allowlist blocks with the requested hostname", async () 
   const harness = await setupExtension("test-key");
 
   try {
-    const result = await harness.tools
-      .get("web_fetch")
-      .execute("tool-call", { url: "https://blocked.example/path" }, undefined, undefined, {});
+    const result = await getTool(harness.tools, "web_fetch").execute(
+      "tool-call",
+      { url: "https://blocked.example/path" },
+      undefined,
+      undefined,
+      {},
+    );
 
     assert.deepEqual(result.details, { error: true });
     assert.equal(
@@ -246,9 +275,13 @@ test("web_fetch rejects binary content types", async () => {
   const harness = await setupExtension("test-key");
 
   try {
-    const result = await harness.tools
-      .get("web_fetch")
-      .execute("tool-call", { url: "https://example.com/file.pdf" }, undefined, undefined, {});
+    const result = await getTool(harness.tools, "web_fetch").execute(
+      "tool-call",
+      { url: "https://example.com/file.pdf" },
+      undefined,
+      undefined,
+      {},
+    );
 
     assert.deepEqual(result.details, { error: true });
     assert.equal(result.content[0].text, "Cannot extract text from binary content type: application/pdf");
