@@ -20,7 +20,6 @@
         "useOptionalChain": "off"
       },
       "correctness": {
-        "noUnusedFunctionParameters": "off",
         "noUnusedVariables": "off"
       },
       "style": {
