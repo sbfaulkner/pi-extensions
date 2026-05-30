@@ -4,7 +4,10 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
 
-type Handler = (...args: any[]) => unknown;
+type Handler = (...args: unknown[]) => unknown;
+type Command = { handler: (args: string, ctx: unknown) => Promise<void> };
+type ToolResult = { content: Array<{ type: string; text: string }>; details: Record<string, unknown> };
+type Tool = { name: string; execute: (...args: unknown[]) => Promise<ToolResult> };
 
 let importCounter = 0;
 
@@ -53,15 +56,15 @@ async function loadSecretsModule(configHome: string, binDir: string) {
 }
 
 function createPi() {
-  const commands = new Map<string, any>();
-  const tools = new Map<string, any>();
+  const commands = new Map<string, Command>();
+  const tools = new Map<string, Tool>();
   const handlers = new Map<string, Handler[]>();
 
   const pi = {
-    registerCommand(name: string, options: any) {
+    registerCommand(name: string, options: Command) {
       commands.set(name, options);
     },
-    registerTool(tool: any) {
+    registerTool(tool: Tool) {
       tools.set(tool.name, tool);
     },
     on(event: string, handler: Handler) {
@@ -74,7 +77,7 @@ function createPi() {
   return { pi, commands, tools, handlers };
 }
 
-function createContext(branch: any[] = []) {
+function createContext(branch: unknown[] = []) {
   const notifications: Array<{ message: string; level: string }> = [];
   const statuses = new Map<string, string | undefined>();
 
@@ -97,6 +100,18 @@ function createContext(branch: any[] = []) {
   };
 }
 
+function getCommand(commands: Map<string, Command>, name: string): Command {
+  const command = commands.get(name);
+  assert.ok(command, `${name} command should be registered`);
+  return command;
+}
+
+function getTool(tools: Map<string, Tool>, name: string): Tool {
+  const tool = tools.get(name);
+  assert.ok(tool, `${name} tool should be registered`);
+  return tool;
+}
+
 async function setupExtension() {
   const originalConfigHome = process.env.XDG_CONFIG_HOME;
   const originalPath = process.env.PATH;
@@ -104,7 +119,7 @@ async function setupExtension() {
   const { default: secretsExtension } = await loadSecretsModule(fixture.configHome, fixture.binDir);
   const harness = createPi();
 
-  secretsExtension(harness.pi as any);
+  secretsExtension(harness.pi as Parameters<typeof secretsExtension>[0]);
 
   return {
     ...fixture,
@@ -123,7 +138,7 @@ test("/secrets list shows available ejson files", async () => {
   try {
     const { ctx, notifications } = createContext();
 
-    await harness.commands.get("secrets").handler("list", ctx);
+    await getCommand(harness.commands, "secrets").handler("list", ctx);
 
     assert.deepEqual(notifications, [{ message: "Available: other, secrets", level: "info" }]);
   } finally {
@@ -136,7 +151,7 @@ test("/secrets loads and clears secret environment variables", async () => {
   try {
     const { ctx, notifications, statuses } = createContext();
 
-    await harness.commands.get("secrets").handler("secrets", ctx);
+    await getCommand(harness.commands, "secrets").handler("secrets", ctx);
 
     assert.equal(process.env.API_TOKEN, "secret-token");
     assert.equal(process.env.NUMBER, undefined, "non-string ejson values should not be loaded");
@@ -146,7 +161,7 @@ test("/secrets loads and clears secret environment variables", async () => {
       level: "info",
     });
 
-    await harness.commands.get("secrets").handler("clear", ctx);
+    await getCommand(harness.commands, "secrets").handler("clear", ctx);
 
     assert.equal(process.env.API_TOKEN, undefined);
     assert.equal(statuses.get("secrets"), undefined);
@@ -159,7 +174,7 @@ test("/secrets loads and clears secret environment variables", async () => {
 test("load_secrets tool loads named secrets and reports variable names", async () => {
   const harness = await setupExtension();
   try {
-    const result = await harness.tools.get("load_secrets").execute("tool-call", { name: "other" });
+    const result = await getTool(harness.tools, "load_secrets").execute("tool-call", { name: "other" });
 
     assert.equal(process.env.OTHER_TOKEN, "other-secret");
     assert.deepEqual(result.details, { name: "other", variables: ["OTHER_TOKEN"] });
