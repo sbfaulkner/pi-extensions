@@ -168,7 +168,10 @@ async function runAgencyMissingPiScenario(scenario: "add" | "resume") {
       await commands.get("agency").handler("add developer Alice", ctx);
     }
     await new Promise((resolve) => setTimeout(resolve, 50));
-    console.log(JSON.stringify({ notifications, appendedEntries }));
+    const failureNotification = notifications.at(-1);
+    await commands.get("agency").handler("list", ctx);
+    const listNotification = notifications.at(-1);
+    console.log(JSON.stringify({ notifications, appendedEntries, failureNotification, listNotification }));
     for (const handler of handlers.get("session_shutdown") ?? []) await handler({}, ctx);
   `;
 
@@ -324,12 +327,15 @@ test("agency add reports missing pi spawn failure without persisting the member"
   const output = JSON.parse(result.stdout.trim()) as {
     notifications: Notification[];
     appendedEntries: Array<{ type: string; data: unknown }>;
+    failureNotification: Notification;
+    listNotification: Notification;
   };
 
-  assert.deepEqual(output.notifications.at(-1), {
+  assert.deepEqual(output.failureNotification, {
     message: "Failed to spawn member developer Alice - spawn failed",
     level: "error",
   });
+  assert.deepEqual(output.listNotification, { message: "No members configured", level: "info" });
   assert.equal(output.appendedEntries.length, 0);
 });
 
@@ -397,17 +403,17 @@ test("agency add, list, and remove manage a named member", async () => {
     const command = harness.commands.get("agency");
     assert.ok(command, "agency command should be registered");
 
-    await command.handler("add developer Alice", harness.ctx);
+    await command.handler("add developer Alice Smith", harness.ctx);
 
-    assert.deepEqual(harness.notifications.at(-1), { message: "Added developer Alice", level: "info" });
+    assert.deepEqual(harness.notifications.at(-1), { message: "Added developer Alice Smith", level: "info" });
     assert.equal(harness.widgetName, "agency");
     assert.equal(harness.appendedEntries.length, 1);
     assert.deepEqual(harness.appendedEntries[0].data, {
       members: [
         {
-          id: "alice",
+          id: "alice-smith",
           role: "developer",
-          displayName: "Alice",
+          displayName: "Alice Smith",
           provider: "test-provider",
           modelId: "test-model",
           thinking: "medium",
@@ -416,11 +422,11 @@ test("agency add, list, and remove manage a named member", async () => {
     });
 
     await command.handler("list", harness.ctx);
-    assert.match(harness.notifications.at(-1)?.message ?? "", /Alice \(developer\): initializing/);
+    assert.match(harness.notifications.at(-1)?.message ?? "", /Alice Smith \(developer\): initializing/);
 
-    await command.handler("remove Alice", harness.ctx);
+    await command.handler("remove Alice Smith", harness.ctx);
 
-    assert.deepEqual(harness.notifications.at(-1), { message: "Removed member alice", level: "info" });
+    assert.deepEqual(harness.notifications.at(-1), { message: "Removed member alice-smith", level: "info" });
     assert.equal(harness.appendedEntries.length, 2);
     assert.deepEqual(harness.appendedEntries.at(-1)?.data, { members: [] });
 
@@ -708,12 +714,15 @@ test("session_start reports persisted member spawn failures", async () => {
   const output = JSON.parse(result.stdout.trim()) as {
     notifications: Notification[];
     appendedEntries: Array<{ type: string; data: unknown }>;
+    failureNotification: Notification;
+    listNotification: Notification;
   };
 
-  assert.deepEqual(output.notifications.at(-1), {
+  assert.deepEqual(output.failureNotification, {
     message: "Failed to spawn member developer Alice - spawn failed",
     level: "error",
   });
+  assert.deepEqual(output.listNotification, { message: "Members:\nAlice (developer): error", level: "info" });
   assert.equal(output.appendedEntries.length, 0);
 });
 

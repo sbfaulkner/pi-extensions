@@ -452,7 +452,10 @@ export default function (pi: ExtensionAPI) {
     return `${base}-${time}${rand}`;
   }
 
-  async function spawnMemberProcess(m: Member): Promise<Session | null> {
+  async function spawnMemberProcess(
+    m: Member,
+    options: { retainFailedSession?: boolean } = {},
+  ): Promise<Session | null> {
     // If already spawned return
     const existing = sessions.get(m.id);
     if (existing?.proc && !existing.proc.killed) return existing;
@@ -574,7 +577,10 @@ export default function (pi: ExtensionAPI) {
       });
 
       const spawned = await spawnResult;
-      if (!spawned) return null;
+      if (!spawned) {
+        if (!options.retainFailedSession) sessions.delete(m.id);
+        return null;
+      }
 
       // trigger UI update
       try {
@@ -584,6 +590,7 @@ export default function (pi: ExtensionAPI) {
       }
       return session;
     } catch (e) {
+      if (!options.retainFailedSession) sessions.delete(m.id);
       console.warn("Failed to spawn member", e);
       return null;
     }
@@ -825,7 +832,7 @@ export default function (pi: ExtensionAPI) {
         const existing = sessions.get(m.id);
         if (existing?.proc && !existing.proc.killed) continue;
         try {
-          const sess = await spawnMemberProcess(m);
+          const sess = await spawnMemberProcess(m, { retainFailedSession: true });
           if (sess) {
             try {
               ctx.ui.notify(`Resumed ${m.role} ${m.displayName ?? m.id}`, "info");
@@ -929,7 +936,6 @@ export default function (pi: ExtensionAPI) {
       const sess = await spawnMemberProcess(member);
       if (!sess) {
         members.delete(id);
-        sessions.delete(id);
         innerCtx.ui.notify(`Failed to spawn member ${roleId} ${displayName ?? id} - spawn failed`, "error");
         try {
           events.emit("change");
@@ -1030,113 +1036,12 @@ export default function (pi: ExtensionAPI) {
 
         // New shorthand: /agency add [role]
         if (verb === "add") {
-          // Normalize role to lowercase to match roles.json keys and enforce existence
           const role = (parts[1] || "developer").toLowerCase();
-          const roleDef = roles.get(role);
-          if (!roleDef) {
-            innerCtx.ui.notify(`Failed to add member ${role} - unknown role`, "error");
-            return;
-          }
-          // Default provider/model/thinking to the current session if missing in the role definition
-          const sessionProvider = innerCtx.model?.provider ?? null;
-          const sessionModelId = modelField(innerCtx.model, "id");
-          const sessionThinking = modelField(innerCtx.model, "thinking");
-          const provider = roleDef.provider ?? sessionProvider;
-          const modelId = roleDef.modelId ?? sessionModelId;
-          const thinking = roleDef.thinking ?? sessionThinking;
-          if (!provider || !modelId || !thinking) {
-            innerCtx.ui.notify(
-              `Failed to add member ${role} - role definition missing provider/modelId/thinking and no session defaults available`,
-              "error",
-            );
-            return;
-          }
-
-          // Determine displayName: optional user-provided name as parts[2], otherwise pick an unused name from role definition
           const explicitName = parts[2] ? parts.slice(2).join(" ").trim() : undefined;
-          let displayName: string | undefined;
-
-          // Build set of used display names (case-insensitive)
-          const usedNames = new Set(
-            Array.from(members.values())
-              .map((m) => (m.displayName || "").toLowerCase())
-              .filter((s) => !!s),
-          );
-
-          if (explicitName) {
-            // Explicit names must not collide with existing displayNames
-            if (usedNames.has(explicitName.toLowerCase())) {
-              innerCtx.ui.notify(`Failed to add member ${role} ${explicitName} - name already in use`, "error");
-              return;
-            }
-            displayName = explicitName;
-          } else if (roleDef && Array.isArray(roleDef.names) && roleDef.names.length > 0) {
-            // Randomly select an unused name only; if none available, error
-            const unused = roleDef.names.filter((n: string) => !usedNames.has(n.toLowerCase()));
-            if (unused.length === 0) {
-              innerCtx.ui.notify(`Failed to add member ${role} - no unused names available`, "error");
-              return;
-            }
-            displayName = unused[Math.floor(Math.random() * unused.length)];
-          } else {
-            // No name provided and no role-defined names to choose from
-            innerCtx.ui.notify(`Failed to add member ${role} - no names configured`, "error");
-            return;
+          const member = await createMemberForRole(role, explicitName, innerCtx);
+          if (member) {
+            innerCtx.ui.notify(`Added ${member.role} ${member.displayName ?? member.id}`, "info");
           }
-
-          // Generate a stable id based on role + slug(displayName) or fallback
-          function slugify(s: string) {
-            return s
-              .toLowerCase()
-              .replace(/[^a-z0-9]+/g, "-")
-              .replace(/^-+|-+$/g, "");
-          }
-          let id: string;
-          if (displayName) {
-            // Prefer using the displayName as the unique id (slugified). Only append a numeric suffix on collisions.
-            const base = `${slugify(displayName)}`;
-            id = base;
-            let suffix = 2;
-            while (members.has(id)) {
-              id = `${base}-${suffix++}`;
-            }
-          } else {
-            id = generateId(role);
-          }
-
-          // Apply role defaults (provider/model/thinking) to the member so spawnMemberProcess can pass CLI args
-          const member: Member = {
-            id,
-            role,
-            displayName,
-            provider: provider ?? null,
-            modelId: modelId ?? null,
-            thinking: thinking ?? null,
-          };
-          members.set(id, member);
-          // Spawn the member process immediately
-          const sess = await spawnMemberProcess(member);
-          if (sess) {
-            await saveState(innerCtx);
-            innerCtx.ui.notify(`Added ${role} ${displayName ?? id}`, "info");
-          } else {
-            members.delete(id);
-            sessions.delete(id);
-            innerCtx.ui.notify(`Failed to spawn member ${role} ${displayName ?? id} - spawn failed`, "error");
-            try {
-              events.emit("change");
-            } catch {}
-            return;
-          }
-          try {
-            events.emit("change");
-          } catch {}
-          try {
-            showAgencyWidget(innerCtx);
-          } catch {}
-          try {
-            cancelAutoHide();
-          } catch {}
           return;
         }
 
