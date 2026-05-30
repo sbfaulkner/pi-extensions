@@ -83,7 +83,6 @@ Widget behavior
 Known limitations and notes
 
 - The extension expects child processes that speak the newline-delimited JSON RPC protocol. The extension always spawns the local "pi" binary in RPC mode; you can run a separate local "pi --mode rpc" instance for development testing.
-- There is no dedicated "/agency stop" command. Use /agency clear (with confirmation) or /agency remove per-member.
 - Use /agency events to inspect recent member events; the extension no longer emits raw RPC events to the host console by default.
 - Lead feedback on member completion is surfaced by temporarily expanding and highlighting the relevant member in the widget; a short notify is also emitted when a task with an id completes.
 - Persistence is session-scoped — members persist only within the Pi session entries and will be re-spawned on an interactive session start if the session includes agency entries.
@@ -107,7 +106,6 @@ The following decisions reflect the intended behavior and have been applied to t
 
 - The extension spawns the "pi" binary in RPC mode by default and passes role-based provider/model/thinking values or falls back to the active session model when role settings are null.
 - Persistence remains session-scoped (members persisted to the current Pi session only).
-- There is no dedicated "/agency stop" command; use /agency clear or /agency remove instead.
 - Role presets may contain null provider/modelId/thinking values; the extension falls back to session defaults in those cases.
 - The /agency logs and /agency log commands have been removed. Use the in-widget preview (highlight) or the /agency events command to inspect recent member events.
 - UX: widget uses minimized (summary) and expanded views. Completion feedback is shown by expanding/highlighting the member in the widget; a short notify is also emitted when a task with an id completes.
