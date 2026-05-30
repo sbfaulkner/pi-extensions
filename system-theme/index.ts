@@ -11,11 +11,7 @@
  *   - Persists config overrides to ${PI_CODING_AGENT_DIR:-~/.pi/agent}/system-theme.json
  */
 
-import type {
-  ExtensionAPI,
-  ExtensionCommandContext,
-  ExtensionContext,
-} from "@mariozechner/pi-coding-agent";
+import type { ExtensionAPI, ExtensionCommandContext, ExtensionContext } from "@mariozechner/pi-coding-agent";
 import { getAgentDir } from "@mariozechner/pi-coding-agent";
 import { execFile } from "node:child_process";
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
@@ -46,12 +42,9 @@ const MIN_POLL_MS = 500;
 
 function getOverrides(config: Config): Partial<Config> {
   const overrides: Partial<Config> = {};
-  if (config.darkTheme !== DEFAULT_CONFIG.darkTheme)
-    overrides.darkTheme = config.darkTheme;
-  if (config.lightTheme !== DEFAULT_CONFIG.lightTheme)
-    overrides.lightTheme = config.lightTheme;
-  if (config.pollMs !== DEFAULT_CONFIG.pollMs)
-    overrides.pollMs = config.pollMs;
+  if (config.darkTheme !== DEFAULT_CONFIG.darkTheme) overrides.darkTheme = config.darkTheme;
+  if (config.lightTheme !== DEFAULT_CONFIG.lightTheme) overrides.lightTheme = config.lightTheme;
+  if (config.pollMs !== DEFAULT_CONFIG.pollMs) overrides.pollMs = config.pollMs;
   return overrides;
 }
 
@@ -60,23 +53,15 @@ async function loadConfig(): Promise<Config> {
   try {
     const raw = await readFile(GLOBAL_CONFIG_PATH, "utf8");
     const parsed = JSON.parse(raw);
-    if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed))
-      return config;
+    if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) return config;
 
-    if (typeof parsed.darkTheme === "string" && parsed.darkTheme.trim())
-      config.darkTheme = parsed.darkTheme.trim();
-    if (typeof parsed.lightTheme === "string" && parsed.lightTheme.trim())
-      config.lightTheme = parsed.lightTheme.trim();
-    if (
-      typeof parsed.pollMs === "number" &&
-      Number.isFinite(parsed.pollMs)
-    )
+    if (typeof parsed.darkTheme === "string" && parsed.darkTheme.trim()) config.darkTheme = parsed.darkTheme.trim();
+    if (typeof parsed.lightTheme === "string" && parsed.lightTheme.trim()) config.lightTheme = parsed.lightTheme.trim();
+    if (typeof parsed.pollMs === "number" && Number.isFinite(parsed.pollMs))
       config.pollMs = Math.max(MIN_POLL_MS, Math.round(parsed.pollMs));
   } catch (e: any) {
     if (e?.code !== "ENOENT") {
-      console.warn(
-        `[system-theme] Failed to read ${GLOBAL_CONFIG_PATH}: ${e?.message}`,
-      );
+      console.warn(`[system-theme] Failed to read ${GLOBAL_CONFIG_PATH}: ${e?.message}`);
     }
   }
   return config;
@@ -89,11 +74,7 @@ async function saveConfig(config: Config): Promise<number> {
     await rm(GLOBAL_CONFIG_PATH, { force: true });
   } else {
     await mkdir(path.dirname(GLOBAL_CONFIG_PATH), { recursive: true });
-    await writeFile(
-      GLOBAL_CONFIG_PATH,
-      `${JSON.stringify(overrides, null, 4)}\n`,
-      "utf8",
-    );
+    await writeFile(GLOBAL_CONFIG_PATH, `${JSON.stringify(overrides, null, 4)}\n`, "utf8");
   }
   return count;
 }
@@ -112,16 +93,13 @@ async function detectAppearance(): Promise<Appearance | null> {
 
 async function detectMacAppearance(): Promise<Appearance | null> {
   try {
-    const { stdout } = await execFileAsync(
-      "/usr/bin/defaults",
-      ["read", "-g", "AppleInterfaceStyle"],
-      { timeout: DETECTION_TIMEOUT_MS },
-    );
+    const { stdout } = await execFileAsync("/usr/bin/defaults", ["read", "-g", "AppleInterfaceStyle"], {
+      timeout: DETECTION_TIMEOUT_MS,
+    });
     return stdout.trim().toLowerCase() === "dark" ? "dark" : "light";
   } catch (e: any) {
     // "does not exist" means light mode (no AppleInterfaceStyle key set)
-    const stderr =
-      typeof e?.stderr === "string" ? e.stderr.toLowerCase() : "";
+    const stderr = typeof e?.stderr === "string" ? e.stderr.toLowerCase() : "";
     if (stderr.includes("does not exist")) return "light";
     return null;
   }
@@ -129,12 +107,13 @@ async function detectMacAppearance(): Promise<Appearance | null> {
 
 async function detectLinuxAppearance(): Promise<Appearance | null> {
   try {
-    const { stdout } = await execFileAsync(
-      "gsettings",
-      ["get", "org.gnome.desktop.interface", "color-scheme"],
-      { timeout: DETECTION_TIMEOUT_MS },
-    );
-    const value = stdout.trim().toLowerCase().replace(/^['"]|['"]$/g, "");
+    const { stdout } = await execFileAsync("gsettings", ["get", "org.gnome.desktop.interface", "color-scheme"], {
+      timeout: DETECTION_TIMEOUT_MS,
+    });
+    const value = stdout
+      .trim()
+      .toLowerCase()
+      .replace(/^['"]|['"]$/g, "");
     if (value === "prefer-dark") return "dark";
     if (value === "prefer-light") return "light";
   } catch {
@@ -142,12 +121,13 @@ async function detectLinuxAppearance(): Promise<Appearance | null> {
   }
 
   try {
-    const { stdout } = await execFileAsync(
-      "gsettings",
-      ["get", "org.gnome.desktop.interface", "gtk-theme"],
-      { timeout: DETECTION_TIMEOUT_MS },
-    );
-    const value = stdout.trim().toLowerCase().replace(/^['"]|['"]$/g, "");
+    const { stdout } = await execFileAsync("gsettings", ["get", "org.gnome.desktop.interface", "gtk-theme"], {
+      timeout: DETECTION_TIMEOUT_MS,
+    });
+    const value = stdout
+      .trim()
+      .toLowerCase()
+      .replace(/^['"]|['"]$/g, "");
     if (value.includes("dark")) return "dark";
     if (value.includes("light")) return "light";
   } catch {
@@ -171,10 +151,7 @@ export default function (pi: ExtensionAPI) {
   function shouldAutoSync(ctx: ExtensionContext): boolean {
     if (!canSync(ctx)) return false;
     // If user configured custom theme names, always sync
-    if (
-      activeConfig.darkTheme !== DEFAULT_CONFIG.darkTheme ||
-      activeConfig.lightTheme !== DEFAULT_CONFIG.lightTheme
-    )
+    if (activeConfig.darkTheme !== DEFAULT_CONFIG.darkTheme || activeConfig.lightTheme !== DEFAULT_CONFIG.lightTheme)
       return true;
     // If current theme is one of the defaults, sync
     const current = ctx.ui.theme.name;
@@ -188,17 +165,12 @@ export default function (pi: ExtensionAPI) {
       const appearance = await detectAppearance();
       if (!appearance) return;
 
-      const target =
-        appearance === "dark"
-          ? activeConfig.darkTheme
-          : activeConfig.lightTheme;
+      const target = appearance === "dark" ? activeConfig.darkTheme : activeConfig.lightTheme;
       if (ctx.ui.theme.name === target) return;
 
       const result = ctx.ui.setTheme(target);
       if (!result.success) {
-        console.warn(
-          `[system-theme] Failed to set theme "${target}": ${result.error}`,
-        );
+        console.warn(`[system-theme] Failed to set theme "${target}": ${result.error}`);
       }
     } finally {
       syncInProgress = false;
@@ -252,19 +224,13 @@ export default function (pi: ExtensionAPI) {
           const next = await ctx.ui.input("Light theme", draft.lightTheme);
           if (next?.trim()) draft.lightTheme = next.trim();
         } else if (choice === choices[2]) {
-          const next = await ctx.ui.input(
-            `Poll interval ms (>= ${MIN_POLL_MS})`,
-            String(draft.pollMs),
-          );
+          const next = await ctx.ui.input(`Poll interval ms (>= ${MIN_POLL_MS})`, String(draft.pollMs));
           if (next?.trim()) {
             const parsed = parseInt(next.trim(), 10);
             if (Number.isFinite(parsed) && parsed >= MIN_POLL_MS) {
               draft.pollMs = parsed;
             } else {
-              ctx.ui.notify(
-                `Enter a number >= ${MIN_POLL_MS}.`,
-                "warning",
-              );
+              ctx.ui.notify(`Enter a number >= ${MIN_POLL_MS}.`, "warning");
             }
           }
         } else if (choice === "Save and apply") {

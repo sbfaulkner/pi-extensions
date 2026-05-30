@@ -43,223 +43,223 @@ Files involved:
 [Clear description of what to do next based on user's goal]`;
 
 function entryTimestamp(entry: SessionEntry): number {
-	return new Date(entry.timestamp).getTime();
+  return new Date(entry.timestamp).getTime();
 }
 
 function entryToMessage(entry: SessionEntry): AgentMessage | undefined {
-	if (entry.type === "message") {
-		return entry.message;
-	}
+  if (entry.type === "message") {
+    return entry.message;
+  }
 
-	if (entry.type === "compaction") {
-		return {
-			role: "compactionSummary",
-			summary: entry.summary,
-			tokensBefore: entry.tokensBefore,
-			timestamp: entryTimestamp(entry),
-		};
-	}
+  if (entry.type === "compaction") {
+    return {
+      role: "compactionSummary",
+      summary: entry.summary,
+      tokensBefore: entry.tokensBefore,
+      timestamp: entryTimestamp(entry),
+    };
+  }
 
-	if (entry.type === "branch_summary") {
-		return {
-			role: "branchSummary",
-			summary: entry.summary,
-			fromId: entry.fromId,
-			timestamp: entryTimestamp(entry),
-		};
-	}
+  if (entry.type === "branch_summary") {
+    return {
+      role: "branchSummary",
+      summary: entry.summary,
+      fromId: entry.fromId,
+      timestamp: entryTimestamp(entry),
+    };
+  }
 
-	if (entry.type === "custom_message") {
-		return {
-			role: "custom",
-			customType: entry.customType,
-			content: entry.content,
-			display: entry.display,
-			details: entry.details,
-			timestamp: entryTimestamp(entry),
-		};
-	}
+  if (entry.type === "custom_message") {
+    return {
+      role: "custom",
+      customType: entry.customType,
+      content: entry.content,
+      display: entry.display,
+      details: entry.details,
+      timestamp: entryTimestamp(entry),
+    };
+  }
 
-	return undefined;
+  return undefined;
 }
 
 function getHandoffMessages(branch: SessionEntry[]): AgentMessage[] {
-	let compactionIndex = -1;
-	for (let i = branch.length - 1; i >= 0; i--) {
-		if (branch[i].type === "compaction") {
-			compactionIndex = i;
-			break;
-		}
-	}
+  let compactionIndex = -1;
+  for (let i = branch.length - 1; i >= 0; i--) {
+    if (branch[i].type === "compaction") {
+      compactionIndex = i;
+      break;
+    }
+  }
 
-	if (compactionIndex < 0) {
-		return branch.map(entryToMessage).filter((message) => message !== undefined);
-	}
+  if (compactionIndex < 0) {
+    return branch.map(entryToMessage).filter((message) => message !== undefined);
+  }
 
-	const compaction = branch[compactionIndex];
-	const firstKeptIndex =
-		compaction.type === "compaction" ? branch.findIndex((entry) => entry.id === compaction.firstKeptEntryId) : -1;
-	const compactedBranch = [
-		compaction,
-		...(firstKeptIndex >= 0 ? branch.slice(firstKeptIndex, compactionIndex) : []),
-		...branch.slice(compactionIndex + 1),
-	];
+  const compaction = branch[compactionIndex];
+  const firstKeptIndex =
+    compaction.type === "compaction" ? branch.findIndex((entry) => entry.id === compaction.firstKeptEntryId) : -1;
+  const compactedBranch = [
+    compaction,
+    ...(firstKeptIndex >= 0 ? branch.slice(firstKeptIndex, compactionIndex) : []),
+    ...branch.slice(compactionIndex + 1),
+  ];
 
-	return compactedBranch.map(entryToMessage).filter((message) => message !== undefined);
+  return compactedBranch.map(entryToMessage).filter((message) => message !== undefined);
 }
 
 function truncateForNotification(text: string, maxChars = 900): string {
-	if (text.length <= maxChars) return text;
-	return `${text.slice(0, maxChars - 1)}…`;
+  if (text.length <= maxChars) return text;
+  return `${text.slice(0, maxChars - 1)}…`;
 }
 
 function responseDiagnostics(response: AssistantMessage): string {
-	const contentTypes = response.content.map((content) => content.type).join(",") || "none";
-	const diagnostics = response.diagnostics
-		?.map((diagnostic) => diagnostic.error?.message || diagnostic.type)
-		.filter((message) => message && message.length > 0)
-		.join("; ");
+  const contentTypes = response.content.map((content) => content.type).join(",") || "none";
+  const diagnostics = response.diagnostics
+    ?.map((diagnostic) => diagnostic.error?.message || diagnostic.type)
+    .filter((message) => message && message.length > 0)
+    .join("; ");
 
-	return truncateForNotification(
-		[
-			`stopReason=${response.stopReason}`,
-			`contentTypes=${contentTypes}`,
-			response.errorMessage ? `error=${response.errorMessage}` : undefined,
-			diagnostics ? `diagnostics=${diagnostics}` : undefined,
-		]
-			.filter(Boolean)
-			.join("; "),
-	);
+  return truncateForNotification(
+    [
+      `stopReason=${response.stopReason}`,
+      `contentTypes=${contentTypes}`,
+      response.errorMessage ? `error=${response.errorMessage}` : undefined,
+      diagnostics ? `diagnostics=${diagnostics}` : undefined,
+    ]
+      .filter(Boolean)
+      .join("; "),
+  );
 }
 
 export default function (pi: ExtensionAPI) {
-	pi.registerCommand("handoff", {
-		description: "Transfer context to a new focused session",
-		handler: async (args, ctx) => {
-			if (!ctx.hasUI) {
-				ctx.ui.notify("handoff requires interactive mode", "error");
-				return;
-			}
+  pi.registerCommand("handoff", {
+    description: "Transfer context to a new focused session",
+    handler: async (args, ctx) => {
+      if (!ctx.hasUI) {
+        ctx.ui.notify("handoff requires interactive mode", "error");
+        return;
+      }
 
-			if (!ctx.model) {
-				ctx.ui.notify("No model selected", "error");
-				return;
-			}
+      if (!ctx.model) {
+        ctx.ui.notify("No model selected", "error");
+        return;
+      }
 
-			const goal = args.trim();
-			if (!goal) {
-				ctx.ui.notify("Usage: /handoff <goal for new session>", "error");
-				return;
-			}
+      const goal = args.trim();
+      if (!goal) {
+        ctx.ui.notify("Usage: /handoff <goal for new session>", "error");
+        return;
+      }
 
-			await ctx.waitForIdle();
+      await ctx.waitForIdle();
 
-			// Gather conversation context from current branch. If the branch was compacted,
-			// include the compaction summary plus entries from firstKeptEntryId onward.
-			const messages = getHandoffMessages(ctx.sessionManager.getBranch());
-			if (messages.length === 0) {
-				ctx.ui.notify("No conversation to hand off", "error");
-				return;
-			}
+      // Gather conversation context from current branch. If the branch was compacted,
+      // include the compaction summary plus entries from firstKeptEntryId onward.
+      const messages = getHandoffMessages(ctx.sessionManager.getBranch());
+      if (messages.length === 0) {
+        ctx.ui.notify("No conversation to hand off", "error");
+        return;
+      }
 
-			const llmMessages = convertToLlm(messages);
-			const conversationText = serializeConversation(llmMessages);
-			const currentSessionFile = ctx.sessionManager.getSessionFile();
+      const llmMessages = convertToLlm(messages);
+      const conversationText = serializeConversation(llmMessages);
+      const currentSessionFile = ctx.sessionManager.getSessionFile();
 
-			let generationError: string | undefined;
+      let generationError: string | undefined;
 
-			// Generate the handoff prompt with loader UI.
-			const result = await ctx.ui.custom<string | null>((tui, theme, _kb, done) => {
-				const loader = new BorderedLoader(tui, theme, `Generating handoff prompt using ${ctx.model!.id}...`);
-				loader.onAbort = () => done(null);
+      // Generate the handoff prompt with loader UI.
+      const result = await ctx.ui.custom<string | null>((tui, theme, _kb, done) => {
+        const loader = new BorderedLoader(tui, theme, `Generating handoff prompt using ${ctx.model!.id}...`);
+        loader.onAbort = () => done(null);
 
-				const doGenerate = async () => {
-					const auth = await ctx.modelRegistry.getApiKeyAndHeaders(ctx.model!);
-					if (!auth.ok) {
-						throw new Error(auth.error || `Authentication failed for ${ctx.model!.provider}/${ctx.model!.id}`);
-					}
-					if (!auth.apiKey) {
-						throw new Error(`No API key for ${ctx.model!.provider}/${ctx.model!.id}`);
-					}
+        const doGenerate = async () => {
+          const auth = await ctx.modelRegistry.getApiKeyAndHeaders(ctx.model!);
+          if (!auth.ok) {
+            throw new Error(auth.error || `Authentication failed for ${ctx.model!.provider}/${ctx.model!.id}`);
+          }
+          if (!auth.apiKey) {
+            throw new Error(`No API key for ${ctx.model!.provider}/${ctx.model!.id}`);
+          }
 
-					const userMessage: UserMessage = {
-						role: "user",
-						content: [
-							{
-								type: "text",
-								text: `## Conversation History\n\n${conversationText}\n\n## User's Goal for New Thread\n\n${goal}`,
-							},
-						],
-						timestamp: Date.now(),
-					};
+          const userMessage: UserMessage = {
+            role: "user",
+            content: [
+              {
+                type: "text",
+                text: `## Conversation History\n\n${conversationText}\n\n## User's Goal for New Thread\n\n${goal}`,
+              },
+            ],
+            timestamp: Date.now(),
+          };
 
-					const response = await complete(
-						ctx.model!,
-						{ systemPrompt: SYSTEM_PROMPT, messages: [userMessage] },
-						{ apiKey: auth.apiKey, headers: auth.headers, signal: loader.signal },
-					);
+          const response = await complete(
+            ctx.model!,
+            { systemPrompt: SYSTEM_PROMPT, messages: [userMessage] },
+            { apiKey: auth.apiKey, headers: auth.headers, signal: loader.signal },
+          );
 
-					if (response.stopReason === "aborted") {
-						return null;
-					}
+          if (response.stopReason === "aborted") {
+            return null;
+          }
 
-					if (response.stopReason === "error") {
-						throw new Error(`Handoff generation failed: ${responseDiagnostics(response)}`);
-					}
+          if (response.stopReason === "error") {
+            throw new Error(`Handoff generation failed: ${responseDiagnostics(response)}`);
+          }
 
-					const prompt = response.content
-						.filter((content): content is { type: "text"; text: string } => content.type === "text")
-						.map((content) => content.text)
-						.join("\n");
+          const prompt = response.content
+            .filter((content): content is { type: "text"; text: string } => content.type === "text")
+            .map((content) => content.text)
+            .join("\n");
 
-					if (!prompt.trim()) {
-						throw new Error(`Handoff generation returned no text: ${responseDiagnostics(response)}`);
-					}
+          if (!prompt.trim()) {
+            throw new Error(`Handoff generation returned no text: ${responseDiagnostics(response)}`);
+          }
 
-					return prompt;
-				};
+          return prompt;
+        };
 
-				doGenerate()
-					.then(done)
-					.catch((error) => {
-						generationError = error?.message || String(error);
-						done(null);
-					});
+        doGenerate()
+          .then(done)
+          .catch((error) => {
+            generationError = error?.message || String(error);
+            done(null);
+          });
 
-				return loader;
-			});
+        return loader;
+      });
 
-			if (result === null) {
-				ctx.ui.notify(generationError ?? "Cancelled", generationError ? "error" : "info");
-				return;
-			}
+      if (result === null) {
+        ctx.ui.notify(generationError ?? "Cancelled", generationError ? "error" : "info");
+        return;
+      }
 
-			if (!result.trim()) {
-				ctx.ui.notify("Generated handoff prompt was empty", "error");
-				return;
-			}
+      if (!result.trim()) {
+        ctx.ui.notify("Generated handoff prompt was empty", "error");
+        return;
+      }
 
-			// Let the user review/edit the generated prompt before starting the new session.
-			const editedPrompt = await ctx.ui.editor("Edit handoff prompt", result);
-			if (editedPrompt === undefined) {
-				ctx.ui.notify("Cancelled", "info");
-				return;
-			}
+      // Let the user review/edit the generated prompt before starting the new session.
+      const editedPrompt = await ctx.ui.editor("Edit handoff prompt", result);
+      if (editedPrompt === undefined) {
+        ctx.ui.notify("Cancelled", "info");
+        return;
+      }
 
-			// Create new session with parent tracking. Use the replacement-session
-			// context for post-switch UI work; the original ctx is stale after a
-			// successful session replacement.
-			const newSessionResult = await ctx.newSession({
-				parentSession: currentSessionFile,
-				withSession: async (replacementCtx) => {
-					replacementCtx.ui.setEditorText(editedPrompt);
-					replacementCtx.ui.notify("Handoff ready. Submit when ready.", "info");
-				},
-			});
+      // Create new session with parent tracking. Use the replacement-session
+      // context for post-switch UI work; the original ctx is stale after a
+      // successful session replacement.
+      const newSessionResult = await ctx.newSession({
+        parentSession: currentSessionFile,
+        withSession: async (replacementCtx) => {
+          replacementCtx.ui.setEditorText(editedPrompt);
+          replacementCtx.ui.notify("Handoff ready. Submit when ready.", "info");
+        },
+      });
 
-			if (newSessionResult.cancelled) {
-				ctx.ui.notify("New session cancelled", "info");
-			}
-		},
-	});
+      if (newSessionResult.cancelled) {
+        ctx.ui.notify("New session cancelled", "info");
+      }
+    },
+  });
 }

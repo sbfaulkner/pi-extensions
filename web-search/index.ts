@@ -4,8 +4,7 @@ import { Text } from "@mariozechner/pi-tui";
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 
-const GEMINI_ENDPOINT =
-  "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent";
+const GEMINI_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent";
 
 const SEARCH_TIMEOUT_MS = 30_000;
 const REDIRECT_TIMEOUT_MS = 5_000;
@@ -27,8 +26,7 @@ const BINARY_CONTENT_TYPES = [
   "application/wasm",
 ];
 
-const FETCH_USER_AGENT =
-  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36";
+const FETCH_USER_AGENT = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36";
 
 // Elements whose subtrees should be removed entirely
 const STRIP_ELEMENTS_RE =
@@ -64,10 +62,7 @@ function isAuthError(code?: number, message?: string): boolean {
 }
 
 function formatAuthError(): string {
-  return (
-    "Your GEMINI_API_KEY may be invalid or expired. " +
-    "Get a free key at https://aistudio.google.com/apikey"
-  );
+  return "Your GEMINI_API_KEY may be invalid or expired. " + "Get a free key at https://aistudio.google.com/apikey";
 }
 
 // Create an AbortError-like exception. Prefer DOMException when available so
@@ -92,10 +87,7 @@ interface Source {
   uri: string;
 }
 
-async function resolveRedirects(
-  sources: Source[],
-  signal?: AbortSignal,
-): Promise<Source[]> {
+async function resolveRedirects(sources: Source[], signal?: AbortSignal): Promise<Source[]> {
   const results = await Promise.allSettled(
     sources.map(async (src) => {
       if (!src.uri.includes(REDIRECT_PATTERN)) return src;
@@ -133,8 +125,7 @@ async function callGemini(
 ): Promise<{ text: string; sources: Source[] }> {
   if (!GEMINI_API_KEY) {
     throw new Error(
-      "GEMINI_API_KEY environment variable is not set. " +
-        "Get a free key at https://aistudio.google.com/apikey",
+      "GEMINI_API_KEY environment variable is not set. " + "Get a free key at https://aistudio.google.com/apikey",
     );
   }
 
@@ -144,18 +135,15 @@ async function callGemini(
 
   const combinedSignal = withTimeout(SEARCH_TIMEOUT_MS, signal);
 
-  const response = await fetch(
-    `${GEMINI_ENDPOINT}?key=${encodeURIComponent(GEMINI_API_KEY)}`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        contents: [{ role: "user", parts: [{ text: prompt }] }],
-        tools: [{ google_search: {} }],
-      }),
-      signal: combinedSignal,
-    },
-  );
+  const response = await fetch(`${GEMINI_ENDPOINT}?key=${encodeURIComponent(GEMINI_API_KEY)}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      contents: [{ role: "user", parts: [{ text: prompt }] }],
+      tools: [{ google_search: {} }],
+    }),
+    signal: combinedSignal,
+  });
 
   // If the HTTP status indicates an auth problem, surface a clear auth error
   if (response.status === 401 || response.status === 403) {
@@ -183,9 +171,7 @@ async function callGemini(
   const answer = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
   const chunks: Array<{ web?: { title: string; uri: string } }> =
     data.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
-  const rawSources = chunks
-    .map((c) => c.web)
-    .filter((x): x is Source => !!(x && x.title && x.uri));
+  const rawSources = chunks.map((c) => c.web).filter((x): x is Source => !!(x && x.title && x.uri));
 
   const sources = await resolveRedirects(rawSources, signal);
 
@@ -327,10 +313,7 @@ async function fetchPageText(url: string, signal?: AbortSignal): Promise<string>
 
 function formatSources(sources: Source[]): string {
   if (sources.length === 0) return "";
-  return (
-    "\n\n## Sources\n" +
-    sources.map((s, i) => `${i + 1}. ${s.title} — ${s.uri}`).join("\n")
-  );
+  return "\n\n## Sources\n" + sources.map((s, i) => `${i + 1}. ${s.title} — ${s.uri}`).join("\n");
 }
 
 // ---------------------------------------------------------------------------
@@ -486,9 +469,7 @@ export default function (pi: ExtensionAPI) {
     },
     renderCall(args, theme, context) {
       const text = (context.lastComponent as Text | undefined) ?? new Text("", 0, 0);
-      text.setText(
-        theme.bold("web_search_summary") + " " + theme.fg("muted", args.query),
-      );
+      text.setText(theme.bold("web_search_summary") + " " + theme.fg("muted", args.query));
       return text;
     },
     renderResult(result, _opts, theme, context) {
@@ -520,7 +501,9 @@ export default function (pi: ExtensionAPI) {
         if (err?.name === "AbortError") throw err;
         if (err instanceof BlockedDomainError) {
           return {
-            content: [{ type: "text", text: `Domain "${err.domain}" is not in the network allowlist. Add it to continue.` }],
+            content: [
+              { type: "text", text: `Domain "${err.domain}" is not in the network allowlist. Add it to continue.` },
+            ],
             details: { error: true },
           };
         }

@@ -362,7 +362,11 @@ export class ViEditor extends CustomEditor {
     this.transitionActive = false;
 
     const textAfter = this.fullText();
-    if (textBefore !== textAfter || posBefore.line !== this.getCursorPos().line || posBefore.col !== this.getCursorPos().col) {
+    if (
+      textBefore !== textAfter ||
+      posBefore.line !== this.getCursorPos().line ||
+      posBefore.col !== this.getCursorPos().col
+    ) {
       this.redoStack.push({ text: textBefore, line: posBefore.line, col: posBefore.col });
     }
   }
@@ -655,7 +659,13 @@ export class ViEditor extends CustomEditor {
   }
 
   private handleEscape(): void {
-    if (this.pendingOperator || this.pendingCharMotion || this.pendingReplace || this.countBuffer || this.operatorCountBuffer) {
+    if (
+      this.pendingOperator ||
+      this.pendingCharMotion ||
+      this.pendingReplace ||
+      this.countBuffer ||
+      this.operatorCountBuffer
+    ) {
       this.clearPending();
       return;
     }

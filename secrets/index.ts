@@ -34,9 +34,7 @@ function loadSecretsFromEjson(name: string): Record<string, string> {
   const ejsonPath = join(SECRETS_DIR, `${name}.ejson`);
   if (!existsSync(ejsonPath)) {
     const available = getAvailableSecrets();
-    throw new Error(
-      `Secrets file not found: ${ejsonPath}\nAvailable: ${available.join(", ") || "(none)"}`,
-    );
+    throw new Error(`Secrets file not found: ${ejsonPath}\nAvailable: ${available.join(", ") || "(none)"}`);
   }
 
   const output = execFileSync("ejson", ["decrypt", ejsonPath], {
@@ -84,8 +82,7 @@ export default function (pi: ExtensionAPI) {
     label: "Load Secrets",
     description:
       "Load environment variables from an ejson secret file. Once loaded, secrets are available in all subsequent bash commands.",
-    promptSnippet:
-      "Load env vars from XDG secrets ejson files into all bash commands",
+    promptSnippet: "Load env vars from XDG secrets ejson files into all bash commands",
     promptGuidelines: [
       "Use load_secrets when a command needs API tokens or secrets (e.g. CLOUDFLARE_API_TOKEN).",
       "Never output secret values to the user.",
@@ -208,10 +205,7 @@ export default function (pi: ExtensionAPI) {
   // Show status when secrets are loaded
   pi.on("turn_start", async (_event, ctx) => {
     if (loadedNames.length > 0) {
-      ctx.ui.setStatus(
-        "secrets",
-        `🔑 ${loadedNames.join(", ")}`,
-      );
+      ctx.ui.setStatus("secrets", `🔑 ${loadedNames.join(", ")}`);
     }
   });
 }

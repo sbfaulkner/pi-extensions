@@ -25,15 +25,15 @@ async function updateUsage(provider: string) {
         const { exec } = await import("child_process");
         const { promisify } = await import("util");
         const execAsync = promisify(exec);
-        
+
         const { stdout: username } = await execAsync("gh api /user --jq '.login'");
         const user = username.trim();
-        
+
         // Fetch current usage for Copilot Pro
         const { stdout: usageData } = await execAsync(
-          `gh api "/users/${user}/settings/billing/usage/summary?product=copilot&sku=copilot_premium_request"`
+          `gh api "/users/${user}/settings/billing/usage/summary?product=copilot&sku=copilot_premium_request"`,
         );
-        
+
         const data = JSON.parse(usageData);
         if (data.usageItems && data.usageItems.length > 0) {
           info.usage = Math.floor(data.usageItems[0].grossQuantity);
@@ -49,17 +49,17 @@ async function updateUsage(provider: string) {
 export default function (pi: ExtensionAPI) {
   pi.on("session_start", async (_event, ctx) => {
     const provider = ctx.model?.provider;
-    
+
     if (provider && usageByProvider.has(provider)) {
       await updateUsage(provider);
     }
-    
+
     ctx.ui.setStatus("provider-usage", ctx.ui.theme.fg("dim", getStatusText()));
   });
 
   pi.on("turn_end", async (_event, ctx) => {
     const provider = ctx.model?.provider;
-    
+
     if (!provider || !usageByProvider.has(provider)) return;
 
     await updateUsage(provider);

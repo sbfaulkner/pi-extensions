@@ -24,7 +24,6 @@ type Session = {
   lastActivity?: number | null;
 };
 
-
 export default function (pi: ExtensionAPI) {
   let visible = false;
   const members = new Map<string, Member>();
@@ -53,31 +52,45 @@ export default function (pi: ExtensionAPI) {
       const out: any = {};
       let i = 0;
       for (const k of keys) {
-        if (i >= 6) { out["..."] = true; break; }
+        if (i >= 6) {
+          out["..."] = true;
+          break;
+        }
         out[k] = truncateDeep(v[k], depth - 1);
         i++;
       }
       return out;
     }
-    try { return String(v).slice(0, 120); } catch { return v; }
+    try {
+      return String(v).slice(0, 120);
+    } catch {
+      return v;
+    }
   }
 
   function summarizeEvent(ev: any): string {
     try {
-      if (ev && typeof ev === 'object') {
-        if (ev.type === 'message_end' || ev.type === 'done' || ev.type === 'tool_execution_end') {
-          return `${ev.type}${ev.id ? ` id=${ev.id}` : ''}`;
+      if (ev && typeof ev === "object") {
+        if (ev.type === "message_end" || ev.type === "done" || ev.type === "tool_execution_end") {
+          return `${ev.type}${ev.id ? ` id=${ev.id}` : ""}`;
         }
-        if (ev.type === 'message_update') {
+        if (ev.type === "message_update") {
           const rep: any = { type: ev.type };
-          try { rep.assistantMessageEvent = ev.assistantMessageEvent && ev.assistantMessageEvent.type ? { type: ev.assistantMessageEvent.type } : undefined; } catch {}
+          try {
+            rep.assistantMessageEvent =
+              ev.assistantMessageEvent && ev.assistantMessageEvent.type
+                ? { type: ev.assistantMessageEvent.type }
+                : undefined;
+          } catch {}
           return JSON.stringify(truncateDeep(rep, 2));
         }
         // Fallback to truncated JSON
         return JSON.stringify(truncateDeep(ev, 2));
       }
       return String(ev);
-    } catch (e) { return String(ev); }
+    } catch (e) {
+      return String(ev);
+    }
   }
 
   function pushMemberEvent(memberId: string, ev: any) {
@@ -87,7 +100,9 @@ export default function (pi: ExtensionAPI) {
       arr.push(s);
       if (arr.length > MAX_EVENTS_PER_MEMBER) arr.splice(0, arr.length - MAX_EVENTS_PER_MEMBER);
       memberEvents.set(memberId, arr);
-    } catch (e) { /* ignore */ }
+    } catch (e) {
+      /* ignore */
+    }
   }
 
   // Minimize timer and delay (also used for temporary expand -> minimize)
@@ -104,7 +119,9 @@ export default function (pi: ExtensionAPI) {
 
   function cancelAutoHide() {
     if (minimizeTimer) {
-      try { clearTimeout(minimizeTimer); } catch {}
+      try {
+        clearTimeout(minimizeTimer);
+      } catch {}
       minimizeTimer = null;
     }
   }
@@ -118,7 +135,9 @@ export default function (pi: ExtensionAPI) {
       visible = true;
       // Expand to full view
       minimized = false;
-      try { events.emit("change"); } catch {}
+      try {
+        events.emit("change");
+      } catch {}
     } catch (e) {
       // ignore
     }
@@ -132,7 +151,9 @@ export default function (pi: ExtensionAPI) {
     try {
       minimized = true;
       highlightMemberId = null;
-      try { events.emit("change"); } catch {}
+      try {
+        events.emit("change");
+      } catch {}
     } catch (e) {
       // ignore
     }
@@ -141,10 +162,14 @@ export default function (pi: ExtensionAPI) {
 
   function scheduleAutoHide() {
     cancelAutoHide();
-    const active = Array.from(sessions.values()).some((s) => s && (s.status === "busy" || s.status === "pending" || s.status === "initializing"));
+    const active = Array.from(sessions.values()).some(
+      (s) => s && (s.status === "busy" || s.status === "pending" || s.status === "initializing"),
+    );
     if (!active && visible) {
       minimizeTimer = setTimeout(() => {
-        try { hideAgencyWidget(); } catch {}
+        try {
+          hideAgencyWidget();
+        } catch {}
         minimizeTimer = null;
       }, AUTO_HIDE_DELAY);
     }
@@ -157,7 +182,9 @@ export default function (pi: ExtensionAPI) {
       try {
         minimized = true;
         highlightMemberId = null;
-        try { events.emit("change"); } catch {}
+        try {
+          events.emit("change");
+        } catch {}
       } catch (e) {}
       minimizeTimer = null;
     }, AUTO_HIDE_DELAY);
@@ -237,7 +264,12 @@ export default function (pi: ExtensionAPI) {
           if (members.size === 0) {
             lines.push(theme.fg("muted", "0 members"));
           } else {
-            let busy = 0, idle = 0, pending = 0, initializing = 0, offline = 0, error = 0;
+            let busy = 0,
+              idle = 0,
+              pending = 0,
+              initializing = 0,
+              offline = 0,
+              error = 0;
             for (const m of Array.from(members.values())) {
               const s = sessions.get(m.id);
               const status = s ? s.status : "offline";
@@ -254,7 +286,7 @@ export default function (pi: ExtensionAPI) {
             if (pending > 0) parts.push(`${pending} pending`);
             if (initializing > 0) parts.push(`${initializing} starting`);
             if (offline > 0 && parts.length === 0) parts.push(`${offline} offline`);
-            const summary = parts.join('; ');
+            const summary = parts.join("; ");
             lines.push(theme.fg("muted", `${members.size} members — ${summary}`));
           }
           lines.push("");
@@ -287,7 +319,8 @@ export default function (pi: ExtensionAPI) {
             }
             const name = m.displayName ?? m.id;
             const roleName = m.role ?? "unknown";
-            const pidColored = s && s.proc && typeof s.proc.pid === "number" ? theme.fg("dim", ` [pid:${s.proc.pid}]`) : "";
+            const pidColored =
+              s && s.proc && typeof s.proc.pid === "number" ? theme.fg("dim", ` [pid:${s.proc.pid}]`) : "";
 
             const leftRaw = `${name} (${roleName}): ${statusText}`;
 
@@ -322,7 +355,9 @@ export default function (pi: ExtensionAPI) {
                     lines.push(theme.fg("dim", `  ${e}`));
                   }
                 }
-              } catch (e) { /* ignore */ }
+              } catch (e) {
+                /* ignore */
+              }
             }
           }
         }
@@ -336,7 +371,9 @@ export default function (pi: ExtensionAPI) {
         // Clear caches so render() rebuilds with latest data, then request a redraw
         cachedWidth = undefined;
         cachedLines = undefined;
-        try { tui.requestRender(); } catch {}
+        try {
+          tui.requestRender();
+        } catch {}
       };
       events.on("change", onChange);
 
@@ -396,7 +433,13 @@ export default function (pi: ExtensionAPI) {
         stdio: ["pipe", "pipe", "pipe"],
       });
 
-      const session: Session = { proc, buffer: "", status: "initializing", currentTaskId: null, lastActivity: Date.now() };
+      const session: Session = {
+        proc,
+        buffer: "",
+        status: "initializing",
+        currentTaskId: null,
+        lastActivity: Date.now(),
+      };
       sessions.set(m.id, session);
 
       proc.stdout.setEncoding("utf8");
@@ -412,17 +455,22 @@ export default function (pi: ExtensionAPI) {
           try {
             const parsed = JSON.parse(line);
             // Emit raw parsed events for listeners (handshake, debugging)
-            try { events.emit("raw", m.id, parsed); } catch (e) {}
+            try {
+              events.emit("raw", m.id, parsed);
+            } catch (e) {}
 
             // Push a summarized, in-memory event for the member for quick inspection
-            try { pushMemberEvent(m.id, parsed); } catch (e) {}
+            try {
+              pushMemberEvent(m.id, parsed);
+            } catch (e) {}
 
             // If we were initializing, the first parsed event means the process is alive; mark idle unless the event indicates activity
-                    if (session.status === "initializing") session.status = "idle";
+            if (session.status === "initializing") session.status = "idle";
             handleMemberMessage(m.id, parsed);
             // If this event made the session idle, schedule auto-hide; otherwise cancel auto-hide
-            try { scheduleAutoHide(); } catch {}
-
+            try {
+              scheduleAutoHide();
+            } catch {}
           } catch (e) {
             // ignore parse errors
           }
@@ -436,11 +484,17 @@ export default function (pi: ExtensionAPI) {
         session.status = "offline";
         session.proc = null as any;
         // Notify listeners to re-render if widget is present
-        try { events.emit("change"); } catch {}
+        try {
+          events.emit("change");
+        } catch {}
       });
 
       // trigger UI update
-      try { events.emit("change"); } catch (e) { /* ignore */ }
+      try {
+        events.emit("change");
+      } catch (e) {
+        /* ignore */
+      }
       return session;
     } catch (e) {
       console.warn("Failed to spawn member", e);
@@ -449,7 +503,6 @@ export default function (pi: ExtensionAPI) {
   }
 
   let commandRegistered = false;
-
 
   function handleMemberMessage(memberId: string, msg: any) {
     const session = sessions.get(memberId);
@@ -466,10 +519,12 @@ export default function (pi: ExtensionAPI) {
     const maybeNotifyCompletion = (label: string, finishedTaskId: string | null) => {
       if (!finishedTaskId) return;
       try {
-        if (uiCtx && uiCtx.ui && typeof (uiCtx.ui as any).notify === 'function') {
+        if (uiCtx && uiCtx.ui && typeof (uiCtx.ui as any).notify === "function") {
           const m = members.get(memberId);
           const disp = m ? (m.displayName ?? m.id) : memberId;
-          try { (uiCtx.ui as any).notify(`${disp} ${label}${finishedTaskId ? ` (${finishedTaskId})` : ''}`, "info"); } catch {}
+          try {
+            (uiCtx.ui as any).notify(`${disp} ${label}${finishedTaskId ? ` (${finishedTaskId})` : ""}`, "info");
+          } catch {}
         }
       } catch {}
     };
@@ -480,7 +535,9 @@ export default function (pi: ExtensionAPI) {
     } else if (msg.type === "message_start" || msg.type === "message_update") {
       session.status = "busy";
       // cancel any pending minimize while active
-      try { cancelAutoHide(); } catch {}
+      try {
+        cancelAutoHide();
+      } catch {}
       // clear highlight when activity resumes
       highlightMemberId = null;
     } else if (msg.type === "message_end") {
@@ -491,14 +548,20 @@ export default function (pi: ExtensionAPI) {
 
       // Highlight the member and expand the widget if minimized
       highlightMemberId = memberId;
-      try { showAgencyWidget(uiCtx); } catch {}
-      try { scheduleTemporaryMinimize(); } catch {}
+      try {
+        showAgencyWidget(uiCtx);
+      } catch {}
+      try {
+        scheduleTemporaryMinimize();
+      } catch {}
 
       // Notify lead of final task completion if we had a task id
-      maybeNotifyCompletion('completed task', finishedTaskId);
+      maybeNotifyCompletion("completed task", finishedTaskId);
     } else if (msg.type === "tool_execution_start" || msg.type === "tool_execution_update") {
       session.status = "busy";
-      try { cancelAutoHide(); } catch {}
+      try {
+        cancelAutoHide();
+      } catch {}
       highlightMemberId = null;
     } else if (msg.type === "tool_execution_end") {
       // Finish of tool execution
@@ -506,10 +569,14 @@ export default function (pi: ExtensionAPI) {
       session.status = "idle";
       session.currentTaskId = null;
       highlightMemberId = memberId;
-      try { showAgencyWidget(uiCtx); } catch {}
-      try { scheduleTemporaryMinimize(); } catch {}
+      try {
+        showAgencyWidget(uiCtx);
+      } catch {}
+      try {
+        scheduleTemporaryMinimize();
+      } catch {}
 
-      maybeNotifyCompletion('finished tool execution', finishedTaskId);
+      maybeNotifyCompletion("finished tool execution", finishedTaskId);
     } else {
       // Fallback for simple messages
       if (msg.type === "ack") session.status = "busy";
@@ -518,15 +585,21 @@ export default function (pi: ExtensionAPI) {
         session.status = "idle";
         session.currentTaskId = null;
         highlightMemberId = memberId;
-        try { showAgencyWidget(uiCtx); } catch {}
-        try { scheduleTemporaryMinimize(); } catch {}
+        try {
+          showAgencyWidget(uiCtx);
+        } catch {}
+        try {
+          scheduleTemporaryMinimize();
+        } catch {}
 
-        maybeNotifyCompletion('done', finishedTaskId);
+        maybeNotifyCompletion("done", finishedTaskId);
       }
     }
 
     // Notify listeners to re-render
-    try { events.emit("change"); } catch {}
+    try {
+      events.emit("change");
+    } catch {}
   }
 
   // Simple send utility
@@ -551,7 +624,7 @@ export default function (pi: ExtensionAPI) {
       return false;
     }
 
-    const taskId = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2,8)}`;
+    const taskId = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
     sess.currentTaskId = taskId;
     // mark as pending until we confirm the child accepted the prompt
     sess.status = "pending" as any;
@@ -561,7 +634,9 @@ export default function (pi: ExtensionAPI) {
       sess.status = "idle";
       sess.currentTaskId = null;
       innerCtx.ui.notify(`Failed to send task to ${member.id} - send failed`, "error");
-      try { events.emit("change"); } catch {}
+      try {
+        events.emit("change");
+      } catch {}
       return false;
     }
 
@@ -572,13 +647,20 @@ export default function (pi: ExtensionAPI) {
         const onRaw = (memberId: string, parsed: any) => {
           if (memberId !== member.id) return;
           if (parsed && parsed.type === "response" && parsed.id === taskId) {
-            try { events.off("raw", onRaw); } catch {}
+            try {
+              events.off("raw", onRaw);
+            } catch {}
             resolve(parsed.success === true);
           }
         };
         events.on("raw", onRaw);
         // Timeout after 6s
-        setTimeout(() => { try { events.off("raw", onRaw); } catch {} ; resolve(undefined); }, 6000);
+        setTimeout(() => {
+          try {
+            events.off("raw", onRaw);
+          } catch {}
+          resolve(undefined);
+        }, 6000);
       });
     } catch (e) {
       confirmed = undefined;
@@ -587,9 +669,15 @@ export default function (pi: ExtensionAPI) {
     if (confirmed === true) {
       sess.status = "busy";
       innerCtx.ui.notify(`Assigned ${member.role} task to ${member.displayName ?? member.id}`, "info");
-      try { events.emit("change"); } catch {}
-      try { showAgencyWidget(innerCtx); } catch {}
-      try { cancelAutoHide(); } catch {}
+      try {
+        events.emit("change");
+      } catch {}
+      try {
+        showAgencyWidget(innerCtx);
+      } catch {}
+      try {
+        cancelAutoHide();
+      } catch {}
       return true;
     }
 
@@ -598,17 +686,27 @@ export default function (pi: ExtensionAPI) {
       sess.status = "idle";
       sess.currentTaskId = null;
       innerCtx.ui.notify(`Failed to assign task to ${member.id} - rejected`, "error");
-      try { events.emit("change"); } catch {}
-      try { scheduleAutoHide(); } catch {}
+      try {
+        events.emit("change");
+      } catch {}
+      try {
+        scheduleAutoHide();
+      } catch {}
       return false;
     }
 
     // Timeout: assume accepted but we didn't get explicit confirmation; transition to busy
     sess.status = "busy";
     innerCtx.ui.notify(`Assigned ${member.role} task to ${member.displayName ?? member.id}`, "info");
-    try { events.emit("change"); } catch {}
-    try { showAgencyWidget(innerCtx); } catch {}
-    try { cancelAutoHide(); } catch {}
+    try {
+      events.emit("change");
+    } catch {}
+    try {
+      showAgencyWidget(innerCtx);
+    } catch {}
+    try {
+      cancelAutoHide();
+    } catch {}
     return true;
   }
 
@@ -633,12 +731,18 @@ export default function (pi: ExtensionAPI) {
         try {
           const sess = await spawnMemberProcess(m);
           if (sess) {
-            try { ctx.ui.notify(`Resumed ${m.role} ${m.displayName ?? m.id}`, "info"); } catch {}
+            try {
+              ctx.ui.notify(`Resumed ${m.role} ${m.displayName ?? m.id}`, "info");
+            } catch {}
           } else {
-            try { ctx.ui.notify(`Failed to spawn member ${m.role} ${m.displayName ?? m.id} - spawn failed`, "error"); } catch {}
+            try {
+              ctx.ui.notify(`Failed to spawn member ${m.role} ${m.displayName ?? m.id} - spawn failed`, "error");
+            } catch {}
           }
         } catch (e) {
-          try { ctx.ui.notify(`Failed to spawn member ${m.role} ${m.displayName ?? m.id} - spawn failed`, "error"); } catch {}
+          try {
+            ctx.ui.notify(`Failed to spawn member ${m.role} ${m.displayName ?? m.id} - spawn failed`, "error");
+          } catch {}
         }
         await new Promise((r) => setTimeout(r, 150));
       }
@@ -647,7 +751,11 @@ export default function (pi: ExtensionAPI) {
     }
 
     // Helper: create and spawn a member for a role (returns the member or null)
-    async function createMemberForRole(role: string, explicitName: string | undefined, innerCtx: ExtensionCommandContext): Promise<Member | null> {
+    async function createMemberForRole(
+      role: string,
+      explicitName: string | undefined,
+      innerCtx: ExtensionCommandContext,
+    ): Promise<Member | null> {
       const roleId = role.toLowerCase();
       const roleDef = roles.get(roleId);
       if (!roleDef) {
@@ -662,13 +770,18 @@ export default function (pi: ExtensionAPI) {
       const modelId = roleDef.modelId ?? sessionModelId;
       const thinking = roleDef.thinking ?? sessionThinking;
       if (!provider || !modelId || !thinking) {
-        innerCtx.ui.notify(`Failed to add member ${roleId} - role definition missing provider/modelId/thinking and no session defaults available`, "error");
+        innerCtx.ui.notify(
+          `Failed to add member ${roleId} - role definition missing provider/modelId/thinking and no session defaults available`,
+          "error",
+        );
         return null;
       }
 
       // Build set of used display names (case-insensitive)
       const usedNames = new Set(
-        Array.from(members.values()).map((m) => (m.displayName || "").toLowerCase()).filter((s) => !!s),
+        Array.from(members.values())
+          .map((m) => (m.displayName || "").toLowerCase())
+          .filter((s) => !!s),
       );
 
       let displayName: string | undefined = undefined;
@@ -690,7 +803,12 @@ export default function (pi: ExtensionAPI) {
         return null;
       }
 
-      function slugify(s: string) { return s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, ""); }
+      function slugify(s: string) {
+        return s
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, "-")
+          .replace(/^-+|-+$/g, "");
+      }
       let id: string;
       if (displayName) {
         const base = `${slugify(displayName)}`;
@@ -703,20 +821,32 @@ export default function (pi: ExtensionAPI) {
         id = generateId(roleId);
       }
 
-      const member: Member = { id, role: roleId, displayName, provider: provider ?? null, modelId: modelId ?? null, thinking: thinking ?? null } as Member;
+      const member: Member = {
+        id,
+        role: roleId,
+        displayName,
+        provider: provider ?? null,
+        modelId: modelId ?? null,
+        thinking: thinking ?? null,
+      } as Member;
       members.set(id, member);
       await saveState(innerCtx);
       const sess = await spawnMemberProcess(member);
-      try { events.emit("change"); } catch {}
-      try { showAgencyWidget(innerCtx); } catch {}
-      try { cancelAutoHide(); } catch {}
+      try {
+        events.emit("change");
+      } catch {}
+      try {
+        showAgencyWidget(innerCtx);
+      } catch {}
+      try {
+        cancelAutoHide();
+      } catch {}
       return member;
     }
 
     pi.registerCommand("agency", {
       description: "Toggle the agency widget or add items: /agency add <text>",
       handler: async (args: string | string[] | undefined, innerCtx) => {
-
         const rawArgs = typeof args === "string" ? args.trim() : Array.isArray(args) ? args.join(" ").trim() : "";
         const parts = rawArgs ? rawArgs.split(/\s+/) : [];
         const verb = parts[0];
@@ -755,7 +885,7 @@ export default function (pi: ExtensionAPI) {
 
         // Role verb shorthand: /agency <verb> <task>
         // Reserved commands (handled below) should take precedence over role verbs.
-        const reservedCommands = new Set(["help","add","remove","list","assign","clear","events"]);
+        const reservedCommands = new Set(["help", "add", "remove", "list", "assign", "clear", "events"]);
         if (verb && !reservedCommands.has(verb.toLowerCase()) && verbMap.has(verb.toLowerCase())) {
           const role = verbMap.get(verb.toLowerCase())!;
           const taskText = parts.slice(1).join(" ").trim();
@@ -772,7 +902,10 @@ export default function (pi: ExtensionAPI) {
           for (const m of Array.from(members.values())) {
             if (m.role === role) {
               const s = sessions.get(m.id);
-              if (s && s.status === "idle") { targetMember = m; break; }
+              if (s && s.status === "idle") {
+                targetMember = m;
+                break;
+              }
             }
           }
 
@@ -793,7 +926,10 @@ export default function (pi: ExtensionAPI) {
           // Normalize role to lowercase to match roles.json keys and enforce existence
           const role = (parts[1] || "developer").toLowerCase();
           const roleDef = roles.get(role);
-          if (!roleDef) { innerCtx.ui.notify(`Failed to add member ${role} - unknown role`, "error"); return; }
+          if (!roleDef) {
+            innerCtx.ui.notify(`Failed to add member ${role} - unknown role`, "error");
+            return;
+          }
           // Default provider/model/thinking to the current session if missing in the role definition
           const sessionProvider = innerCtx.model?.provider ?? null;
           const sessionModelId = (innerCtx.model as any)?.id ?? null;
@@ -802,7 +938,10 @@ export default function (pi: ExtensionAPI) {
           const modelId = roleDef.modelId ?? sessionModelId;
           const thinking = roleDef.thinking ?? sessionThinking;
           if (!provider || !modelId || !thinking) {
-            innerCtx.ui.notify(`Failed to add member ${role} - role definition missing provider/modelId/thinking and no session defaults available`, "error");
+            innerCtx.ui.notify(
+              `Failed to add member ${role} - role definition missing provider/modelId/thinking and no session defaults available`,
+              "error",
+            );
             return;
           }
 
@@ -839,7 +978,12 @@ export default function (pi: ExtensionAPI) {
           }
 
           // Generate a stable id based on role + slug(displayName) or fallback
-          function slugify(s: string) { return s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, ""); }
+          function slugify(s: string) {
+            return s
+              .toLowerCase()
+              .replace(/[^a-z0-9]+/g, "-")
+              .replace(/^-+|-+$/g, "");
+          }
           let id: string;
           if (displayName) {
             // Prefer using the displayName as the unique id (slugified). Only append a numeric suffix on collisions.
@@ -854,7 +998,14 @@ export default function (pi: ExtensionAPI) {
           }
 
           // Apply role defaults (provider/model/thinking) to the member so spawnMemberProcess can pass CLI args
-          const member: Member = { id, role, displayName, provider: provider ?? null, modelId: modelId ?? null, thinking: thinking ?? null };
+          const member: Member = {
+            id,
+            role,
+            displayName,
+            provider: provider ?? null,
+            modelId: modelId ?? null,
+            thinking: thinking ?? null,
+          };
           members.set(id, member);
           await saveState(innerCtx);
           // Spawn the member process immediately
@@ -864,9 +1015,15 @@ export default function (pi: ExtensionAPI) {
           } else {
             innerCtx.ui.notify(`Failed to spawn member ${role} ${displayName ?? id} - spawn failed`, "error");
           }
-          try { events.emit("change"); } catch {}
-          try { showAgencyWidget(innerCtx); } catch {}
-          try { cancelAutoHide(); } catch {}
+          try {
+            events.emit("change");
+          } catch {}
+          try {
+            showAgencyWidget(innerCtx);
+          } catch {}
+          try {
+            cancelAutoHide();
+          } catch {}
           return;
         }
 
@@ -880,17 +1037,28 @@ export default function (pi: ExtensionAPI) {
               try {
                 if (innerCtx && innerCtx.ui && typeof (innerCtx.ui as any).confirm === "function") {
                   const ok = await (innerCtx.ui as any).confirm("Some members are busy. Stop and remove all members?");
-                  if (!ok) { innerCtx.ui.notify("Clear cancelled", "info"); return; }
+                  if (!ok) {
+                    innerCtx.ui.notify("Clear cancelled", "info");
+                    return;
+                  }
                 } else {
                   const args = parts.slice(1).join(" ").toLowerCase();
-                  const force = args.includes("confirm") || args.includes("--confirm") || args.includes("yes") || args.includes("--force");
+                  const force =
+                    args.includes("confirm") ||
+                    args.includes("--confirm") ||
+                    args.includes("yes") ||
+                    args.includes("--force");
                   if (!force) {
                     // No confirmation available and no force token: remove only idle members and warn
                     const removed: string[] = [];
                     for (const [id, s] of sessions.entries()) {
                       if (!s || s.status !== "busy") {
                         if (s && s.proc) {
-                          try { s.proc.kill(); } catch (e) { /* ignore */ }
+                          try {
+                            s.proc.kill();
+                          } catch (e) {
+                            /* ignore */
+                          }
                         }
                         sessions.delete(id);
                         if (members.has(id)) {
@@ -900,8 +1068,13 @@ export default function (pi: ExtensionAPI) {
                       }
                     }
                     await saveState(innerCtx);
-                    try { events.emit("change"); } catch {}
-                    innerCtx.ui.notify(`Removed idle members (${removed.join(", ")}); busy members were not cleared. Run '/agency clear confirm' to force.`, "warning");
+                    try {
+                      events.emit("change");
+                    } catch {}
+                    innerCtx.ui.notify(
+                      `Removed idle members (${removed.join(", ")}); busy members were not cleared. Run '/agency clear confirm' to force.`,
+                      "warning",
+                    );
                     return;
                   }
                 }
@@ -915,13 +1088,19 @@ export default function (pi: ExtensionAPI) {
             // Either no busy members or confirmation was obtained: remove everything
             for (const [id, s] of sessions.entries()) {
               if (s && s.proc) {
-                try { s.proc.kill(); } catch (e) { /* ignore individual failures */ }
+                try {
+                  s.proc.kill();
+                } catch (e) {
+                  /* ignore individual failures */
+                }
               }
             }
             sessions.clear();
             members.clear();
             await saveState(innerCtx);
-            try { events.emit("change"); } catch {}
+            try {
+              events.emit("change");
+            } catch {}
             innerCtx.ui.notify("Removed all members", "info");
           } catch (e) {
             innerCtx.ui.notify(`Failed to clear agency - ${String(e)}`, "error");
@@ -932,7 +1111,10 @@ export default function (pi: ExtensionAPI) {
         // Shorthand remove: /agency remove <id|displayName>
         if (verb === "remove") {
           const target = parts.slice(1).join(" ").trim();
-          if (!target) { innerCtx.ui.notify("Usage: /agency remove <id|displayName>", "warning"); return; }
+          if (!target) {
+            innerCtx.ui.notify("Usage: /agency remove <id|displayName>", "warning");
+            return;
+          }
           // Allow removing by id or by displayName (case-insensitive)
           let idToRemove: string | undefined = undefined;
           const maybeId = target.toLowerCase();
@@ -946,32 +1128,45 @@ export default function (pi: ExtensionAPI) {
               }
             }
           }
-          if (!idToRemove) { innerCtx.ui.notify(`Failed to remove member ${target} - unknown member`, "warning"); return; }
+          if (!idToRemove) {
+            innerCtx.ui.notify(`Failed to remove member ${target} - unknown member`, "warning");
+            return;
+          }
           // Kill session if running
           const s = sessions.get(idToRemove);
           if (s && s.proc) {
-            try { s.proc.kill(); } catch (e) { /* ignore */ }
+            try {
+              s.proc.kill();
+            } catch (e) {
+              /* ignore */
+            }
             sessions.delete(idToRemove);
           }
           members.delete(idToRemove);
           await saveState(innerCtx);
           innerCtx.ui.notify(`Removed member ${idToRemove}`, "info");
-          try { events.emit("change"); } catch {}
+          try {
+            events.emit("change");
+          } catch {}
           return;
         }
 
         // Shorthand list: /agency list
         if (verb === "list") {
-          if (members.size === 0) { innerCtx.ui.notify("No members configured", "info"); return; }
-          const list = Array.from(members.values()).map(m => {
-            const s = sessions.get(m.id);
-            const pidText = s && s.proc && typeof s.proc.pid === "number" ? ` [pid:${s.proc.pid}]` : "";
-            return `${m.displayName ?? m.id} (${m.role ? m.role : 'unknown'}): ${s ? s.status : 'offline'}${pidText}`;
-          }).join("\n");
+          if (members.size === 0) {
+            innerCtx.ui.notify("No members configured", "info");
+            return;
+          }
+          const list = Array.from(members.values())
+            .map((m) => {
+              const s = sessions.get(m.id);
+              const pidText = s && s.proc && typeof s.proc.pid === "number" ? ` [pid:${s.proc.pid}]` : "";
+              return `${m.displayName ?? m.id} (${m.role ? m.role : "unknown"}): ${s ? s.status : "offline"}${pidText}`;
+            })
+            .join("\n");
           innerCtx.ui.notify(`Members:\n${list}`, "info");
           return;
         }
-
 
         // Show recent in-memory member events: /agency events <id|all> [N]
         if (verb === "events") {
@@ -984,29 +1179,40 @@ export default function (pi: ExtensionAPI) {
                 const tail = arr.slice(-max).map((l) => `${id}> ${l}`);
                 lines.push(...tail);
               }
-              if (lines.length === 0) { innerCtx.ui.notify("No member events recorded", "info"); return; }
-              innerCtx.ui.notify(`Member events (per member, last ${max}):\n${lines.join('\n')}`, "info");
+              if (lines.length === 0) {
+                innerCtx.ui.notify("No member events recorded", "info");
+                return;
+              }
+              innerCtx.ui.notify(`Member events (per member, last ${max}):\n${lines.join("\n")}`, "info");
               return;
             }
 
             const id = target;
-            if (!memberEvents.has(id)) { innerCtx.ui.notify(`No events for member ${id}`, "info"); return; }
+            if (!memberEvents.has(id)) {
+              innerCtx.ui.notify(`No events for member ${id}`, "info");
+              return;
+            }
             const arr = (memberEvents.get(id) || []).slice(-max);
-            innerCtx.ui.notify(`Events for ${id} (last ${arr.length}):\n${arr.join('\n')}`, "info");
+            innerCtx.ui.notify(`Events for ${id} (last ${arr.length}):\n${arr.join("\n")}`, "info");
           } catch (e) {
             innerCtx.ui.notify(`Failed to read events - ${String(e)}`, "error");
           }
           return;
         }
 
-
         // Shorthand assign: /agency assign <id> <text>
         if (verb === "assign") {
           const id = parts[1];
           const text = parts.slice(2).join(" ").trim();
-          if (!id || !text) { innerCtx.ui.notify("Usage: /agency assign <id> <task text>", "warning"); return; }
+          if (!id || !text) {
+            innerCtx.ui.notify("Usage: /agency assign <id> <task text>", "warning");
+            return;
+          }
           const m = members.get(id);
-          if (!m) { innerCtx.ui.notify(`Failed to assign member ${id} - unknown member`, "warning"); return; }
+          if (!m) {
+            innerCtx.ui.notify(`Failed to assign member ${id} - unknown member`, "warning");
+            return;
+          }
           // ensure session
           await assignTaskToMember(m, text, innerCtx);
           return;
@@ -1015,11 +1221,15 @@ export default function (pi: ExtensionAPI) {
         // Toggle widget: expand/minimize rather than fully unregistering
         if (!visible) {
           // Show and expand widget below the editor
-          try { showAgencyWidget(innerCtx); } catch {}
+          try {
+            showAgencyWidget(innerCtx);
+          } catch {}
           // No noisy notification for auto/show
         } else {
           // Minimize the widget to the summary line
-          try { hideAgencyWidget(innerCtx); } catch {}
+          try {
+            hideAgencyWidget(innerCtx);
+          } catch {}
         }
       },
     });
@@ -1043,7 +1253,9 @@ export default function (pi: ExtensionAPI) {
     // Kill any spawned procs we own
     for (const [id, s] of sessions.entries()) {
       if (s && s.proc) {
-        try { s.proc.kill(); } catch {}
+        try {
+          s.proc.kill();
+        } catch {}
       }
     }
     sessions.clear();
