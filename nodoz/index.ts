@@ -16,13 +16,19 @@ export interface InhibitorCommand {
   args: string[];
 }
 
+type ChildErrorListener = (error: Error) => void;
+type ChildExitListener = (code: number | null, signal: Signal | null) => void;
+
 interface InhibitorProcess {
   pid?: number;
   killed?: boolean;
   kill: (signal?: Signal | number) => boolean;
-  on: (event: "error" | "exit", listener: (...args: any[]) => void) => unknown;
-  off?: (event: "error" | "exit", listener: (...args: any[]) => void) => unknown;
-  removeListener?: (event: "error" | "exit", listener: (...args: any[]) => void) => unknown;
+  on(event: "error", listener: ChildErrorListener): unknown;
+  on(event: "exit", listener: ChildExitListener): unknown;
+  off?(event: "error", listener: ChildErrorListener): unknown;
+  off?(event: "exit", listener: ChildExitListener): unknown;
+  removeListener?(event: "error", listener: ChildErrorListener): unknown;
+  removeListener?(event: "exit", listener: ChildExitListener): unknown;
 }
 
 interface ProcessLike {
@@ -74,15 +80,28 @@ export function getInhibitorCommand(platform: Platform): InhibitorCommand | unde
   return undefined;
 }
 
+function detachChildListener(child: InhibitorProcess, event: "error", listener: ChildErrorListener): void;
+function detachChildListener(child: InhibitorProcess, event: "exit", listener: ChildExitListener): void;
 function detachChildListener(
   child: InhibitorProcess,
   event: "error" | "exit",
-  listener: (...args: any[]) => void,
+  listener: ChildErrorListener | ChildExitListener,
 ): void {
+  if (event === "error") {
+    const errorListener = listener as ChildErrorListener;
+    if (child.off) {
+      child.off("error", errorListener);
+    } else if (child.removeListener) {
+      child.removeListener("error", errorListener);
+    }
+    return;
+  }
+
+  const exitListener = listener as ChildExitListener;
   if (child.off) {
-    child.off(event, listener);
+    child.off("exit", exitListener);
   } else if (child.removeListener) {
-    child.removeListener(event, listener);
+    child.removeListener("exit", exitListener);
   }
 }
 
@@ -100,8 +119,12 @@ function formatExit(code: number | null, signal: Signal | null): string {
   return "unknown status";
 }
 
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
 export function createNodozExtension(pi: ExtensionAPI, deps: NodozDependencies = {}): NodozState | undefined {
-  const processLike = deps.process ?? ((globalThis as any).process as ProcessLike);
+  const processLike = deps.process ?? process;
   const spawn = deps.spawn ?? ((command, args, options) => nodeSpawn(command, args, options) as InhibitorProcess);
   const logger = deps.logger ?? console;
   const commandForPlatform = deps.getInhibitorCommand ?? getInhibitorCommand;
@@ -163,9 +186,9 @@ export function createNodozExtension(pi: ExtensionAPI, deps: NodozDependencies =
         stdio: "ignore",
         detached: false,
       });
-    } catch (error: any) {
+    } catch (error) {
       state.activeTurns = 0;
-      logger.warn(`${STATUS_PREFIX} failed to start sleep inhibitor: ${error?.message ?? String(error)}`);
+      logger.warn(`${STATUS_PREFIX} failed to start sleep inhibitor: ${errorMessage(error)}`);
       return false;
     }
 
@@ -201,8 +224,8 @@ export function createNodozExtension(pi: ExtensionAPI, deps: NodozDependencies =
     if (!proc.killed) {
       try {
         proc.kill();
-      } catch (error: any) {
-        logger.warn(`${STATUS_PREFIX} failed to stop sleep inhibitor: ${error?.message ?? String(error)}`);
+      } catch (error) {
+        logger.warn(`${STATUS_PREFIX} failed to stop sleep inhibitor: ${errorMessage(error)}`);
       }
     }
   }
