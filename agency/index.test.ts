@@ -1,8 +1,10 @@
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
 import { chmod, mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
+import { pathToFileURL } from "node:url";
 import agencyExtension from "./index.ts";
 
 type Handler = (...args: unknown[]) => unknown;
@@ -101,6 +103,82 @@ async function waitFor(predicate: () => boolean | Promise<boolean>, timeoutMs = 
     await new Promise((resolve) => setTimeout(resolve, 10));
   }
   assert.fail("timed out waiting for condition");
+}
+
+async function createEmptyPathBin() {
+  const root = await mkdtemp(path.join(tmpdir(), "pi-extensions-agency-empty-path-"));
+  const binDir = path.join(root, "bin");
+  await mkdir(binDir, { recursive: true });
+  return { binDir };
+}
+
+async function runAgencyMissingPiScenario(scenario: "add" | "resume") {
+  const fixture = await createEmptyPathBin();
+  const script = `
+    const { default: agencyExtension } = await import(${JSON.stringify(`${pathToFileURL(process.cwd())}/agency/index.ts`)});
+    const handlers = new Map();
+    const commands = new Map();
+    const notifications = [];
+    const appendedEntries = [];
+    const entries = ${JSON.stringify([
+      {
+        type: "custom",
+        customType: "agency",
+        data: {
+          members: [
+            {
+              id: "alice",
+              role: "developer",
+              displayName: "Alice",
+              provider: "test-provider",
+              modelId: "test-model",
+              thinking: "medium",
+            },
+          ],
+        },
+      },
+    ])};
+    const pi = {
+      on(event, handler) {
+        const list = handlers.get(event) ?? [];
+        list.push(handler);
+        handlers.set(event, list);
+      },
+      registerCommand(name, options) {
+        commands.set(name, options);
+      },
+      async appendEntry(type, data) {
+        appendedEntries.push({ type, data });
+      },
+    };
+    agencyExtension(pi);
+    const ctx = {
+      hasUI: true,
+      model: { provider: "test-provider", id: "test-model", thinking: "medium" },
+      sessionManager: { getEntries: () => (${JSON.stringify(scenario)} === "resume" ? entries : []) },
+      ui: {
+        notify(message, level) { notifications.push({ message, level }); },
+        setWidget() {},
+        setStatus() {},
+        theme: { fg(_style, text) { return text; } },
+      },
+    };
+    for (const handler of handlers.get("session_start") ?? []) await handler({}, ctx);
+    if (${JSON.stringify(scenario)} === "add") {
+      await commands.get("agency").handler("add developer Alice", ctx);
+    }
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    console.log(JSON.stringify({ notifications, appendedEntries }));
+    for (const handler of handlers.get("session_shutdown") ?? []) await handler({}, ctx);
+  `;
+
+  const result = spawnSync(process.execPath, ["--input-type=module", "--eval", script], {
+    cwd: process.cwd(),
+    env: { ...process.env, PATH: fixture.binDir },
+    encoding: "utf8",
+  });
+
+  return result;
 }
 
 function createHarness(options: { entries?: unknown[] } = {}) {
@@ -237,6 +315,22 @@ test("agency add validates unknown roles and duplicate names", async () => {
     await harness.emit("session_shutdown");
     process.env.PATH = originalPath;
   }
+});
+
+test("agency add reports missing pi spawn failure without persisting the member", async () => {
+  const result = await runAgencyMissingPiScenario("add");
+
+  assert.equal(result.status, 0, result.stderr);
+  const output = JSON.parse(result.stdout.trim()) as {
+    notifications: Notification[];
+    appendedEntries: Array<{ type: string; data: unknown }>;
+  };
+
+  assert.deepEqual(output.notifications.at(-1), {
+    message: "Failed to spawn member developer Alice - spawn failed",
+    level: "error",
+  });
+  assert.equal(output.appendedEntries.length, 0);
 });
 
 test("agency add requires role or session model defaults", async () => {
@@ -605,6 +699,22 @@ test("agency events shows member and all event buffers", async () => {
     await harness.emit("session_shutdown");
     process.env.PATH = originalPath;
   }
+});
+
+test("session_start reports persisted member spawn failures", async () => {
+  const result = await runAgencyMissingPiScenario("resume");
+
+  assert.equal(result.status, 0, result.stderr);
+  const output = JSON.parse(result.stdout.trim()) as {
+    notifications: Notification[];
+    appendedEntries: Array<{ type: string; data: unknown }>;
+  };
+
+  assert.deepEqual(output.notifications.at(-1), {
+    message: "Failed to spawn member developer Alice - spawn failed",
+    level: "error",
+  });
+  assert.equal(output.appendedEntries.length, 0);
 });
 
 test("session_start restores persisted agency members", async () => {
