@@ -142,6 +142,41 @@ test("web_search aborts and notifies when GEMINI_API_KEY is missing", async () =
   }
 });
 
+test("web_search aborts and notifies when Gemini authentication fails", async () => {
+  const restoreFetch = installFetch(async () => {
+    return new Response(JSON.stringify({ error: { code: 403, message: "API key not valid" } }), {
+      status: 403,
+      statusText: "Forbidden",
+      headers: { "content-type": "application/json" },
+    });
+  });
+  const harness = await setupExtension("bad-key");
+
+  try {
+    const context = createContext();
+
+    await assert.rejects(
+      () =>
+        getTool(harness.tools, "web_search").execute(
+          "tool-call",
+          { query: "pi extensions" },
+          undefined,
+          undefined,
+          context.ctx,
+        ),
+      { name: "AbortError", message: /Gemini authentication failed/ },
+    );
+
+    assert.equal(context.abortCount, 1);
+    assert.equal(context.notifications.length, 1);
+    assert.equal(context.notifications[0].level, "error");
+    assert.match(context.notifications[0].message, /Gemini authentication failed/);
+  } finally {
+    restoreFetch();
+    harness.restoreEnv();
+  }
+});
+
 test("search tools call Gemini with concise and detailed prompts", async () => {
   const calls: Array<{ url: string; body: GeminiRequest }> = [];
   const restoreFetch = installFetch(async (input: FetchInput, init: FetchInit) => {
