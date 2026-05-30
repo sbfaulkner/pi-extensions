@@ -7,7 +7,7 @@ import agencyExtension from "./index.ts";
 
 type Handler = (...args: any[]) => unknown;
 
-async function createFakePiBin(startupMessage?: unknown, signalFile?: string) {
+async function createFakePiBin(startupMessage?: unknown, signalFile?: string, argvFile?: string) {
   const root = await mkdtemp(path.join(tmpdir(), "pi-extensions-agency-"));
   const binDir = path.join(root, "bin");
   await mkdir(binDir, { recursive: true });
@@ -18,6 +18,10 @@ async function createFakePiBin(startupMessage?: unknown, signalFile?: string) {
     `#!/usr/bin/env node
 const startupMessage = ${JSON.stringify(startupMessage)};
 const signalFile = ${JSON.stringify(signalFile)};
+const argvFile = ${JSON.stringify(argvFile)};
+if (argvFile) {
+  require("node:fs").writeFileSync(argvFile, JSON.stringify(process.argv.slice(2)));
+}
 if (startupMessage) {
   setTimeout(() => process.stdout.write(JSON.stringify(startupMessage) + "\\n"), 0);
 }
@@ -239,6 +243,51 @@ test("agency add, list, and remove manage a named member", async () => {
 
     await command.handler("list", harness.ctx);
     assert.deepEqual(harness.notifications.at(-1), { message: "No members configured", level: "info" });
+  } finally {
+    await harness.emit("session_shutdown");
+    process.env.PATH = originalPath;
+  }
+});
+
+test("agency add spawns pi with RPC mode, model options, and role system prompt", async () => {
+  const originalPath = process.env.PATH;
+  const argvRoot = await mkdtemp(path.join(tmpdir(), "pi-extensions-agency-argv-"));
+  const argvFile = path.join(argvRoot, "argv.json");
+  const fixture = await createFakePiBin(undefined, undefined, argvFile);
+  process.env.PATH = `${fixture.binDir}${path.delimiter}${process.env.PATH ?? ""}`;
+
+  const harness = createHarness();
+
+  try {
+    await harness.emit("session_start");
+    const command = harness.commands.get("agency");
+    assert.ok(command, "agency command should be registered");
+
+    await command.handler("add analyst Ava", harness.ctx);
+    assert.deepEqual(harness.notifications.at(-1), { message: "Added analyst Ava", level: "info" });
+
+    await waitFor(async () => {
+      try {
+        JSON.parse(await readFile(argvFile, "utf8"));
+        return true;
+      } catch {
+        return false;
+      }
+    });
+
+    const argv = JSON.parse(await readFile(argvFile, "utf8")) as string[];
+    assert.deepEqual(argv, [
+      "--mode",
+      "rpc",
+      "--provider",
+      "test-provider",
+      "--model",
+      "test-model",
+      "--thinking",
+      "medium",
+      "--system-prompt",
+      path.join(process.cwd(), "agency", "roles", "analyst", "SYSTEM.md"),
+    ]);
   } finally {
     await harness.emit("session_shutdown");
     process.env.PATH = originalPath;
