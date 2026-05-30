@@ -234,6 +234,34 @@ test("search tools call Gemini with concise and detailed prompts", async () => {
   }
 });
 
+test("web_fetch reports invalid and unsupported URLs", async () => {
+  const harness = await setupExtension("test-key");
+
+  try {
+    const invalidResult = await getTool(harness.tools, "web_fetch").execute(
+      "tool-call",
+      { url: "not a url" },
+      undefined,
+      undefined,
+      {},
+    );
+    assert.deepEqual(invalidResult.details, { error: true });
+    assert.equal(invalidResult.content[0].text, "Invalid URL: not a url");
+
+    const protocolResult = await getTool(harness.tools, "web_fetch").execute(
+      "tool-call",
+      { url: "ftp://example.com/file.txt" },
+      undefined,
+      undefined,
+      {},
+    );
+    assert.deepEqual(protocolResult.details, { error: true });
+    assert.equal(protocolResult.content[0].text, "Unsupported protocol: ftp: (only http and https are supported)");
+  } finally {
+    harness.restoreEnv();
+  }
+});
+
 test("web_fetch extracts readable text from HTML", async () => {
   const restoreFetch = installFetch(async (input: FetchInput) => {
     assert.equal(String(input), "https://example.com/page");
