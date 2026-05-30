@@ -171,6 +171,26 @@ test("/secrets loads and clears secret environment variables", async () => {
   }
 });
 
+test("secrets command and tool report missing files with available names", async () => {
+  const harness = await setupExtension();
+  try {
+    const { ctx, notifications } = createContext();
+
+    await getCommand(harness.commands, "secrets").handler("missing", ctx);
+
+    assert.equal(notifications.at(-1)?.level, "error");
+    assert.match(notifications.at(-1)?.message ?? "", /Secrets file not found:/);
+    assert.match(notifications.at(-1)?.message ?? "", /Available: other, secrets/);
+
+    await assert.rejects(
+      () => getTool(harness.tools, "load_secrets").execute("tool-call", { name: "missing" }),
+      /Secrets file not found:/,
+    );
+  } finally {
+    harness.restoreEnv();
+  }
+});
+
 test("load_secrets tool loads named secrets and reports variable names", async () => {
   const harness = await setupExtension();
   try {
