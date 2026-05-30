@@ -115,30 +115,33 @@ test("session_start warns when GEMINI_API_KEY is missing", async () => {
   }
 });
 
-test("web_search aborts and notifies when GEMINI_API_KEY is missing", async () => {
-  const harness = await setupExtension();
+test("search tools abort and notify when GEMINI_API_KEY is missing", async () => {
+  for (const toolName of ["web_search", "web_search_summary"]) {
+    const harness = await setupExtension();
 
-  try {
-    const context = createContext();
+    try {
+      const context = createContext();
 
-    await assert.rejects(
-      () =>
-        getTool(harness.tools, "web_search").execute(
-          "tool-call",
-          { query: "pi extensions" },
-          undefined,
-          undefined,
-          context.ctx,
-        ),
-      { name: "AbortError", message: /GEMINI_API_KEY is not set/ },
-    );
+      await assert.rejects(
+        () =>
+          getTool(harness.tools, toolName).execute(
+            "tool-call",
+            { query: "pi extensions" },
+            undefined,
+            undefined,
+            context.ctx,
+          ),
+        { name: "AbortError", message: /GEMINI_API_KEY is not set/ },
+      );
 
-    assert.equal(context.abortCount, 1);
-    assert.equal(context.notifications.length, 1);
-    assert.equal(context.notifications[0].level, "error");
-    assert.match(context.notifications[0].message, /GEMINI_API_KEY environment variable is not set/);
-  } finally {
-    harness.restoreEnv();
+      assert.equal(context.abortCount, 1, toolName);
+      assert.equal(context.notifications.length, 1, toolName);
+      assert.equal(context.notifications[0].level, "error", toolName);
+      assert.match(context.notifications[0].message, /GEMINI_API_KEY environment variable is not set/, toolName);
+      assert.match(context.notifications[0].message, new RegExp(toolName), toolName);
+    } finally {
+      harness.restoreEnv();
+    }
   }
 });
 

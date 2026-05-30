@@ -354,6 +354,126 @@ function formatSources(sources: Source[]): string {
   return `\n\n## Sources\n${sources.map((s, i) => `${i + 1}. ${s.title} — ${s.uri}`).join("\n")}`;
 }
 
+const GEMINI_AUTH_ERROR_RE = /GEMINI_API_KEY|invalid|not valid|expired|unauthorized|permission/i;
+
+type SearchToolContext = {
+  hasUI?: boolean;
+  ui?: { notify(message: string, level: "error" | "warning"): void };
+  signal?: AbortSignal;
+  abort?: () => void;
+};
+
+type TextToolResult = {
+  content: Array<{ type: "text"; text: string }>;
+  details: Record<string, unknown>;
+};
+
+type RenderTheme = {
+  bold(text: string): string;
+  fg(style: string, text: string): string;
+};
+
+type RenderContext = {
+  lastComponent?: unknown;
+  isError?: boolean;
+};
+
+function notifySearchTool(ctx: SearchToolContext | undefined, message: string, level: "error" | "warning"): void {
+  try {
+    if (ctx?.hasUI) ctx.ui?.notify(message, level);
+  } catch {
+    // ignore UI errors
+  }
+}
+
+function abortSearchTool(ctx: SearchToolContext | undefined): void {
+  try {
+    ctx?.abort?.();
+  } catch {
+    // ignore abort errors
+  }
+}
+
+function requireGeminiApiKey(toolName: string, ctx: SearchToolContext | undefined): void {
+  if (GEMINI_API_KEY) return;
+
+  notifySearchTool(
+    ctx,
+    `web-search: GEMINI_API_KEY environment variable is not set. The ${toolName} tools will fail. Get a key at https://aistudio.google.com/apikey`,
+    "error",
+  );
+  abortSearchTool(ctx);
+  throw makeAbortError("Aborted: GEMINI_API_KEY is not set");
+}
+
+function handleGeminiSearchError(err: unknown, ctx: SearchToolContext | undefined): TextToolResult {
+  if (isAbortError(err)) throw err;
+
+  const msg = errorMessage(err);
+  if (GEMINI_AUTH_ERROR_RE.test(msg)) {
+    notifySearchTool(
+      ctx,
+      "web-search: Gemini authentication failed (invalid or expired GEMINI_API_KEY). Aborting the current operation.",
+      "error",
+    );
+    abortSearchTool(ctx);
+    throw makeAbortError("Aborted: Gemini authentication failed (invalid or expired GEMINI_API_KEY)");
+  }
+
+  return {
+    content: [{ type: "text", text: msg }],
+    details: { error: true },
+  };
+}
+
+function renderSearchCall(toolName: string, args: { query: string }, theme: RenderTheme, context: RenderContext) {
+  const text = (context.lastComponent as Text | undefined) ?? new Text("", 0, 0);
+  text.setText(`${theme.bold(toolName)} ${theme.fg("muted", args.query)}`);
+  return text;
+}
+
+function renderSearchResult(result: { details?: unknown }, _opts: unknown, theme: RenderTheme, context: RenderContext) {
+  const text = (context.lastComponent as Text | undefined) ?? new Text("", 0, 0);
+  const details = result.details as { error?: boolean; sources?: number } | undefined;
+  text.setText(
+    context.isError || details?.error
+      ? theme.fg("error", "✗")
+      : theme.fg("success", `✓ ${details?.sources ?? 0} sources`),
+  );
+  return text;
+}
+
+function registerSearchTool(
+  pi: ExtensionAPI,
+  options: { name: "web_search" | "web_search_summary"; label: string; description: string; detailed: boolean },
+): void {
+  pi.registerTool({
+    name: options.name,
+    label: options.label,
+    description: options.description,
+    parameters: Type.Object({
+      query: Type.String({ description: "Search query" }),
+    }),
+    async execute(_id, params, signal, _onUpdate, ctx) {
+      requireGeminiApiKey(options.name, ctx);
+
+      try {
+        const { text, sources } = await callGemini(params.query, options.detailed, ctx?.signal ?? signal);
+        return {
+          content: [{ type: "text", text: text + formatSources(sources) }],
+          details: { sources: sources.length },
+        };
+      } catch (err) {
+        return handleGeminiSearchError(err, ctx);
+      }
+    },
+    renderCall(args, theme, context) {
+      return renderSearchCall(options.name, args, theme, context);
+    },
+    renderResult: renderSearchResult,
+  });
+}
+
 // ---------------------------------------------------------------------------
 // Extension
 // ---------------------------------------------------------------------------
@@ -374,153 +494,18 @@ export default function (pi: ExtensionAPI) {
       }
     }
   });
-  pi.registerTool({
+  registerSearchTool(pi, {
     name: "web_search",
     label: "Web Search",
     description: "Search the web using Google Search. Returns summarized results with source URLs.",
-    parameters: Type.Object({
-      query: Type.String({ description: "Search query" }),
-    }),
-    async execute(_id, params, signal, _onUpdate, ctx) {
-      // If the API key is not present, abort early instead of attempting the call.
-      if (!GEMINI_API_KEY) {
-        try {
-          if (ctx?.hasUI) {
-            ctx.ui.notify(
-              "web-search: GEMINI_API_KEY environment variable is not set. The web_search tools will fail. Get a key at https://aistudio.google.com/apikey",
-              "error",
-            );
-          }
-        } catch {
-          // ignore UI errors
-        }
-        // Cancel the current agent turn so the model doesn't attempt workarounds.
-        try {
-          ctx?.abort();
-        } catch {}
-        throw makeAbortError("Aborted: GEMINI_API_KEY is not set");
-      }
-
-      try {
-        const { text, sources } = await callGemini(params.query, false, ctx?.signal ?? signal);
-        return {
-          content: [{ type: "text", text: text + formatSources(sources) }],
-          details: { sources: sources.length },
-        };
-      } catch (err) {
-        if (isAbortError(err)) throw err;
-
-        const msg = errorMessage(err);
-        // If this looks like an auth error (invalid/expired/key not valid), abort the agent turn.
-        if (/GEMINI_API_KEY|invalid|not valid|expired|unauthorized|permission/i.test(msg)) {
-          try {
-            if (ctx?.hasUI) {
-              ctx.ui.notify(
-                "web-search: Gemini authentication failed (invalid or expired GEMINI_API_KEY). Aborting the current operation.",
-                "error",
-              );
-            }
-          } catch {}
-          try {
-            ctx?.abort();
-          } catch {}
-          throw makeAbortError("Aborted: Gemini authentication failed (invalid or expired GEMINI_API_KEY)");
-        }
-
-        return {
-          content: [{ type: "text", text: msg }],
-          details: { error: true },
-        };
-      }
-    },
-    renderCall(args, theme, context) {
-      const text = (context.lastComponent as Text | undefined) ?? new Text("", 0, 0);
-      text.setText(`${theme.bold("web_search")} ${theme.fg("muted", args.query)}`);
-      return text;
-    },
-    renderResult(result, _opts, theme, context) {
-      const text = (context.lastComponent as Text | undefined) ?? new Text("", 0, 0);
-      const details = result.details as { error?: boolean; sources?: number } | undefined;
-      text.setText(
-        context.isError || details?.error
-          ? theme.fg("error", "✗")
-          : theme.fg("success", `✓ ${details?.sources ?? 0} sources`),
-      );
-      return text;
-    },
+    detailed: false,
   });
 
-  pi.registerTool({
+  registerSearchTool(pi, {
     name: "web_search_summary",
     label: "Web Search (Summary)",
     description: "Search the web and return detailed summaries of each result.",
-    parameters: Type.Object({
-      query: Type.String({ description: "Search query" }),
-    }),
-    async execute(_id, params, signal, _onUpdate, ctx) {
-      if (!GEMINI_API_KEY) {
-        try {
-          if (ctx?.hasUI) {
-            ctx.ui.notify(
-              "web-search: GEMINI_API_KEY environment variable is not set. The web_search_summary tools will fail. Get a key at https://aistudio.google.com/apikey",
-              "error",
-            );
-          }
-        } catch {
-          // ignore UI errors
-        }
-        try {
-          ctx?.abort();
-        } catch {}
-        throw makeAbortError("Aborted: GEMINI_API_KEY is not set");
-      }
-
-      try {
-        const { text, sources } = await callGemini(params.query, true, ctx?.signal ?? signal);
-        return {
-          content: [{ type: "text", text: text + formatSources(sources) }],
-          details: { sources: sources.length },
-        };
-      } catch (err) {
-        if (isAbortError(err)) throw err;
-
-        const msg = errorMessage(err);
-        if (/GEMINI_API_KEY|invalid|not valid|expired|unauthorized|permission/i.test(msg)) {
-          try {
-            if (ctx?.hasUI) {
-              ctx.ui.notify(
-                "web-search: Gemini authentication failed (invalid or expired GEMINI_API_KEY). Aborting the current operation.",
-                "error",
-              );
-            }
-          } catch {}
-          try {
-            ctx?.abort();
-          } catch {}
-          throw makeAbortError("Aborted: Gemini authentication failed (invalid or expired GEMINI_API_KEY)");
-        }
-
-        return {
-          content: [{ type: "text", text: msg }],
-          details: { error: true },
-        };
-      }
-    },
-    renderCall(args, theme, context) {
-      const text = (context.lastComponent as Text | undefined) ?? new Text("", 0, 0);
-      text.setText(`${theme.bold("web_search_summary")} ${theme.fg("muted", args.query)}`);
-      return text;
-    },
-    renderResult(result, _opts, theme, context) {
-      const text = (context.lastComponent as Text | undefined) ?? new Text("", 0, 0);
-      const details = result.details as { error?: boolean; sources?: number } | undefined;
-      text.setText(
-        context.isError || details?.error
-          ? theme.fg("error", "✗")
-          : theme.fg("success", `✓ ${details?.sources ?? 0} sources`),
-      );
-      return text;
-    },
+    detailed: true,
   });
 
   pi.registerTool({
