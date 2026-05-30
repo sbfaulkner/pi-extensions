@@ -77,3 +77,25 @@ If you keep a local clone, add to settings:
   ]
 }
 ```
+
+## Development standards
+
+### Source conventions
+
+- Extension source is TypeScript ESM (`*.ts`). Keep extension entry points as `index.ts` files with a default export that registers the extension.
+- Keep TypeScript close to JavaScript runtime semantics: type-only imports, interfaces, and type aliases are fine; avoid runtime-only TypeScript features that require a build step such as `enum`, namespaces, decorators, or parameter properties.
+- Do not commit generated JavaScript, declaration files, source maps, or other build output.
+- Prefer small, testable modules. For extensions with meaningful logic, expose a dependency-injected factory such as `createExampleExtension(pi, deps)` and keep the default export as a thin wrapper.
+- Put tests next to the extension they cover and name them `*.test.ts`.
+
+### Formatting, linting, and testing direction
+
+This repo is moving toward a simple quality toolchain:
+
+- `pnpm` for package management and scripts.
+- Biome for formatting and linting.
+- TypeScript `tsc --noEmit` for type checking.
+- Node's built-in test runner (`node --test`) for unit tests.
+- A single `pnpm check` command that runs formatting checks, linting, type checking, and tests.
+
+Formatting should converge on 2-space indentation, double quotes, semicolons, and an approximately 120-character line width once formatter config lands.
