@@ -22,6 +22,10 @@ import { join } from "node:path";
 const XDG_CONFIG_HOME = process.env.XDG_CONFIG_HOME || join(os.homedir(), ".config");
 const SECRETS_DIR = join(XDG_CONFIG_HOME, "secrets");
 
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
 function getAvailableSecrets(): string[] {
   if (!existsSync(SECRETS_DIR)) return [];
   return readdirSync(SECRETS_DIR)
@@ -114,8 +118,8 @@ export default function (pi: ExtensionAPI) {
           ],
           details: { name: params.name, variables: varNames },
         };
-      } catch (e: any) {
-        throw new Error(e.message);
+      } catch (error) {
+        throw new Error(errorMessage(error));
       }
     },
   });
@@ -162,8 +166,8 @@ export default function (pi: ExtensionAPI) {
           `Loaded ${Object.keys(vars).length} secret(s) from ${name}: ${Object.keys(vars).join(", ")}`,
           "info",
         );
-      } catch (e: any) {
-        ctx.ui.notify(e.message, "error");
+      } catch (error) {
+        ctx.ui.notify(errorMessage(error), "error");
       }
     },
   });
