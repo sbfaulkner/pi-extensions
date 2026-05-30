@@ -25,6 +25,7 @@ All commands are exposed via the single interactive command "/agency". Examples 
 - /agency add <role> [name]
   - Add a member for <role>. Optionally provide an explicit display name (Title Case). If no name is supplied the extension will choose a random unused name from the role's configured names.
   - Role names are case-insensitive and must exist in roles.json.
+  - If no explicit name is supplied and all configured names for the role are already in use, the command fails with "no unused names available".
   - Each member gets a stable id (slugified name) to reference for assign/remove operations.
   - The extension will attempt to spawn a process for the new member when run inside an interactive UI session.
 

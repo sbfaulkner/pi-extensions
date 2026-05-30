@@ -4,7 +4,7 @@ Medium-term (UX & safety)
 
 - Consider an interactive overlay or richer widget that can show live "working..." messages or allow quick inspection of a member's current task and recent messages.
 - Add a simple in-widget debug view or an output panel integration to surface recent raw events beyond the `/agency events` summary.
-- Add optional limits: enforce maximum member count per role (already implicitly limited by number of available names) and document behavior when limits reached.
+- Consider explicit configurable maximum member counts per role beyond the current role-name exhaustion behavior.
 
 Top-priority: Systematically audit RPC events and decide handling
 
