@@ -16,11 +16,11 @@ Web search and page fetching via Google's Gemini API with Google Search groundin
 
 `web_search` and `web_search_summary` use Gemini's Google Search grounding — a single API call where the model searches Google internally and synthesizes an answer with source URLs. The two tools differ only in the prompt (concise vs detailed).
 
-Redirect URLs from Google's grounding metadata are resolved in parallel to their final destinations.
+Redirect URLs from Google's grounding metadata are resolved in parallel to their final destinations. Missing or invalid Gemini credentials abort the current agent operation and show a UI notification rather than returning a partial search result.
 
 ### Fetch tool
 
-`web_fetch` fetches a URL directly, strips HTML to plain text (removing scripts, styles, nav, etc.), and returns up to 20,000 characters. Binary content types (images, audio, video, PDF, etc.) are rejected.
+`web_fetch` fetches a URL directly, strips HTML to plain text (removing scripts, styles, nav, etc.), and returns up to 20,000 characters. It only accepts `http` and `https` URLs. Binary content types (images, audio, video, PDF, etc.) and non-success HTTP responses are returned as tool errors.
 
 ## Setup
 
