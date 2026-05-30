@@ -2,7 +2,17 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import interviewExtension, { findLastAssistantText, parseExtractionResult } from "./index.ts";
 
-function messageEntry(role: string, content: any[]) {
+type Notification = { message: string; level: string };
+type Command = { name: string; handler: (args: string, ctx: unknown) => Promise<void> };
+type TestContext = {
+  hasUI: boolean;
+  model?: { provider: string; id: string };
+  sessionManager: { getBranch: () => unknown[] };
+  ui: { notify(message: string, level: string): void };
+  testState: { notifications: Notification[] };
+} & Record<string, unknown>;
+
+function messageEntry(role: string, content: unknown[]) {
   return {
     type: "message",
     message: {
@@ -13,28 +23,30 @@ function messageEntry(role: string, content: any[]) {
 }
 
 function createHarness() {
-  let command: any;
+  let command: Command | undefined;
   const pi = {
     registerCommand(name: string, options: unknown) {
-      command = { name, ...(options as Record<string, unknown>) };
+      command = { name, ...(options as Omit<Command, "name">) };
     },
   };
 
-  interviewExtension(pi as any);
+  interviewExtension(pi as Parameters<typeof interviewExtension>[0]);
+  assert.ok(command, "answer command should be registered");
   assert.equal(command.name, "answer");
+  const registeredCommand = command;
 
   return {
     async run(ctx = createContext()) {
-      await command.handler("", ctx);
+      await registeredCommand.handler("", ctx);
       return ctx;
     },
   };
 }
 
 function createContext(overrides: Record<string, unknown> = {}) {
-  const notifications: Array<{ message: string; level: string }> = [];
+  const notifications: Notification[] = [];
 
-  const ctx: any = {
+  const ctx: TestContext = {
     hasUI: true,
     model: { provider: "test-provider", id: "test-model" },
     sessionManager: {
@@ -96,7 +108,7 @@ test("findLastAssistantText returns the latest assistant text parts", () => {
     },
   };
 
-  assert.equal(findLastAssistantText(ctx as any), "first\nsecond");
+  assert.equal(findLastAssistantText(ctx as unknown as Parameters<typeof findLastAssistantText>[0]), "first\nsecond");
 });
 
 test("findLastAssistantText skips assistant messages without text and missing assistants", () => {
@@ -108,7 +120,7 @@ test("findLastAssistantText skips assistant messages without text and missing as
           messageEntry("user", [{ type: "text", text: "hello" }]),
         ],
       },
-    } as any),
+    } as unknown as Parameters<typeof findLastAssistantText>[0]),
     undefined,
   );
 });
