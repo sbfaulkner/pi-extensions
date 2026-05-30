@@ -56,7 +56,7 @@ async function waitFor(predicate: () => boolean | Promise<boolean>, timeoutMs = 
   assert.fail("timed out waiting for condition");
 }
 
-function createHarness() {
+function createHarness(options: { entries?: any[] } = {}) {
   const handlers = new Map<string, Handler[]>();
   const commands = new Map<string, any>();
   const notifications: Array<{ message: string; level: string }> = [];
@@ -83,7 +83,7 @@ function createHarness() {
     hasUI: true,
     model: { provider: "test-provider", id: "test-model", thinking: "medium" },
     sessionManager: {
-      getEntries: () => [],
+      getEntries: () => options.entries ?? [],
     },
     ui: {
       notify(message: string, level: string) {
@@ -258,6 +258,48 @@ test("agency events shows member and all event buffers", async () => {
 
     await command.handler("events unknown", harness.ctx);
     assert.deepEqual(harness.notifications.at(-1), { message: "No events for member unknown", level: "info" });
+  } finally {
+    await harness.emit("session_shutdown");
+    process.env.PATH = originalPath;
+  }
+});
+
+test("session_start restores persisted agency members", async () => {
+  const originalPath = process.env.PATH;
+  const fixture = await createFakePiBin();
+  process.env.PATH = `${fixture.binDir}${path.delimiter}${process.env.PATH ?? ""}`;
+
+  const harness = createHarness({
+    entries: [
+      {
+        type: "custom",
+        customType: "agency",
+        data: {
+          members: [
+            {
+              id: "alice",
+              role: "developer",
+              displayName: "Alice",
+              provider: "test-provider",
+              modelId: "test-model",
+              thinking: "medium",
+            },
+          ],
+        },
+      },
+    ],
+  });
+
+  try {
+    await harness.emit("session_start");
+    const command = harness.commands.get("agency");
+    assert.ok(command, "agency command should be registered");
+
+    assert.deepEqual(harness.notifications.at(-1), { message: "Resumed developer Alice", level: "info" });
+
+    await command.handler("list", harness.ctx);
+    assert.match(harness.notifications.at(-1)?.message ?? "", /Alice \(developer\): initializing/);
+    assert.equal(harness.appendedEntries.length, 0);
   } finally {
     await harness.emit("session_shutdown");
     process.env.PATH = originalPath;
