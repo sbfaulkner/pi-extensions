@@ -257,6 +257,40 @@ test("agency add requires role or session model defaults", async () => {
   assert.equal(harness.appendedEntries.length, 0);
 });
 
+test("agency add without explicit name fails when role names are exhausted", async () => {
+  const originalPath = process.env.PATH;
+  const fixture = await createFakePiBin();
+  process.env.PATH = `${fixture.binDir}${path.delimiter}${process.env.PATH ?? ""}`;
+
+  const harness = createHarness();
+
+  try {
+    await harness.emit("session_start");
+    const command = harness.commands.get("agency");
+    assert.ok(command, "agency command should be registered");
+
+    for (let i = 0; i < 4; i++) {
+      await command.handler("add developer", harness.ctx);
+      assert.match(harness.notifications.at(-1)?.message ?? "", /^Added developer /);
+    }
+
+    const savedMembersData = harness.appendedEntries.at(-1)?.data;
+    assert.ok(isMembersSnapshot(savedMembersData), "saved agency entry should include members");
+    assert.equal(savedMembersData.members.length, 4);
+    assert.equal(new Set(savedMembersData.members.map((member) => member.displayName)).size, 4);
+
+    await command.handler("add developer", harness.ctx);
+    assert.deepEqual(harness.notifications.at(-1), {
+      message: "Failed to add member developer - no unused names available",
+      level: "error",
+    });
+    assert.equal(harness.appendedEntries.length, 4);
+  } finally {
+    await harness.emit("session_shutdown");
+    process.env.PATH = originalPath;
+  }
+});
+
 test("agency add, list, and remove manage a named member", async () => {
   const originalPath = process.env.PATH;
   const fixture = await createFakePiBin();
