@@ -16,7 +16,7 @@
  */
 
 import type { AgentMessage } from "@mariozechner/pi-agent-core";
-import { complete, type UserMessage } from "@mariozechner/pi-ai";
+import { complete, type AssistantMessage, type UserMessage } from "@mariozechner/pi-ai";
 import type { ExtensionAPI, SessionEntry } from "@mariozechner/pi-coding-agent";
 import { BorderedLoader, convertToLlm, serializeConversation } from "@mariozechner/pi-coding-agent";
 
@@ -108,6 +108,30 @@ function getHandoffMessages(branch: SessionEntry[]): AgentMessage[] {
 	return compactedBranch.map(entryToMessage).filter((message) => message !== undefined);
 }
 
+function truncateForNotification(text: string, maxChars = 900): string {
+	if (text.length <= maxChars) return text;
+	return `${text.slice(0, maxChars - 1)}…`;
+}
+
+function responseDiagnostics(response: AssistantMessage): string {
+	const contentTypes = response.content.map((content) => content.type).join(",") || "none";
+	const diagnostics = response.diagnostics
+		?.map((diagnostic) => diagnostic.error?.message || diagnostic.type)
+		.filter((message) => message && message.length > 0)
+		.join("; ");
+
+	return truncateForNotification(
+		[
+			`stopReason=${response.stopReason}`,
+			`contentTypes=${contentTypes}`,
+			response.errorMessage ? `error=${response.errorMessage}` : undefined,
+			diagnostics ? `diagnostics=${diagnostics}` : undefined,
+		]
+			.filter(Boolean)
+			.join("; "),
+	);
+}
+
 export default function (pi: ExtensionAPI) {
 	pi.registerCommand("handoff", {
 		description: "Transfer context to a new focused session",
@@ -179,10 +203,20 @@ export default function (pi: ExtensionAPI) {
 						return null;
 					}
 
-					return response.content
+					if (response.stopReason === "error") {
+						throw new Error(`Handoff generation failed: ${responseDiagnostics(response)}`);
+					}
+
+					const prompt = response.content
 						.filter((content): content is { type: "text"; text: string } => content.type === "text")
 						.map((content) => content.text)
 						.join("\n");
+
+					if (!prompt.trim()) {
+						throw new Error(`Handoff generation returned no text: ${responseDiagnostics(response)}`);
+					}
+
+					return prompt;
 				};
 
 				doGenerate()

@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.7.1
+
+- Fix `/handoff` surfacing provider errors as `Generated handoff prompt was empty`
+  - Detect `stopReason: "error"` and display the provider error/diagnostics
+  - Report diagnostic details when generation returns no text
+
 ## 2.7.0
 
 - Add `handoff` extension adapted from Pi's official handoff example
