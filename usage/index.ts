@@ -16,7 +16,8 @@ function getStatusText() {
 }
 
 async function updateUsage(provider: string) {
-  const info = usageByProvider.get(provider)!;
+  const info = usageByProvider.get(provider);
+  if (!info) return;
 
   switch (provider) {
     case "github-copilot":

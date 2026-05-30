@@ -318,7 +318,7 @@ export class ViEditor extends CustomEditor {
     let remaining = Math.max(0, Math.min(cursorAbs, newText.length));
     let targetLine = 0;
     for (let i = 0; i < lines.length; i++) {
-      const lineLen = lines[i]!.length;
+      const lineLen = (lines[i] ?? "").length;
       if (remaining <= lineLen) {
         targetLine = i;
         break;
@@ -342,7 +342,7 @@ export class ViEditor extends CustomEditor {
     const lines = this.allLines();
     let idx = 0;
     for (let i = 0; i < line && i < lines.length; i++) {
-      idx += lines[i]!.length + 1;
+      idx += (lines[i] ?? "").length + 1;
     }
     return idx + col;
   }
@@ -953,7 +953,8 @@ export class ViEditor extends CustomEditor {
       }
     }
 
-    const op = this.pendingOperator!;
+    const op = this.pendingOperator;
+    if (!op) return;
 
     // dd / cc / yy — linewise
     if (data === op) {
@@ -1070,7 +1071,7 @@ export class ViEditor extends CustomEditor {
 
   private isPrintable(data: string): boolean {
     if (data.length === 0) return false;
-    const code = data.codePointAt(0)!;
+    const code = data.codePointAt(0) ?? 0;
     return code >= 32 && code !== 127;
   }
 
@@ -1088,8 +1089,9 @@ export class ViEditor extends CustomEditor {
 
     const label = this.getModeLabel();
     const last = lines.length - 1;
-    if (visibleWidth(lines[last]!) >= label.length) {
-      lines[last] = truncateToWidth(lines[last]!, width - label.length, "") + label;
+    const lastLine = lines[last] ?? "";
+    if (visibleWidth(lastLine) >= label.length) {
+      lines[last] = truncateToWidth(lastLine, width - label.length, "") + label;
     }
     return lines;
   }
