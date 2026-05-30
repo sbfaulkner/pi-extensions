@@ -166,6 +166,38 @@ test("agency assign validates required member and task", async () => {
   });
 });
 
+test("agency add validates unknown roles and duplicate names", async () => {
+  const originalPath = process.env.PATH;
+  const fixture = await createFakePiBin();
+  process.env.PATH = `${fixture.binDir}${path.delimiter}${process.env.PATH ?? ""}`;
+
+  const harness = createHarness();
+
+  try {
+    await harness.emit("session_start");
+    const command = harness.commands.get("agency");
+    assert.ok(command, "agency command should be registered");
+
+    await command.handler("add wizard Merlin", harness.ctx);
+    assert.deepEqual(harness.notifications.at(-1), {
+      message: "Failed to add member wizard - unknown role",
+      level: "error",
+    });
+
+    await command.handler("add developer Alice", harness.ctx);
+    assert.deepEqual(harness.notifications.at(-1), { message: "Added developer Alice", level: "info" });
+
+    await command.handler("add developer Alice", harness.ctx);
+    assert.deepEqual(harness.notifications.at(-1), {
+      message: "Failed to add member developer Alice - name already in use",
+      level: "error",
+    });
+  } finally {
+    await harness.emit("session_shutdown");
+    process.env.PATH = originalPath;
+  }
+});
+
 test("agency add, list, and remove manage a named member", async () => {
   const originalPath = process.env.PATH;
   const fixture = await createFakePiBin();
