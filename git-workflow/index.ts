@@ -30,6 +30,21 @@ interface Config {
   graphiteOrgs: string[];
 }
 
+type ContextEvent = {
+  messages: unknown[];
+};
+
+type ContextEventContext = {
+  cwd?: string;
+};
+
+type ContextEventHandler = (
+  event: ContextEvent,
+  ctx: ContextEventContext,
+) => Promise<{ messages: unknown[] } | undefined>;
+
+type RegisterContextEvent = (event: "context", handler: ContextEventHandler) => void;
+
 function loadConfig(): Config {
   try {
     const data = fs.readFileSync(CONFIG_PATH, "utf-8");
@@ -336,7 +351,8 @@ export default function (pi: ExtensionAPI) {
 
   // --- Inject workflow context into every LLM call ---
 
-  (pi.on as any)("context", async (_event: any, ctx: any) => {
+  const onContext = pi.on as unknown as RegisterContextEvent;
+  onContext("context", async (event, ctx) => {
     const cwd = ctx.cwd;
     if (!cwd) return undefined;
 
@@ -361,7 +377,7 @@ export default function (pi: ExtensionAPI) {
           content: [{ type: "text" as const, text: content }],
           customType: "git-workflow-context",
         },
-        ..._event.messages,
+        ...event.messages,
       ],
     };
   });
