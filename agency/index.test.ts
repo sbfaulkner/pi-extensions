@@ -423,6 +423,78 @@ test("session_shutdown kills spawned members and clears the widget", async () =>
   }
 });
 
+test("agency clear cancels when busy member confirmation is declined", async () => {
+  const originalPath = process.env.PATH;
+  const fixture = await createFakePiBin({ type: "message_start" });
+  process.env.PATH = `${fixture.binDir}${path.delimiter}${process.env.PATH ?? ""}`;
+
+  const harness = createHarness();
+  const ctxWithDecline = {
+    ...harness.ctx,
+    ui: {
+      ...harness.ctx.ui,
+      confirm: async () => false,
+    },
+  };
+
+  try {
+    await harness.emit("session_start");
+    const command = harness.commands.get("agency");
+    assert.ok(command, "agency command should be registered");
+
+    await command.handler("add developer Busy", harness.ctx);
+    await waitFor(async () => {
+      await command.handler("list", harness.ctx);
+      return /Busy \(developer\): busy/.test(harness.notifications.at(-1)?.message ?? "");
+    });
+
+    await command.handler("clear", ctxWithDecline);
+    assert.deepEqual(harness.notifications.at(-1), { message: "Clear cancelled", level: "info" });
+
+    await command.handler("list", harness.ctx);
+    assert.match(harness.notifications.at(-1)?.message ?? "", /Busy \(developer\): busy/);
+  } finally {
+    await harness.emit("session_shutdown");
+    process.env.PATH = originalPath;
+  }
+});
+
+test("agency clear removes busy members when confirmation is accepted", async () => {
+  const originalPath = process.env.PATH;
+  const fixture = await createFakePiBin({ type: "message_start" });
+  process.env.PATH = `${fixture.binDir}${path.delimiter}${process.env.PATH ?? ""}`;
+
+  const harness = createHarness();
+  const ctxWithConfirm = {
+    ...harness.ctx,
+    ui: {
+      ...harness.ctx.ui,
+      confirm: async () => true,
+    },
+  };
+
+  try {
+    await harness.emit("session_start");
+    const command = harness.commands.get("agency");
+    assert.ok(command, "agency command should be registered");
+
+    await command.handler("add developer Busy", harness.ctx);
+    await waitFor(async () => {
+      await command.handler("list", harness.ctx);
+      return /Busy \(developer\): busy/.test(harness.notifications.at(-1)?.message ?? "");
+    });
+
+    await command.handler("clear", ctxWithConfirm);
+    assert.deepEqual(harness.notifications.at(-1), { message: "Removed all members", level: "info" });
+
+    await command.handler("list", harness.ctx);
+    assert.deepEqual(harness.notifications.at(-1), { message: "No members configured", level: "info" });
+  } finally {
+    await harness.emit("session_shutdown");
+    process.env.PATH = originalPath;
+  }
+});
+
 test("agency clear without force preserves busy members when confirmation is unavailable", async () => {
   const originalPath = process.env.PATH;
   const fixture = await createFakePiBin({ type: "message_start" });
