@@ -9,7 +9,7 @@ Personal extensions for the [Pi coding agent](https://buildwithpi.com).
 | [interview](./interview/) | Answer assistant questions in batch via `/answer` command. Extracts questions cheaply, presents a form, sends all answers at once. |
 | [secrets](./secrets/) | Load environment variables from ejson secret files into all bash commands. `/secrets` command + `load_secrets` tool. |
 | [system-theme](./system-theme/) | Sync pi's theme with macOS/Linux system appearance (dark/light mode). `/system-theme` command to configure. |
-| [usage](./usage/) | Display provider usage information (e.g., GitHub Copilot usage/limits) in the status bar. Requires `gh` CLI for GitHub Copilot. |
+| [usage](./usage/) | Display provider usage information (e.g., GitHub Copilot AI credits) in the status bar. Requires `gh` CLI for GitHub Copilot. |
 | [vim](./vim/) | Vi/readline-style modal editing for pi's input editor. Escape for normal mode, `hjkl` navigation, `d/c/y` operators, counts, and more. |
 | [web-search](./web-search/) | Web search and page fetching via Gemini API with Google Search grounding. Provides `web_search`, `web_search_summary`, and `web_fetch` tools. Requires `GEMINI_API_KEY`. |
 | [git-workflow](./git-workflow/) | Auto-detect git workflow (local git, non-GitHub remotes, standard GitHub PRs, or Graphite) and inject context hints. `/workflow` command to manage configured Graphite orgs. |

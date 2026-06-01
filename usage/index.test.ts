@@ -6,6 +6,21 @@ import test from "node:test";
 
 type Handler = (...args: unknown[]) => unknown;
 
+type GhFixtureOptions =
+  | {
+      mode: "ai-credits";
+      credits: number;
+      grossAmount?: number;
+      netAmount?: number;
+    }
+  | {
+      mode: "empty-ai-credits";
+    }
+  | {
+      mode: "legacy-premium-requests";
+      requests: number;
+    };
+
 let importCounter = 0;
 
 async function loadUsageModule(binDir?: string) {
@@ -24,7 +39,7 @@ async function loadUsageModule(binDir?: string) {
   };
 }
 
-async function createGhFixture(usage = 42.7) {
+async function createGhFixture(options: GhFixtureOptions) {
   const root = await mkdtemp(path.join(tmpdir(), "pi-extensions-usage-"));
   const binDir = path.join(root, "bin");
   await mkdir(binDir, { recursive: true });
@@ -32,21 +47,81 @@ async function createGhFixture(usage = 42.7) {
   const ghPath = path.join(binDir, "gh");
   await writeFile(
     ghPath,
-    `#!/bin/sh
-if [ "$1" != "api" ]; then
-  echo "unexpected command: $*" >&2
-  exit 2
-fi
-if [ "$2" = "/user" ]; then
-  printf '%s\n' 'octocat'
-  exit 0
-fi
-if [ "$2" = "/users/octocat/settings/billing/usage/summary?product=copilot&sku=copilot_premium_request" ]; then
-  printf '%s\n' '{"usageItems":[{"grossQuantity":${usage}}]}'
-  exit 0
-fi
-echo "unexpected endpoint: $2" >&2
-exit 2
+    `#!/usr/bin/env node
+const options = ${JSON.stringify(options)};
+const args = process.argv.slice(2);
+
+function fail(message) {
+  console.error(message);
+  process.exit(2);
+}
+
+if (args[0] !== "api") fail("unexpected command: " + args.join(" "));
+
+const endpoint = args.find((arg) => arg.startsWith("/"));
+if (!endpoint) fail("missing endpoint: " + args.join(" "));
+
+if (endpoint === "/user") {
+  console.log(args.includes("--jq") ? "octocat" : JSON.stringify({ login: "octocat" }));
+  process.exit(0);
+}
+
+if (endpoint.startsWith("/users/octocat/settings/billing/usage/summary")) {
+  const url = new URL("https://example.test" + endpoint);
+  if (url.searchParams.get("product") !== "copilot") fail("unexpected product query: " + endpoint);
+  if (!url.searchParams.get("year") || !url.searchParams.get("month")) fail("missing time query: " + endpoint);
+
+  if (options.mode === "ai-credits") {
+    console.log(JSON.stringify({
+      usageItems: [{
+        product: "Copilot",
+        sku: "Copilot AI Credits",
+        unitType: "credits",
+        grossQuantity: options.credits,
+        grossAmount: options.grossAmount,
+        netAmount: options.netAmount,
+      }],
+    }));
+    process.exit(0);
+  }
+
+  if (options.mode === "empty-ai-credits") {
+    console.log(JSON.stringify({ usageItems: [] }));
+    process.exit(0);
+  }
+
+  if (options.mode === "legacy-premium-requests") {
+    console.log(JSON.stringify({
+      usageItems: [{
+        product: "Copilot",
+        sku: "Copilot Premium Request",
+        unitType: "requests",
+        grossQuantity: options.requests,
+      }],
+    }));
+    process.exit(0);
+  }
+}
+
+if (endpoint.startsWith("/users/octocat/settings/billing/premium_request/usage")) {
+  if (options.mode !== "legacy-premium-requests") fail("unexpected legacy endpoint: " + endpoint);
+
+  const url = new URL("https://example.test" + endpoint);
+  if (url.searchParams.get("product") !== "copilot") fail("unexpected product query: " + endpoint);
+  if (!url.searchParams.get("year") || !url.searchParams.get("month")) fail("missing time query: " + endpoint);
+
+  console.log(JSON.stringify({
+    usageItems: [{
+      product: "Copilot",
+      sku: "Copilot Premium Request",
+      unitType: "requests",
+      grossQuantity: options.requests,
+    }],
+  }));
+  process.exit(0);
+}
+
+fail("unexpected endpoint: " + endpoint);
 `,
   );
   await chmod(ghPath, 0o755);
@@ -116,8 +191,8 @@ async function setupExtension(binDir?: string) {
   return { ...harness, restoreEnv };
 }
 
-test("session_start fetches GitHub Copilot usage and sets a dim status", async () => {
-  const fixture = await createGhFixture(42.7);
+test("session_start fetches GitHub Copilot AI credit usage and sets a dim status", async () => {
+  const fixture = await createGhFixture({ mode: "ai-credits", credits: 123.456, grossAmount: 1.23456 });
   const harness = await setupExtension(fixture.binDir);
 
   try {
@@ -127,14 +202,14 @@ test("session_start fetches GitHub Copilot usage and sets a dim status", async (
       await handler({}, ctx);
     }
 
-    assert.equal(statuses.get("provider-usage"), "<dim>42/300 (github-copilot)</dim>");
+    assert.equal(statuses.get("provider-usage"), "<dim>123.46 AI credits · $1.23 value (github-copilot)</dim>");
   } finally {
     harness.restoreEnv();
   }
 });
 
 test("turn_end refreshes usage for supported providers", async () => {
-  const fixture = await createGhFixture(17.2);
+  const fixture = await createGhFixture({ mode: "ai-credits", credits: 17.2, grossAmount: 0.172, netAmount: 0.05 });
   const harness = await setupExtension(fixture.binDir);
 
   try {
@@ -144,7 +219,44 @@ test("turn_end refreshes usage for supported providers", async () => {
       await handler({}, ctx);
     }
 
-    assert.equal(statuses.get("provider-usage"), "<dim>17/300 (github-copilot)</dim>");
+    assert.equal(
+      statuses.get("provider-usage"),
+      "<dim>17.2 AI credits · $0.17 value · $0.05 billed (github-copilot)</dim>",
+    );
+  } finally {
+    harness.restoreEnv();
+  }
+});
+
+test("falls back to legacy premium request usage when AI credits are not returned", async () => {
+  const fixture = await createGhFixture({ mode: "legacy-premium-requests", requests: 42.7 });
+  const harness = await setupExtension(fixture.binDir);
+
+  try {
+    const { ctx, statuses } = createContext("github-copilot");
+
+    for (const handler of harness.handlers.get("session_start") ?? []) {
+      await handler({}, ctx);
+    }
+
+    assert.equal(statuses.get("provider-usage"), "<dim>42 premium requests (github-copilot)</dim>");
+  } finally {
+    harness.restoreEnv();
+  }
+});
+
+test("shows zero AI credits for an empty successful usage response", async () => {
+  const fixture = await createGhFixture({ mode: "empty-ai-credits" });
+  const harness = await setupExtension(fixture.binDir);
+
+  try {
+    const { ctx, statuses } = createContext("github-copilot");
+
+    for (const handler of harness.handlers.get("session_start") ?? []) {
+      await handler({}, ctx);
+    }
+
+    assert.equal(statuses.get("provider-usage"), "<dim>0 AI credits (github-copilot)</dim>");
   } finally {
     harness.restoreEnv();
   }
@@ -166,7 +278,23 @@ test("turn_end ignores unsupported providers", async () => {
   }
 });
 
-test("session_start keeps the default status when usage cannot be fetched", async () => {
+test("session_start clears the status for unsupported providers", async () => {
+  const harness = await setupExtension();
+
+  try {
+    const { ctx, statuses } = createContext("openai");
+
+    for (const handler of harness.handlers.get("session_start") ?? []) {
+      await handler({}, ctx);
+    }
+
+    assert.equal(statuses.get("provider-usage"), undefined);
+  } finally {
+    harness.restoreEnv();
+  }
+});
+
+test("session_start shows unavailable when usage cannot be fetched", async () => {
   const fixture = await createFailingGhFixture();
   const harness = await setupExtension(fixture.binDir);
   const originalConsoleError = console.error;
@@ -179,7 +307,7 @@ test("session_start keeps the default status when usage cannot be fetched", asyn
       await handler({}, ctx);
     }
 
-    assert.equal(statuses.get("provider-usage"), "<dim>0/300 (github-copilot)</dim>");
+    assert.equal(statuses.get("provider-usage"), "<dim>usage unavailable (github-copilot)</dim>");
   } finally {
     console.error = originalConsoleError;
     harness.restoreEnv();
