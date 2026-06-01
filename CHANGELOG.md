@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.8.0
+
+- Update `usage` for GitHub Copilot AI credit billing
+  - Display current-month AI credit usage and gross value in the status bar
+  - Fall back to legacy premium request usage for annual request-based Copilot plans
+  - Show `usage unavailable` on API/auth failures instead of a misleading zero
+  - Document required `gh` authentication scope and user-level billing limitations
+
 ## 2.7.1
 
 - Fix `/handoff` surfacing provider errors as `Generated handoff prompt was empty`
