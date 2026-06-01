@@ -202,7 +202,7 @@ test("session_start fetches GitHub Copilot AI credit usage and sets a dim status
       await handler({}, ctx);
     }
 
-    assert.equal(statuses.get("provider-usage"), "<dim>123.46 AI credits · $1.23 value (github-copilot)</dim>");
+    assert.equal(statuses.get("provider-usage"), "<dim>123.46 · $1.23 (github-copilot)</dim>");
   } finally {
     harness.restoreEnv();
   }
@@ -219,10 +219,7 @@ test("turn_end refreshes usage for supported providers", async () => {
       await handler({}, ctx);
     }
 
-    assert.equal(
-      statuses.get("provider-usage"),
-      "<dim>17.2 AI credits · $0.17 value · $0.05 billed (github-copilot)</dim>",
-    );
+    assert.equal(statuses.get("provider-usage"), "<dim>17.2 · $0.17 · $0.05 billed (github-copilot)</dim>");
   } finally {
     harness.restoreEnv();
   }
@@ -256,7 +253,7 @@ test("shows zero AI credits for an empty successful usage response", async () =>
       await handler({}, ctx);
     }
 
-    assert.equal(statuses.get("provider-usage"), "<dim>0 AI credits (github-copilot)</dim>");
+    assert.equal(statuses.get("provider-usage"), "<dim>0 (github-copilot)</dim>");
   } finally {
     harness.restoreEnv();
   }

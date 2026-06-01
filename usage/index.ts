@@ -188,18 +188,18 @@ function formatAiCreditStatus(usage: AiCreditUsage) {
   const parts: string[] = [];
 
   if (usage.credits !== undefined) {
-    parts.push(`${formatNumber(usage.credits)} AI credits`);
+    parts.push(formatNumber(usage.credits));
   }
 
   if (usage.grossAmount !== undefined) {
-    parts.push(`${formatCurrency(usage.grossAmount)} value`);
+    parts.push(formatCurrency(usage.grossAmount));
   }
 
   if (usage.netAmount !== undefined && usage.netAmount > 0) {
     parts.push(`${formatCurrency(usage.netAmount)} billed`);
   }
 
-  return parts.join(" · ") || "0 AI credits";
+  return parts.join(" · ") || "0";
 }
 
 function formatLegacyPremiumRequestStatus(usage: LegacyPremiumRequestUsage) {
