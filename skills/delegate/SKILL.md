@@ -13,12 +13,39 @@ description: |
 
 ## What to do
 
-When the user asks you to delegate a task, tell them to run (or instruct the user via a
-short message) — do NOT write a temp file or call `osascript` yourself:
+When the user asks you to delegate a task, **construct and show them the exact `/handoff`
+invocation to run.** You cannot invoke the slash command for them — the user must type it.
+Do NOT write a temp file or call `osascript` yourself.
+
+Template:
 
 ```text
-/handoff <free-text instruction>
+/handoff <where>, <what>
 ```
+
+Where `<where>` is one of:
+
+- `in a new pane` / `in a new pane below` / `in a new pane on the left` (etc.)
+- `in a new tab`
+- `in a new window`
+- `in <repo nickname>` (e.g. `in edgey`, `in the shopify-cli repo`) — spawns a pane
+  in that repo by default.
+- `in <repo nickname> in a new tab` / `in <path> in a new window` (combine where needed).
+- (omit entirely for in-process, which **replaces** the current session.)
+
+And `<what>` is a one-sentence description of the task. The extension will synthesize
+the full self-contained context prompt from the current conversation, so don't write a
+long task description — a sentence is enough.
+
+### Pick the right mode
+
+- Delegating to **another repo** → the user wants their current work to continue.
+  Default to pane (`/handoff in edgey, …`) so the current session stays intact and the
+  delegated task runs in parallel.
+- Delegating in the **same repo** but the user wants the current session preserved →
+  add an explicit `in a new pane` / `tab` / `window`.
+- Continuing the same conversation **in a fresh thread, same place** (i.e. compaction
+  substitute) → plain `/handoff <task>`. This replaces the current session.
 
 The `/handoff` extension will:
 

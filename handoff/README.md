@@ -26,6 +26,21 @@ The instruction is natural language — no flags. Examples:
 /handoff in a new window, audit the dependency surface
 ```
 
+## Session lifecycle
+
+The two old commands (`handoff` and `delegate`) had different effects on the current session. The unified `/handoff` preserves both behaviors — which one you get is inferred from the mode the model picks:
+
+| Mode | Current session | New session | Use it for |
+|---|---|---|---|
+| `in-process` (default) | **Replaced.** Recorded as `parentSession` of the new session. The conversation here ends. | Starts in the current pi instance, in the current cwd, with the staged prompt. | "Continue this work in a fresh thread" — same as the old `/handoff`. |
+| `pane` / `tab` / `window` | **Preserved.** No `newSession` call. You can keep working here. | Runs **asynchronously** in a new Ghostty surface as a separate `pi` process. | Forking work to run in parallel, including in another repo — same as the old `delegate` skill. |
+
+So:
+
+- `/handoff continue the refactor` → in-process → current session ends.
+- `/handoff in a new pane, continue the refactor` → spawn pane in current cwd → current session continues, fork runs in parallel. (This is a new capability — neither old command did this directly.)
+- `/handoff in edgey, port the same fix` → spawn pane in another repo → current session continues, work happens elsewhere.
+
 ## What it does
 
 1. **Capture the current Ghostty window id** synchronously at command entry — so if you Cmd-Tab around or switch Ghostty windows while the LLM is thinking, a delegated pane/tab still lands in the window you invoked from. (Race fix vs. the old `delegate` skill.)
