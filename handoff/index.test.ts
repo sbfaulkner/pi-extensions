@@ -76,10 +76,10 @@ function flush() {
 }
 
 function createHarness(deps: Record<string, unknown> = {}) {
-  let command: Command | undefined;
+  const commands = new Map<string, Command>();
   const pi = {
     registerCommand(name: string, options: unknown) {
-      command = { name, ...(options as Omit<Command, "name">) };
+      commands.set(name, { name, ...(options as Omit<Command, "name">) });
     },
   };
 
@@ -95,13 +95,15 @@ function createHarness(deps: Record<string, unknown> = {}) {
     ...(deps as Partial<HandoffDeps>),
   });
 
-  assert.ok(command, "handoff command should be registered");
-  assert.equal(command.name, "handoff");
-  const registeredCommand = command;
+  assert.ok(commands.has("handoff"), "handoff command should be registered");
+  assert.ok(commands.has("delegate"), "delegate command should be registered");
 
   return {
-    async run(args: string, ctx = createContext()) {
-      await registeredCommand.handler(args, ctx);
+    commands,
+    async run(args: string, ctx = createContext(), commandName = "handoff") {
+      const cmd = commands.get(commandName);
+      assert.ok(cmd, `${commandName} command not registered`);
+      await cmd.handler(args, ctx);
       return ctx;
     },
   };
@@ -266,9 +268,15 @@ test("parseHandoffIntent clears direction for non-pane modes", () => {
   assert.equal(intent?.direction, null);
 });
 
-test("parseHandoffIntent falls back to in-process for unknown modes", () => {
-  const intent = parseHandoffIntent('{"mode":"wat","direction":null,"targetDir":null,"prompt":"go"}');
-  assert.equal(intent?.mode, "in-process");
+test("parseHandoffIntent falls back to defaultMode for unknown modes", () => {
+  assert.equal(
+    parseHandoffIntent('{"mode":"wat","direction":null,"targetDir":null,"prompt":"go"}')?.mode,
+    "in-process",
+  );
+  assert.equal(
+    parseHandoffIntent('{"mode":"wat","direction":null,"targetDir":null,"prompt":"go"}', "pane")?.mode,
+    "pane",
+  );
 });
 
 test("parseHandoffIntent returns null on missing prompt", () => {
@@ -391,6 +399,27 @@ test("handoff cancels delegation when user declines confirm", async () => {
   assert.equal(spawnCalls.length, 0);
   assert.equal(ctx.testState.editorInput, undefined);
   assert.deepEqual(ctx.testState.notifications.at(-1), { message: "Cancelled", level: "info" });
+});
+
+test("/delegate defaults to pane mode when the model omits a mode", async () => {
+  const spawnCalls: SpawnCall[] = [];
+  const harness = createHarness({
+    complete: async () => ({
+      stopReason: "end_turn",
+      // Model returns an unknown mode — parser should fall back to the command's default (pane for /delegate).
+      content: [{ type: "text", text: '{"mode":"wat","direction":"right","targetDir":null,"prompt":"go"}' }],
+    }),
+    spawnDelegated: (args: SpawnCall) => {
+      spawnCalls.push(args);
+    },
+  });
+
+  const ctx = await harness.run("finish the migration", createContext(), "delegate");
+
+  // Confirm was shown (we're spawning) and spawn happened in pane mode.
+  assert.equal(ctx.testState.confirmCalls.length, 1);
+  assert.equal(spawnCalls.length, 1);
+  assert.equal(spawnCalls[0].mode, "pane");
 });
 
 test("handoff reports a parse error if the model returns unparseable output", async () => {

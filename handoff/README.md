@@ -4,31 +4,49 @@ Transfer the useful context from the current conversation into a new focused Pi 
 
 This is adapted from Pi's official [`handoff.ts` example](https://github.com/earendil-works/pi/blob/main/packages/coding-agent/examples/extensions/handoff.ts). It uses the current model to extract intent (where the new session should run) and synthesize a self-contained prompt from the current session branch, then confirms the spawn target (when delegating), opens the prompt in an editor for review, and either creates a new in-process session or spawns a Ghostty pane/tab/window with `pi` pre-loaded with the prompt.
 
+## Commands
+
+The extension registers two commands that share one handler. They differ only in what mode they assume when you don't say:
+
+| Command | Default mode | Use it for |
+|---|---|---|
+| `/handoff <text>` | `in-process` — **replaces** the current session | "Continue this work in a fresh thread, here." Compaction substitute. |
+| `/delegate <text>` | `pane` (current cwd) — spawns a parallel Ghostty pane; **current session continues** | Forking work to run in parallel, in this repo or another. |
+
+Either command can reach any mode via natural language — only the unspecified default differs. So `/handoff in a new pane, ...` works, and `/delegate continue here in a fresh thread` (i.e. `in-process`) works too.
+
 ## Usage
 
 ```text
 /handoff <free-text instruction>
+/delegate <free-text instruction>
 ```
 
 The instruction is natural language — no flags. Examples:
 
 ```text
-# Replace the current session (default).
+# Replace the current session (default for /handoff).
 /handoff implement phase two of the plan
 
-# Split a Ghostty pane to the right and continue there.
-/handoff in a new pane, finish the migration
+# Fork to a parallel pane in this repo (default for /delegate).
+/delegate finish the migration
 
-# New tab in another repo (resolved via ~/src/github.com/<org>/<repo>).
-/handoff in the edgey repo, add an alibaba_origin block type
+# Fork to a parallel pane in another repo (resolved via ~/src/github.com/<org>/<repo>).
+/delegate in edgey, add an alibaba_origin block type
+
+# New tab in another repo, current session continues.
+/delegate in a new tab in shopify-cli, port the same fix
 
 # New window for a clean slate.
-/handoff in a new window, audit the dependency surface
+/delegate in a new window, audit the dependency surface
+
+# Use /handoff to fork without replacing (override its default):
+/handoff in a new pane, keep working on this here
 ```
 
 ## Session lifecycle
 
-The two old commands (`handoff` and `delegate`) had different effects on the current session. The unified `/handoff` preserves both behaviors — which one you get is inferred from the mode the model picks:
+The two old commands (`handoff` and the `delegate` skill) had different effects on the current session. Both behaviors are preserved — picking `/handoff` vs `/delegate` is just a shortcut for the default; the actual effect is determined by the resolved mode:
 
 | Mode | Current session | New session | Use it for |
 |---|---|---|---|
@@ -38,8 +56,9 @@ The two old commands (`handoff` and `delegate`) had different effects on the cur
 So:
 
 - `/handoff continue the refactor` → in-process → current session ends.
-- `/handoff in a new pane, continue the refactor` → spawn pane in current cwd → current session continues, fork runs in parallel. (This is a new capability — neither old command did this directly.)
-- `/handoff in edgey, port the same fix` → spawn pane in another repo → current session continues, work happens elsewhere.
+- `/delegate continue the refactor` → pane in current cwd → current session continues, fork runs in parallel. (This is a new capability — neither old command did this directly.)
+- `/delegate in edgey, port the same fix` → pane in another repo → current session continues, work happens elsewhere.
+- `/handoff in a new pane, continue the refactor` → same as the `/delegate` example above; the natural-language override beats the command default.
 
 ## What it does
 
@@ -59,6 +78,11 @@ So:
 - Ghostty delegation only works on macOS (uses AppleScript). On other platforms, only `in-process` mode is useful.
 
 ## Why this subsumes the old `delegate` skill
+
+The `skills/delegate/` skill has been removed. Two reasons it's no longer needed:
+
+1. `/delegate` is now a real slash command with its own description and autocomplete entry — you can discover it the same way as any other command.
+2. The old skill existed mostly to tell the agent to recommend `/handoff` when you said "delegate this". Now "delegate" matches the literal command name, so the routing is implicit.
 
 The previous `delegate` skill had three weaknesses that this extension fixes:
 

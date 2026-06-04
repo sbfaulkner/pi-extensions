@@ -38,7 +38,13 @@ import type { ExtensionAPI, SessionEntry } from "@mariozechner/pi-coding-agent";
 import { BorderedLoader, convertToLlm, serializeConversation } from "@mariozechner/pi-coding-agent";
 import type { Component } from "@mariozechner/pi-tui";
 
-export const SYSTEM_PROMPT = `You are a context transfer assistant. Given a conversation history and the user's free-text instruction for a new session, output a JSON object with this exact shape (and nothing else — no preamble, no code fence):
+function buildSystemPrompt(defaultMode: HandoffMode): string {
+  const defaultModeExplanation =
+    defaultMode === "in-process"
+      ? `Default "mode" is "in-process" (start the new session in the current pi instance, same working directory — replacing this session). Use "pane" / "tab" / "window" only when the user explicitly asks for a separate Ghostty surface, OR when they ask to run the task in a different repo/directory (in that case default to "pane" unless they specify otherwise).`
+      : `Default "mode" is "${defaultMode}" (spawn a new Ghostty surface; the current session continues). Use "in-process" only when the user explicitly asks to continue "here" / "in this session" / "in a fresh thread" without mentioning a separate pane/tab/window/repo. Use a different surface mode (pane/tab/window) when the user explicitly says so.`;
+
+  return `You are a context transfer assistant. Given a conversation history and the user's free-text instruction for a new session, output a JSON object with this exact shape (and nothing else — no preamble, no code fence):
 
 {
   "mode": "in-process" | "pane" | "tab" | "window",
@@ -49,7 +55,7 @@ export const SYSTEM_PROMPT = `You are a context transfer assistant. Given a conv
 
 Field guidance:
 
-- "mode": Default is "in-process" (start the new session in the current pi instance, same working directory). Use "pane" / "tab" / "window" only when the user explicitly asks for a separate Ghostty pane/tab/window, OR when they ask to run the task in a different repo/directory (in that case default to "pane" unless they specify otherwise).
+- "mode": ${defaultModeExplanation}
 
 - "direction": Only meaningful when "mode" is "pane". Defaults to "right" when the user does not say. Use null for any other mode.
 
@@ -66,6 +72,10 @@ Field guidance:
   If "targetDir" is set and points to a different repository than the current cwd, the receiving session does NOT know the source repo. Reference files in the source repo by absolute or repo-qualified path and include enough orienting context that the new session can act independently.
 
 Output ONLY the JSON object.`;
+}
+
+/** Backwards-compatible export: the system prompt for the historical /handoff default. */
+export const SYSTEM_PROMPT = buildSystemPrompt("in-process");
 
 function entryTimestamp(entry: SessionEntry): number {
   return new Date(entry.timestamp).getTime();
@@ -171,7 +181,7 @@ export interface HandoffIntent {
  * Parse the model's structured JSON response. Tolerant of code fences and
  * stray prose around the JSON. On failure, returns null.
  */
-export function parseHandoffIntent(text: string): HandoffIntent | null {
+export function parseHandoffIntent(text: string, defaultMode: HandoffMode = "in-process"): HandoffIntent | null {
   const trimmed = text.trim();
   // Strip a single surrounding ```json ... ``` or ``` ... ``` fence if present.
   const fenceStripped = trimmed.replace(/^```(?:json)?\s*\n?/, "").replace(/\n?```\s*$/, "");
@@ -194,7 +204,7 @@ export function parseHandoffIntent(text: string): HandoffIntent | null {
   const obj = raw as Record<string, unknown>;
 
   const validModes: HandoffMode[] = ["in-process", "pane", "tab", "window"];
-  const mode = validModes.includes(obj.mode as HandoffMode) ? (obj.mode as HandoffMode) : "in-process";
+  const mode = validModes.includes(obj.mode as HandoffMode) ? (obj.mode as HandoffMode) : defaultMode;
 
   const validDirs: SplitDirection[] = ["right", "left", "up", "down"];
   let direction: SplitDirection | null = null;
@@ -326,9 +336,9 @@ export function createHandoffExtension(pi: ExtensionAPI, deps: HandoffDependenci
   const writeTaskFile = deps.writeTaskFile ?? defaultWriteTaskFile;
   const spawnDelegated = deps.spawnDelegated ?? defaultSpawnDelegated;
 
-  pi.registerCommand("handoff", {
-    description: "Transfer context to a new focused session (optionally in a new pane/tab/window or repo)",
-    handler: async (args, ctx) => {
+  const makeHandler =
+    (defaultMode: HandoffMode) =>
+    async (args: string, ctx: Parameters<Parameters<ExtensionAPI["registerCommand"]>[1]["handler"]>[1]) => {
       if (!ctx.hasUI) {
         ctx.ui.notify("handoff requires interactive mode", "error");
         return;
@@ -370,6 +380,8 @@ export function createHandoffExtension(pi: ExtensionAPI, deps: HandoffDependenci
 
       let generationError: string | undefined;
 
+      const systemPrompt = buildSystemPrompt(defaultMode);
+
       // Generate the handoff intent + prompt with loader UI.
       const result = await ctx.ui.custom<string | null>((tui, theme, _kb, done) => {
         const loader = createLoader(tui, theme, `Generating handoff prompt using ${model.id}...`);
@@ -398,7 +410,7 @@ export function createHandoffExtension(pi: ExtensionAPI, deps: HandoffDependenci
 
           const response = await completePrompt(
             model,
-            { systemPrompt: SYSTEM_PROMPT, messages: [userMessage] },
+            { systemPrompt, messages: [userMessage] },
             { apiKey: auth.apiKey, headers: auth.headers, signal: loader.signal },
           );
 
@@ -437,7 +449,7 @@ export function createHandoffExtension(pi: ExtensionAPI, deps: HandoffDependenci
         return;
       }
 
-      const intent = parseHandoffIntent(result);
+      const intent = parseHandoffIntent(result, defaultMode);
       if (!intent) {
         ctx.ui.notify(
           `Could not parse handoff intent from model. Raw output:\n${truncateForNotification(result, 600)}`,
@@ -507,7 +519,18 @@ export function createHandoffExtension(pi: ExtensionAPI, deps: HandoffDependenci
         intent.mode === "pane" ? `new pane (${intent.direction})` : intent.mode === "tab" ? "new tab" : "new window";
       const inDir = resolvedTargetDir ? ` in ${resolvedTargetDir}` : "";
       ctx.ui.notify(`Delegated to ${where}${inDir}.`, "info");
-    },
+    };
+
+  pi.registerCommand("handoff", {
+    description:
+      "Transfer context to a new focused session here (default replaces current session; ask for a pane/tab/window/repo in natural language to fork instead)",
+    handler: makeHandler("in-process"),
+  });
+
+  pi.registerCommand("delegate", {
+    description:
+      "Spawn a parallel pi session in a new Ghostty pane/tab/window or another repo. Current session continues.",
+    handler: makeHandler("pane"),
   });
 }
 
