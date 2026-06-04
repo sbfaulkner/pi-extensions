@@ -1,33 +1,52 @@
 # handoff
 
-Transfer the useful context from the current conversation into a new focused Pi session.
+Transfer the useful context from the current conversation into a new focused Pi session — either replacing the current session in-place, or spawning a new Ghostty pane/tab/window (optionally in a different repo).
 
-This is adapted from Pi's official [`handoff.ts` example](https://github.com/earendil-works/pi/blob/main/packages/coding-agent/examples/extensions/handoff.ts). It uses the current model to generate a self-contained prompt from the current session branch, lets you edit that prompt, then creates a new session with the prompt staged in the editor.
+This is adapted from Pi's official [`handoff.ts` example](https://github.com/earendil-works/pi/blob/main/packages/coding-agent/examples/extensions/handoff.ts). It uses the current model to extract intent (where the new session should run) and synthesize a self-contained prompt from the current session branch, then confirms the spawn target (when delegating), opens the prompt in an editor for review, and either creates a new in-process session or spawns a Ghostty pane/tab/window with `pi` pre-loaded with the prompt.
 
 ## Usage
 
 ```text
-/handoff <goal for the new session>
+/handoff <free-text instruction>
 ```
 
-Examples:
+The instruction is natural language — no flags. Examples:
 
 ```text
+# Replace the current session (default).
 /handoff implement phase two of the plan
-/handoff investigate the remaining failing tests
-/handoff continue this refactor in a fresh thread
+
+# Split a Ghostty pane to the right and continue there.
+/handoff in a new pane, finish the migration
+
+# New tab in another repo (resolved via ~/src/github.com/<org>/<repo>).
+/handoff in the edgey repo, add an alibaba_origin block type
+
+# New window for a clean slate.
+/handoff in a new window, audit the dependency surface
 ```
 
-The command will:
+## What it does
 
-1. Collect messages from the current branch.
-2. Preserve the most recent compaction summary, branch summaries, and extension custom messages when present.
-3. Ask the current model to generate a focused handoff prompt.
-4. Open the prompt in an editor for review.
-5. Create a new session with the edited prompt staged in the editor.
+1. **Capture the current Ghostty window id** synchronously at command entry — so if you Cmd-Tab around or switch Ghostty windows while the LLM is thinking, a delegated pane/tab still lands in the window you invoked from. (Race fix vs. the old `delegate` skill.)
+2. **Collect messages from the current branch**, preserving the most recent compaction summary, branch summaries, and extension custom messages.
+3. **Ask the current model to return a JSON intent** with `mode` (`in-process` / `pane` / `tab` / `window`), `direction` (for pane), `targetDir` (resolved repo nickname or path), and a self-contained `prompt`.
+4. **Confirm** the resolved directory and spawn target when delegating, so you can catch a wrong nickname guess.
+5. **Open the prompt in an editor** for review/editing.
+6. **Either** replace the current session with the edited prompt staged, **or** write the prompt to a temp file and spawn a Ghostty pane/tab/window running `pi-delegate @<taskfile>` (which re-execs under a login shell so PATH/nix/shadowenv all work).
 
 ## Notes
 
-- Requires interactive mode because it uses Pi's editor and loader UI.
+- Requires interactive mode (uses Pi's editor, confirm, and loader UI).
 - Requires a selected model with valid credentials.
-- The new session records the current session as its parent when a session file is available.
+- The in-process new session records the current session as its parent when a session file is available.
+- Repo nickname resolution uses the convention `~/src/github.com/<org>/<repo>`. The LLM resolves nicknames; the confirmation step lets you correct mistakes before anything spawns.
+- Ghostty delegation only works on macOS (uses AppleScript). On other platforms, only `in-process` mode is useful.
+
+## Why this subsumes the old `delegate` skill
+
+The previous `delegate` skill had three weaknesses that this extension fixes:
+
+1. **Manual prompt authoring.** The skill asked the model to dump context into a markdown file from memory only ("do not research"). Handoff already had proper context synthesis from the session branch — same machinery now produces delegation prompts.
+2. **Same code path.** Delegation and handoff differed only in *where* the new session runs. One extension, one prompt-synthesis step, one editor review.
+3. **Race condition.** The old AppleScript captured `front window` at *execution time*, so switching Ghostty windows between invocation and execution dropped the new pane in the wrong place. The extension now captures the window id synchronously at command entry and passes `--window-id` to the AppleScript, with a `new window` fallback if the captured window is gone by spawn time.

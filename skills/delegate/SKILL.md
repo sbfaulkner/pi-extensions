@@ -1,102 +1,56 @@
 ---
 name: delegate
 description: |
-  Delegate a task to a new pi session in a different directory/repo. **Do not explore or
-  research the target repo first — read this skill immediately and write the task file using
-  only context already in the conversation.** The receiving session handles all research.
-  Use when the user says "delegate this to X", "run this in the edgey repo", "send this task
-  to ...", or when you identify work that should be done in another repo as part of a
-  multi-repo workflow. Opens a new Ghostty pane (default) or tab with pi running in the
-  target directory, pre-loaded with the task.
+  Delegate a task to a new pi session in a different repo/pane/tab/window. Use when the
+  user says "delegate this to X", "run this in the edgey repo", "send this task to ...",
+  or any other phrasing that means "spin up a new pi session somewhere else." The actual
+  mechanism is the `/handoff` extension command — this skill exists to tell you to use it.
 ---
 
-# Delegate a Task to a New Pi Session
+# Delegate to a New Pi Session
 
-Use this skill to spin up a new pi session in a separate Ghostty pane (default) or tab,
-targeting a specific directory, with a task prompt pre-loaded.
+**Use the `/handoff` command.** It supersedes the old standalone delegate skill.
 
-## Steps
+## What to do
 
-1. **Create the task file**: Use `mktemp` to create a temporary markdown file, then write the
-   task description, context, and acceptance criteria into it. The file should be self-contained —
-   the receiving pi session won't have your current conversation context.
+When the user asks you to delegate a task, tell them to run (or instruct the user via a
+short message) — do NOT write a temp file or call `osascript` yourself:
 
-   ```bash
-   tmpdir="${TMPDIR:-/tmp}"
-   mktemp "${tmpdir%/}/pi-delegate-XXXXXX"
-   ```
+```text
+/handoff <free-text instruction>
+```
 
-   The first line of the task file must instruct the receiving session to clean up:
+The `/handoff` extension will:
 
-   > **Before starting, delete this task file:** `rm <taskfile>`
+1. Synthesize a self-contained prompt from the current conversation (no manual context-dumping).
+2. Capture the current Ghostty window synchronously, so a delegated pane/tab still lands in
+   the right window even if focus moves while the model is thinking.
+3. Detect the mode and target directory from the natural-language instruction
+   (`in-process` / `pane` / `tab` / `window`, and an optional repo/path).
+4. Confirm the resolved directory before spawning, so wrong repo nickname guesses can be
+   corrected.
+5. Open the prompt in an editor for review/editing.
+6. Either replace the current session in-place or spawn a Ghostty pane/tab/window running
+   `pi` with the prompt pre-loaded.
 
-   Good task files include:
-   - **Cleanup instruction** (first line, as above)
-   - **What** to do (clear, specific)
-   - **Why** (enough context to make good decisions)
-   - **Acceptance criteria** (how to know it's done)
-   - **References** to specific files/patterns if relevant
+## Example phrasings handled by /handoff
 
-2. **Open a Ghostty pane** (default) or tab with pi running in the target directory, passing the task file.
-   Use the `pi-delegate` wrapper instead of calling `pi` directly — it re-execs under a login
-   shell (for PATH, nix, etc.) and activates per-directory environment managers (e.g. shadowenv)
-   that otherwise won't fire without a prompt.
+```text
+/handoff in the edgey repo, add an alibaba_origin block type
+/handoff in a new tab in shopify-cli, port the same fix
+/handoff in a new pane, finish phase two of the migration
+/handoff in a new window, audit the dependency surface
+/handoff continue the refactor in a fresh thread        # in-process (default)
+```
 
-   The `--cmd` string is executed by Ghostty in the target directory, so `scripts/pi-delegate`
-   must be expanded to its **absolute path** before being passed. Resolve it relative to this
-   skill's directory (the same directory that contains the AppleScript files).
+## Conventions
 
-   **Default — split pane (right):**
+- Repo nicknames resolve to `~/src/github.com/<org>/<repo>` (defaults org to `Shopify` when
+  not specified). The confirmation step lets you fix wrong guesses before spawning.
+- Ghostty delegation is macOS-only (AppleScript). On other platforms, only the default
+  in-process mode is useful.
 
-       osascript scripts/ghostty-pane.applescript --direction right --cmd "scripts/pi-delegate @<taskfile>" --dir "<target_directory>"
+## See also
 
-   **If the user asks for a tab instead:**
-
-       osascript scripts/ghostty-tab.applescript --cmd "scripts/pi-delegate @<taskfile>" --dir "<target_directory>"
-
-3. **Inform the user** which pane/tab was opened and what task was delegated.
-
-## Example
-
-User says: "Delegate to edgey: add a new `alibaba_origin` block type that supports region and bucket fields"
-
-1. Create the task file and write it:
-   ```bash
-   tmpdir="${TMPDIR:-/tmp}"
-   mktemp "${tmpdir%/}/pi-delegate-XXXXXX"
-   # e.g. returns /tmp/pi-delegate-a1b2c3
-   ```
-   ```markdown
-   **Before starting, delete this task file:** `rm /tmp/pi-delegate-a1b2c3`
-
-   # Task: Add `alibaba_origin` block type
-
-   ## Context
-   We're adding Alibaba Cloud CDN support. This requires a new origin block type in edgey.
-
-   ## What to do
-   - Add a new `alibaba_origin` block type to the edgey DSL
-   - It should support `region` and `bucket` fields
-   - Follow the same pattern as existing origin block types (see `aws_origin` for reference)
-
-   ## Acceptance criteria
-   - [ ] New block type parses correctly
-   - [ ] Tests pass
-   - [ ] Generated terraform output is valid
-   ```
-
-2. Run:
-   ```
-   osascript scripts/ghostty-pane.applescript \
-     --direction right \
-     --cmd "scripts/pi-delegate @/tmp/pi-delegate-a1b2c3" \
-     --dir ~/src/github.com/Shopify/edgey
-   ```
-
-## Tips
-
-- Make task files **self-contained**. The new session has no memory of this conversation.
-- Include file paths and pattern references so the new session can orient quickly.
-- For tasks with dependencies (do X before Y), delegate them one at a time.
-- You can delegate multiple independent tasks in parallel (one tab each).
-- The user can check on delegated sessions by switching Ghostty tabs.
+- [handoff extension](../../handoff/README.md) — implementation, scripts, and full UX
+  details.

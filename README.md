@@ -13,7 +13,7 @@ Personal extensions for the [Pi coding agent](https://buildwithpi.com).
 | [vim](./vim/) | Vi/readline-style modal editing for pi's input editor. Escape for normal mode, `hjkl` navigation, `d/c/y` operators, counts, and more. |
 | [web-search](./web-search/) | Web search and page fetching via Gemini API with Google Search grounding. Provides `web_search`, `web_search_summary`, and `web_fetch` tools. Requires `GEMINI_API_KEY`. |
 | [git-workflow](./git-workflow/) | Auto-detect git workflow (local git, non-GitHub remotes, standard GitHub PRs, or Graphite) and inject context hints. `/workflow` command to manage configured Graphite orgs. |
-| [handoff](./handoff/) | Transfer context into a new focused session with `/handoff <goal>`, preserving recent compaction context and staging an editable prompt. |
+| [handoff](./handoff/) | Transfer context into a new focused session with `/handoff <goal>`. Replaces the current session in-place, or (from natural-language intent) spawns a new Ghostty pane/tab/window — optionally in a different repo via the `~/src/github.com/<org>/<repo>` convention. Subsumes the old delegate skill. |
 | [nodoz](./nodoz/) | Keep macOS awake while Pi is actively working. Uses lifecycle-scoped `caffeinate` in interactive TTY sessions only. |
 
 ## Skills
@@ -21,7 +21,7 @@ Personal extensions for the [Pi coding agent](https://buildwithpi.com).
 | Skill | Description |
 |-------|-------------|
 | [codeowners](./skills/codeowners/) | Identify code owners for a given file path by locating and evaluating the repository's CODEOWNERS file. |
-| [delegate](./skills/delegate/) | Delegate tasks to new pi sessions in other repos via Ghostty panes/tabs. Includes AppleScript for pane, tab, and window management. |
+| [delegate](./skills/delegate/) | Stub that points at `/handoff` for delegating tasks to new pi sessions in other repos / Ghostty panes/tabs. Implementation lives in the [handoff extension](./handoff/). |
 | [gh-cli](./skills/gh-cli/) | Safe GitHub CLI patterns for PR/issue bodies, comments, and generated multi-line content. |
 | [graphite](./skills/graphite/) | Graphite CLI and stacked PR workflow guidance with agent-safe non-interactive command defaults. |
 | [git-workflow](./skills/git-workflow/) | Local git workflow guidance for repositories with no remote configured (no `gh`/PR commands). |

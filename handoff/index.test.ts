@@ -1,6 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createHandoffExtension, getHandoffMessages, responseDiagnostics } from "./index.ts";
+import {
+  createHandoffExtension,
+  expandTilde,
+  getHandoffMessages,
+  parseHandoffIntent,
+  responseDiagnostics,
+} from "./index.ts";
 
 const timestamp = "2026-01-01T00:00:00.000Z";
 
@@ -19,6 +25,15 @@ type NewSessionOptions = {
   withSession(ctx: ReplacementContext): void | Promise<void>;
 };
 type CustomRenderer = (tui: unknown, theme: unknown, keybindings: unknown, done: (value: unknown) => void) => unknown;
+type SpawnCall = {
+  mode: string;
+  direction: string | null;
+  targetDir: string | null;
+  taskFile: string;
+  windowId: string;
+  scriptDir: string;
+};
+type ConfirmCall = { title: string; message: string };
 type TestContext = {
   hasUI: boolean;
   model?: { provider: string; id: string };
@@ -29,6 +44,7 @@ type TestContext = {
     notify(message: string, level: string): void;
     custom(render: CustomRenderer): Promise<unknown>;
     editor(title: string, text: string): Promise<string | undefined>;
+    confirm(title: string, message: string): Promise<boolean>;
   };
   newSession(options: NewSessionOptions): Promise<{ cancelled: boolean }>;
   testState: {
@@ -38,6 +54,7 @@ type TestContext = {
     newSessionOptions: NewSessionOptions | undefined;
     stagedPrompt: string | undefined;
     waitedForIdle: boolean;
+    confirmCalls: ConfirmCall[];
   };
 } & Record<string, unknown>;
 
@@ -71,6 +88,10 @@ function createHarness(deps: Record<string, unknown> = {}) {
     serializeConversation: () => "serialized conversation",
     createLoader: () => ({ signal: new AbortController().signal }),
     now: () => 1234567890,
+    captureWindowId: () => "12345",
+    writeTaskFile: (prompt: string) => `/tmp/pi-handoff-test/${Buffer.byteLength(prompt)}.md`,
+    spawnDelegated: () => {},
+    scriptDir: "/fake/scripts",
     ...(deps as Partial<HandoffDeps>),
   });
 
@@ -86,6 +107,19 @@ function createHarness(deps: Record<string, unknown> = {}) {
   };
 }
 
+function jsonIntent(
+  overrides: Partial<{ mode: string; direction: string | null; targetDir: string | null; prompt: string }> = {},
+) {
+  const obj = {
+    mode: "in-process",
+    direction: null,
+    targetDir: null,
+    prompt: "generated prompt",
+    ...overrides,
+  };
+  return JSON.stringify(obj);
+}
+
 function createContext(overrides: Record<string, unknown> = {}) {
   const notifications: Notification[] = [];
   const branch = [messageEntry("m1", "user", "hello")];
@@ -93,6 +127,8 @@ function createContext(overrides: Record<string, unknown> = {}) {
   let newSessionOptions: NewSessionOptions | undefined;
   let stagedPrompt: string | undefined;
   let waitedForIdle = false;
+  const confirmCalls: ConfirmCall[] = [];
+  const confirmAnswer = (overrides.confirmAnswer as boolean | undefined) ?? true;
 
   const ctx: TestContext = {
     hasUI: true,
@@ -130,6 +166,10 @@ function createContext(overrides: Record<string, unknown> = {}) {
         editorInput = { title, text };
         return "edited prompt";
       },
+      async confirm(title: string, message: string) {
+        confirmCalls.push({ title, message });
+        return confirmAnswer;
+      },
     },
     async newSession(options: NewSessionOptions) {
       newSessionOptions = options;
@@ -148,6 +188,7 @@ function createContext(overrides: Record<string, unknown> = {}) {
     testState: {
       branch,
       notifications,
+      confirmCalls,
       get editorInput() {
         return editorInput;
       },
@@ -205,14 +246,54 @@ test("responseDiagnostics includes stop reason, content types, error message, an
   assert.match(diagnostics, /bad credentials/);
 });
 
-test("handoff generates a prompt, opens the editor, and stages the edited prompt in a new session", async () => {
+test("parseHandoffIntent accepts a bare JSON object", () => {
+  const intent = parseHandoffIntent('{"mode":"in-process","direction":null,"targetDir":null,"prompt":"go"}');
+  assert.deepEqual(intent, { mode: "in-process", direction: null, targetDir: null, prompt: "go" });
+});
+
+test("parseHandoffIntent tolerates a ```json fence", () => {
+  const intent = parseHandoffIntent('```json\n{"mode":"pane","direction":"right","targetDir":null,"prompt":"go"}\n```');
+  assert.deepEqual(intent, { mode: "pane", direction: "right", targetDir: null, prompt: "go" });
+});
+
+test("parseHandoffIntent defaults split direction to right when missing for pane mode", () => {
+  const intent = parseHandoffIntent('{"mode":"pane","direction":null,"targetDir":"~/x","prompt":"go"}');
+  assert.deepEqual(intent, { mode: "pane", direction: "right", targetDir: "~/x", prompt: "go" });
+});
+
+test("parseHandoffIntent clears direction for non-pane modes", () => {
+  const intent = parseHandoffIntent('{"mode":"tab","direction":"left","targetDir":null,"prompt":"go"}');
+  assert.equal(intent?.direction, null);
+});
+
+test("parseHandoffIntent falls back to in-process for unknown modes", () => {
+  const intent = parseHandoffIntent('{"mode":"wat","direction":null,"targetDir":null,"prompt":"go"}');
+  assert.equal(intent?.mode, "in-process");
+});
+
+test("parseHandoffIntent returns null on missing prompt", () => {
+  assert.equal(parseHandoffIntent('{"mode":"in-process","prompt":""}'), null);
+});
+
+test("parseHandoffIntent returns null on non-JSON input", () => {
+  assert.equal(parseHandoffIntent("definitely not JSON"), null);
+});
+
+test("expandTilde resolves ~ and ~/sub", () => {
+  assert.equal(expandTilde("~", "/home/sam"), "/home/sam");
+  assert.equal(expandTilde("~/src/edgey", "/home/sam"), "/home/sam/src/edgey");
+  assert.equal(expandTilde("/abs/path", "/home/sam"), "/abs/path");
+  assert.equal(expandTilde("relative", "/home/sam"), "relative");
+});
+
+test("handoff generates a prompt, opens the editor, and stages the edited prompt in a new session (in-process)", async () => {
   const completeCalls: Array<{ request: unknown; options: { apiKey?: string } }> = [];
   const harness = createHarness({
     complete: async (_model: unknown, request: unknown, options: unknown) => {
       completeCalls.push({ request, options: options as { apiKey?: string } });
       return {
         stopReason: "end_turn",
-        content: [{ type: "text", text: "generated prompt" }],
+        content: [{ type: "text", text: jsonIntent({ prompt: "generated prompt" }) }],
       };
     },
   });
@@ -224,12 +305,108 @@ test("handoff generates a prompt, opens the editor, and stages the edited prompt
   assert.equal(completeCalls[0].options.apiKey, "test-key");
   assert.equal(ctx.testState.editorInput.title, "Edit handoff prompt");
   assert.equal(ctx.testState.editorInput.text, "generated prompt");
+  // No confirm for in-process mode.
+  assert.equal(ctx.testState.confirmCalls.length, 0);
   assert.equal(ctx.testState.newSessionOptions.parentSession, "/tmp/session.json");
   assert.equal(ctx.testState.stagedPrompt, "edited prompt");
   assert.deepEqual(ctx.testState.notifications.at(-1), {
     message: "Handoff ready. Submit when ready.",
     level: "info",
   });
+});
+
+test("handoff delegates to a new pane when the model selects pane mode, after user confirms", async () => {
+  const spawnCalls: SpawnCall[] = [];
+  const captured: string[] = [];
+  const harness = createHarness({
+    complete: async () => ({
+      stopReason: "end_turn",
+      content: [
+        {
+          type: "text",
+          text: jsonIntent({
+            mode: "pane",
+            direction: "right",
+            targetDir: "~/src/github.com/Shopify/edgey",
+            prompt: "do the thing",
+          }),
+        },
+      ],
+    }),
+    captureWindowId: () => {
+      captured.push("captured");
+      return "9999";
+    },
+    spawnDelegated: (args: SpawnCall) => {
+      spawnCalls.push(args);
+    },
+    writeTaskFile: (prompt: string) => `/tmp/task-${prompt.length}.md`,
+    scriptDir: "/fake/scripts",
+  });
+
+  const ctx = await harness.run("in edgey, finish the migration");
+
+  // Window id captured exactly once, synchronously at command entry (before LLM call).
+  assert.deepEqual(captured, ["captured"]);
+
+  // User confirmation was shown with the resolved path.
+  assert.equal(ctx.testState.confirmCalls.length, 1);
+  assert.match(ctx.testState.confirmCalls[0].message, /pane \(right\)/);
+  assert.match(ctx.testState.confirmCalls[0].message, /\/src\/github\.com\/Shopify\/edgey/);
+
+  // Editor was opened with the generated prompt.
+  assert.equal(ctx.testState.editorInput.text, "do the thing");
+
+  // Spawn was invoked with edited prompt resolved into a task file.
+  assert.equal(spawnCalls.length, 1);
+  const spawn = spawnCalls[0];
+  assert.equal(spawn.mode, "pane");
+  assert.equal(spawn.direction, "right");
+  assert.match(spawn.targetDir ?? "", /\/src\/github\.com\/Shopify\/edgey$/);
+  assert.equal(spawn.windowId, "9999");
+  assert.equal(spawn.scriptDir, "/fake/scripts");
+  assert.match(spawn.taskFile, /^\/tmp\/task-\d+\.md$/);
+
+  // No in-process session replacement.
+  assert.equal(ctx.testState.newSessionOptions, undefined);
+
+  assert.match(ctx.testState.notifications.at(-1)?.message ?? "", /Delegated to new pane \(right\)/);
+});
+
+test("handoff cancels delegation when user declines confirm", async () => {
+  const spawnCalls: SpawnCall[] = [];
+  const harness = createHarness({
+    complete: async () => ({
+      stopReason: "end_turn",
+      content: [{ type: "text", text: jsonIntent({ mode: "tab", direction: null, targetDir: "~/x", prompt: "go" }) }],
+    }),
+    spawnDelegated: (args: SpawnCall) => {
+      spawnCalls.push(args);
+    },
+  });
+
+  const ctx = await harness.run("delegate to ~/x in a new tab", createContext({ confirmAnswer: false }));
+
+  assert.equal(ctx.testState.confirmCalls.length, 1);
+  assert.equal(spawnCalls.length, 0);
+  assert.equal(ctx.testState.editorInput, undefined);
+  assert.deepEqual(ctx.testState.notifications.at(-1), { message: "Cancelled", level: "info" });
+});
+
+test("handoff reports a parse error if the model returns unparseable output", async () => {
+  const harness = createHarness({
+    complete: async () => ({
+      stopReason: "end_turn",
+      content: [{ type: "text", text: "not json at all" }],
+    }),
+  });
+
+  const ctx = await harness.run("continue the work");
+
+  assert.equal(ctx.testState.notifications.length, 1);
+  assert.equal(ctx.testState.notifications[0].level, "error");
+  assert.match(ctx.testState.notifications[0].message, /Could not parse handoff intent/);
+  assert.equal(ctx.testState.editorInput, undefined);
 });
 
 test("handoff surfaces model authentication failures", async () => {
