@@ -7,6 +7,7 @@ import {
   enumerateCandidateRoots,
   formatAnnouncement,
   gatherFreshness,
+  isOfflineModeEnabled,
   type FreshnessDependencies,
 } from "./index.ts";
 
@@ -302,6 +303,46 @@ test("extension announces on startup when at least one repo is behind", async ()
   assert.match(String(sent.msg.content), /pi-extensions/);
   assert.match(String(sent.msg.content), /⇡4/);
   assert.deepEqual(sent.opts, { triggerTurn: false });
+  // Structured details for the renderer
+  const details = (sent.msg as { details?: { statuses?: unknown[] } }).details;
+  assert.ok(details && Array.isArray(details.statuses), "details.statuses should be present");
+  assert.equal(details.statuses?.length, 1);
+});
+
+test("extension stays silent at startup when PI_OFFLINE is set", async () => {
+  const harness = createPi();
+  // Use deps that *would* report a behind repo if invoked.
+  const deps = makeListDir(HOME, ["/repos/pi-extensions"]);
+  createFreshnessExtension(harness.pi, deps);
+
+  const prev = process.env.PI_OFFLINE;
+  process.env.PI_OFFLINE = "1";
+  try {
+    await harness.fire("session_start", { reason: "startup" });
+    assert.equal(harness.messages.length, 0);
+  } finally {
+    if (prev === undefined) delete process.env.PI_OFFLINE;
+    else process.env.PI_OFFLINE = prev;
+  }
+});
+
+test("isOfflineModeEnabled recognizes the same env values pi does", () => {
+  const prev = process.env.PI_OFFLINE;
+  try {
+    for (const v of ["1", "true", "TRUE", "yes", "Yes"]) {
+      process.env.PI_OFFLINE = v;
+      assert.equal(isOfflineModeEnabled(), true, `expected true for PI_OFFLINE=${v}`);
+    }
+    for (const v of ["", "0", "false", "no", "nope"]) {
+      process.env.PI_OFFLINE = v;
+      assert.equal(isOfflineModeEnabled(), false, `expected false for PI_OFFLINE=${v}`);
+    }
+    delete process.env.PI_OFFLINE;
+    assert.equal(isOfflineModeEnabled(), false, "expected false when PI_OFFLINE unset");
+  } finally {
+    if (prev === undefined) delete process.env.PI_OFFLINE;
+    else process.env.PI_OFFLINE = prev;
+  }
 });
 
 test("extension stays silent when no repos are behind", async () => {

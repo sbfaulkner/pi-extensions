@@ -39,12 +39,35 @@ startup. That is the nudge.
 ## Surface
 
 Uses `pi.sendMessage` with a custom message type `freshness/announcement`
-and a registered renderer, mirroring pi's own startup announcement style.
+and a registered renderer styled to match pi's own “Package Updates
+Available” notification (bold warning heading, muted subline, repo list).
+The structured `RepoStatus[]` is passed as `details.statuses` so the
+renderer doesn’t string-parse `content`.
+
 Network checks run fire-and-forget after the `session_start` handler
 returns, with a 3-second per-`git`-call timeout, so they never delay
 startup.
 
-On any unexpected error (offline, missing git, etc.) the extension is
+## Relationship to pi’s own update checks
+
+Pi already runs two update checks at startup (in `interactive-mode.run()`):
+
+1. `checkForNewPiVersion()` — pi itself.
+2. `packageManager.checkForAvailableUpdates()` — entries in
+   `settings.json.packages`, but **only** for git-URL and npm sources.
+   Local-path sources are explicitly skipped (see
+   `core/package-manager.js`: `if (parsed.type === "local" || parsed.pinned) return undefined;`).
+
+Freshness fills exactly that gap: user-managed checkouts that pi does
+not manage (local-path packages, and ad-hoc symlinks into pi’s skill /
+extension load paths). The two systems are complementary by design —
+the `realpath` filter on `~/.pi/` is the inverse of pi’s `local` skip.
+
+Freshness also honors the same `PI_OFFLINE` env var pi uses to disable
+its own update checks (`1`, `true`, `yes`, case-insensitive), so a
+user-level offline mode silences both systems uniformly.
+
+On any unexpected error (network, missing git, etc.) the extension is
 silent.
 
 ## Layout

@@ -25,6 +25,18 @@ const execFileAsync = promisify(execFile);
 const CUSTOM_TYPE = "freshness/announcement";
 const PER_GIT_TIMEOUT_MS = 3000;
 
+/**
+ * Mirror pi's own offline-mode check (see core/package-manager.js).
+ * Pi disables its built-in update checks when PI_OFFLINE is set; honor the
+ * same env var so freshness stays silent in offline contexts.
+ */
+export function isOfflineModeEnabled(): boolean {
+  const value = process.env.PI_OFFLINE;
+  if (!value) return false;
+  const v = value.toLowerCase();
+  return v === "1" || v === "true" || v === "yes";
+}
+
 export interface FreshnessDependencies {
   homeDir?: () => string;
   listDir?: (dir: string) => Promise<string[]>;
@@ -174,16 +186,35 @@ function extractText(content: unknown): string {
 
 export function createFreshnessExtension(pi: ExtensionAPI, deps: FreshnessDependencies = {}) {
   pi.registerMessageRenderer(CUSTOM_TYPE, (message, _opts, theme) => {
-    const body = extractText(message.content);
-    const heading = theme.fg("warning", "freshness · upstream changes available");
-    const text = body ? `${heading}\n\n${theme.fg("dim", body)}` : heading;
+    const details = (message.details as { statuses?: RepoStatus[] } | undefined) ?? undefined;
+    const statuses = details?.statuses ?? [];
+    const fallbackBody = extractText(message.content);
+
+    const heading = theme.bold(theme.fg("warning", "Extension Repos Behind Upstream"));
+    const sub = theme.fg(
+      "muted",
+      "Pull to update. Freshness checks user-managed repos that pi doesn\u2019t manage itself.",
+    );
+
+    let body: string;
+    if (statuses.length > 0) {
+      const label = theme.fg("muted", "Repos:");
+      const lines = statuses.map((s) => `  - ${s.name} (${s.branch}) \u21E1${s.behindCount}`);
+      body = [heading, sub, label, ...lines].join("\n");
+    } else if (fallbackBody) {
+      body = [heading, sub, "", fallbackBody].join("\n");
+    } else {
+      body = [heading, sub].join("\n");
+    }
+
     const box = new Box(1, 1, (t) => theme.bg("customMessageBg", t));
-    box.addChild(new Text(text, 0, 0));
+    box.addChild(new Text(body, 0, 0));
     return box;
   });
 
   pi.on("session_start", (event, _ctx) => {
     if (event.reason !== "startup") return;
+    if (isOfflineModeEnabled()) return;
     // Fire-and-forget: never block startup on the network.
     void (async () => {
       try {
@@ -194,6 +225,7 @@ export function createFreshnessExtension(pi: ExtensionAPI, deps: FreshnessDepend
             customType: CUSTOM_TYPE,
             content: formatAnnouncement(statuses),
             display: true,
+            details: { statuses },
           },
           { triggerTurn: false },
         );
