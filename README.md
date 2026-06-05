@@ -15,6 +15,7 @@ Personal extensions for the [Pi coding agent](https://buildwithpi.com).
 | [git-workflow](./git-workflow/) | Auto-detect git workflow (local git, non-GitHub remotes, standard GitHub PRs, or Graphite) and inject context hints. `/workflow` command to manage configured Graphite orgs. |
 | [handoff](./handoff/) | Transfer context into a new focused session. Registers two commands sharing one handler: `/handoff <goal>` defaults to replacing the current session in-place; `/delegate <goal>` defaults to spawning a parallel Ghostty pane (current session continues). Both accept natural-language overrides for mode (pane/tab/window) and target repo via the `~/src/github.com/<org>/<repo>` convention. Subsumes the old delegate skill. |
 | [nodoz](./nodoz/) | Keep macOS awake while Pi is actively working. Uses lifecycle-scoped `caffeinate` in interactive TTY sessions only. |
+| [freshness](./freshness/) | At pi startup, check user-managed extension/skill repos (anything loaded from outside `~/.pi/`) for upstream commits via `git ls-remote`. Inserts one transcript block listing repos behind upstream; silent otherwise. No commands, no cache, no nag — pulling clears it. |
 
 ## Skills
 

@@ -30,7 +30,8 @@
       "./usage/index.ts",
       "./vim/index.ts",
       "./web-search/index.ts",
-      "./agency/index.ts"
+      "./agency/index.ts",
+      "./freshness/index.ts"
     ],
     "skills": [
       "./skills"
