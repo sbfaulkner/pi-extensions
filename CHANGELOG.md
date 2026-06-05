@@ -1,5 +1,23 @@
 # Changelog
 
+## 2.9.0
+
+- `handoff` extension subsumes the `delegate` skill; the `skills/delegate/` directory is removed
+  - Registers a second slash command `/delegate <text>` that shares the handoff handler but defaults to spawning a parallel Ghostty pane in the current cwd (current session continues), while `/handoff` keeps its existing default of replacing the current session in-place
+  - Either command accepts natural-language overrides (`/handoff in a new pane, ...`, `/delegate continue here in a fresh thread`), so the default only applies when the user is silent
+  - The same LLM call that synthesizes the prompt now returns structured intent (`{ mode, direction, targetRepo, targetDir, prompt }`) as JSON; no flags
+- Filesystem-driven repo resolution replaces LLM path-guessing
+  - When the user names a repo (e.g. "in edgey"), the LLM passes through the bare nickname and the extension globs `~/src/github.com/*/<nickname>`: one match uses it silently, multiple matches prompt via `ctx.ui.select`, zero matches errors out
+  - Explicit paths (`in ~/some/path, ...`) are used verbatim
+  - The previous unconditional "Delegate to a new Ghostty session?" confirm dialog is gone; the editor that opens with the synthesized prompt remains a backout point
+- Race-free Ghostty pane/tab anchoring on macOS
+  - Captures stable ids for the front window *and* the focused terminal surface synchronously at command entry (per Ghostty's scripting dictionary)
+  - `pane` spawns split the exact captured surface; `tab` spawns target the captured window. Resolution falls back through window-id → front window → new window if anchors are gone by spawn time
+  - Fixes a focus-race in the old `delegate` skill where switching Ghostty windows while the model was thinking dropped the new pane in the wrong place
+- Honest spawn-result reporting
+  - The osascript spawn is now awaited (`promisify(execFile)`); failures show as `error` with the saved task-file path so the prompt can be recovered, stderr-with-success downgrades to `warning`, clean spawn shows `info`
+  - 5s timeout on the osascript spawn
+
 ## 2.8.0
 
 - Update `usage` for GitHub Copilot AI credit billing
