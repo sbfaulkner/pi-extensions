@@ -1,5 +1,18 @@
 # Changelog
 
+## 2.10.0
+
+- New `freshness` extension: at pi startup, checks user-managed extension/skill repos for upstream commits and announces any that are behind
+  - Scans `~/.pi/agent/extensions/*` and `~/.pi/agent/skills/*`, resolves each to its realpath, drops anything inside `~/.pi/` (pi-managed), walks to the enclosing git root, and de-dups
+  - Per repo: `git rev-parse HEAD` + branch + remote + `git ls-remote`, then only reports strictly-behind (fast-forward) situations — detached HEAD, missing remote, diverged histories, and any failure stay silent
+  - Announcement renders as one transcript block via `pi.sendMessage` with a registered renderer styled to match pi’s own “Package Updates Available” notification (bold warning heading, muted subline, repo list with branch and behind count)
+  - Fire-and-forget after `session_start` returns; 3s per-`git`-call timeout; never blocks session start
+  - Complements pi’s built-in `checkForAvailableUpdates`, which explicitly skips local-path packages — freshness covers exactly that gap (local-path packages, plus ad-hoc symlinks into pi’s skill/extension load paths)
+  - Honors `PI_OFFLINE` (recognizing `1`/`true`/`yes`, case-insensitive) so the same env var that silences pi’s update checks silences freshness too
+  - Only fires on `session_start` with `reason === "startup"`; other reasons (`reload`, `new`, `resume`, `fork`) are no-ops
+  - No commands, no cache, no snooze, no nag-suppression — pulling clears the announcement, staying behind keeps it visible on next startup
+- Sort extensions alphabetically in `package.json` and the top-level `README.md` extension table
+
 ## 2.9.0
 
 - `handoff` extension subsumes the `delegate` skill; the `skills/delegate/` directory is removed

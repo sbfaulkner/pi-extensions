@@ -6,16 +6,16 @@ Personal extensions for the [Pi coding agent](https://buildwithpi.com).
 
 | Extension | Description |
 |-----------|-------------|
+| [freshness](./freshness/) | At pi startup, check user-managed extension/skill repos (anything loaded from outside `~/.pi/`) for upstream commits via `git ls-remote`. Inserts one transcript block listing repos behind upstream; silent otherwise. No commands, no cache, no nag — pulling clears it. |
+| [git-workflow](./git-workflow/) | Auto-detect git workflow (local git, non-GitHub remotes, standard GitHub PRs, or Graphite) and inject context hints. `/workflow` command to manage configured Graphite orgs. |
+| [handoff](./handoff/) | Transfer context into a new focused session. Registers two commands sharing one handler: `/handoff <goal>` defaults to replacing the current session in-place; `/delegate <goal>` defaults to spawning a parallel Ghostty pane (current session continues). Both accept natural-language overrides for mode (pane/tab/window) and target repo via the `~/src/github.com/<org>/<repo>` convention. Subsumes the old delegate skill. |
 | [interview](./interview/) | Answer assistant questions in batch via `/answer` command. Extracts questions cheaply, presents a form, sends all answers at once. |
+| [nodoz](./nodoz/) | Keep macOS awake while Pi is actively working. Uses lifecycle-scoped `caffeinate` in interactive TTY sessions only. |
 | [secrets](./secrets/) | Load environment variables from ejson secret files into all bash commands. `/secrets` command + `load_secrets` tool. |
 | [system-theme](./system-theme/) | Sync pi's theme with macOS/Linux system appearance (dark/light mode). `/system-theme` command to configure. |
 | [usage](./usage/) | Display provider usage information (e.g., GitHub Copilot AI credits) in the status bar. Requires `gh` CLI for GitHub Copilot. |
 | [vim](./vim/) | Vi/readline-style modal editing for pi's input editor. Escape for normal mode, `hjkl` navigation, `d/c/y` operators, counts, and more. |
 | [web-search](./web-search/) | Web search and page fetching via Gemini API with Google Search grounding. Provides `web_search`, `web_search_summary`, and `web_fetch` tools. Requires `GEMINI_API_KEY`. |
-| [git-workflow](./git-workflow/) | Auto-detect git workflow (local git, non-GitHub remotes, standard GitHub PRs, or Graphite) and inject context hints. `/workflow` command to manage configured Graphite orgs. |
-| [handoff](./handoff/) | Transfer context into a new focused session. Registers two commands sharing one handler: `/handoff <goal>` defaults to replacing the current session in-place; `/delegate <goal>` defaults to spawning a parallel Ghostty pane (current session continues). Both accept natural-language overrides for mode (pane/tab/window) and target repo via the `~/src/github.com/<org>/<repo>` convention. Subsumes the old delegate skill. |
-| [nodoz](./nodoz/) | Keep macOS awake while Pi is actively working. Uses lifecycle-scoped `caffeinate` in interactive TTY sessions only. |
-| [freshness](./freshness/) | At pi startup, check user-managed extension/skill repos (anything loaded from outside `~/.pi/`) for upstream commits via `git ls-remote`. Inserts one transcript block listing repos behind upstream; silent otherwise. No commands, no cache, no nag — pulling clears it. |
 
 ## Skills
 
