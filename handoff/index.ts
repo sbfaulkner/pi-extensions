@@ -28,7 +28,7 @@
  */
 
 import { execFile, execFileSync } from "node:child_process";
-import { mkdtempSync, writeFileSync } from "node:fs";
+import { mkdtempSync, promises as fsp, writeFileSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -52,6 +52,7 @@ function buildSystemPrompt(defaultMode: HandoffMode): string {
 {
   "mode": "in-process" | "pane" | "tab" | "window",
   "direction": "right" | "left" | "up" | "down" | null,
+  "targetRepo": string | null,
   "targetDir": string | null,
   "prompt": string
 }
@@ -62,10 +63,11 @@ Field guidance:
 
 - "direction": Only meaningful when "mode" is "pane". Defaults to "right" when the user does not say. Use null for any other mode.
 
-- "targetDir":
-  - When the user names a repo by nickname (e.g. "in edgey", "in the shopify-cli repo"), resolve it to an absolute-style path using the convention "~/src/github.com/<org>/<repo>". If you don't know the org, prefer "Shopify" (this is the common case).
-  - When the user gives an explicit path (with or without "~"), use it verbatim.
-  - When the user does not specify a repo/path, set this to null. (For "in-process" mode this means keep the current cwd; for pane/tab/window modes the spawn will inherit the current cwd.)
+- "targetRepo": A bare repo nickname (e.g. "edgey", "shopify-cli") when the user named a repo without giving a full path. DO NOT guess an org or a path — just the single-segment repo name. The extension resolves the actual path by globbing the filesystem. Set to null if the user gave an explicit path or named no repo.
+
+- "targetDir": ONLY when the user gave an explicit path (with or without "~"), use it verbatim. Otherwise set to null. Never put a bare repo nickname here — use "targetRepo" for that.
+
+- At most one of "targetRepo" / "targetDir" should be non-null. If the user gave neither, both are null and the spawn inherits the current cwd.
 
 - "prompt": a focused, self-contained handoff prompt for the new session. The new session has NO memory of the source conversation. Structure it as:
   1. ## Context — relevant decisions, findings, file paths, approaches.
@@ -176,6 +178,9 @@ export type SplitDirection = "right" | "left" | "up" | "down";
 export interface HandoffIntent {
   mode: HandoffMode;
   direction: SplitDirection | null;
+  /** A bare repo nickname (e.g. "edgey"). Resolved via filesystem glob against ~/src/github.com/*. */
+  targetRepo: string | null;
+  /** An explicit path the user gave verbatim. Mutually exclusive with targetRepo. */
   targetDir: string | null;
   prompt: string;
 }
@@ -217,12 +222,76 @@ export function parseHandoffIntent(text: string, defaultMode: HandoffMode = "in-
   if (mode === "pane" && direction === null) direction = "right";
   if (mode !== "pane") direction = null;
 
-  const targetDir = typeof obj.targetDir === "string" && obj.targetDir.length > 0 ? obj.targetDir : null;
+  let targetRepo: string | null =
+    typeof obj.targetRepo === "string" && obj.targetRepo.length > 0 ? obj.targetRepo : null;
+  let targetDir: string | null = typeof obj.targetDir === "string" && obj.targetDir.length > 0 ? obj.targetDir : null;
+
+  // Safety net for model drift: if the model put a bare nickname (no slashes,
+  // no leading ~) in targetDir, treat it as targetRepo instead. This keeps the
+  // filesystem-resolution path in charge even when the model ignores the schema.
+  if (targetDir && !targetRepo && !targetDir.includes("/") && !targetDir.startsWith("~")) {
+    targetRepo = targetDir;
+    targetDir = null;
+  }
+
+  // If both are set, prefer the explicit path (targetDir) and drop the nickname.
+  if (targetRepo && targetDir) targetRepo = null;
+
   const prompt = typeof obj.prompt === "string" ? obj.prompt : "";
 
   if (!prompt.trim()) return null;
 
-  return { mode, direction, targetDir, prompt };
+  return { mode, direction, targetRepo, targetDir, prompt };
+}
+
+/** Resolution result for a repo nickname lookup against the filesystem. */
+export type RepoResolution =
+  | { kind: "found"; dir: string }
+  | { kind: "none" }
+  | { kind: "ambiguous"; candidates: string[] };
+
+const DEFAULT_REPO_ROOT = path.join(homedir(), "src/github.com");
+
+/**
+ * Resolve a bare repo nickname to an absolute path by globbing
+ * `~/src/github.com/<any-org>/<nickname>`. The filesystem is the source of
+ * truth — we don't guess orgs, and we never invent paths.
+ *
+ *   1 match  → use it (no prompt; the FS confirmed it exists).
+ *   0 matches → user-visible error; nothing spawns.
+ *   2+ matches → caller should disambiguate via ctx.ui.select.
+ */
+export async function resolveRepoNickname(nickname: string, root: string = DEFAULT_REPO_ROOT): Promise<RepoResolution> {
+  if (!nickname) return { kind: "none" };
+  // Single path segment only — don't accept "org/repo" or path traversal here.
+  if (nickname.includes("/") || nickname.includes(path.sep) || nickname.includes("..")) {
+    return { kind: "none" };
+  }
+
+  let orgs: string[];
+  try {
+    orgs = await fsp.readdir(root);
+  } catch {
+    return { kind: "none" };
+  }
+
+  const matches: string[] = [];
+  await Promise.all(
+    orgs.map(async (org) => {
+      const candidate = path.join(root, org, nickname);
+      try {
+        const stat = await fsp.stat(candidate);
+        if (stat.isDirectory()) matches.push(candidate);
+      } catch {
+        // not a directory; skip
+      }
+    }),
+  );
+
+  matches.sort();
+  if (matches.length === 0) return { kind: "none" };
+  if (matches.length === 1) return { kind: "found", dir: matches[0] };
+  return { kind: "ambiguous", candidates: matches };
 }
 
 /**
@@ -264,6 +333,8 @@ export interface HandoffSpawnDeps {
   spawnDelegated?: (args: SpawnDelegatedArgs) => Promise<SpawnResult>;
   /** Write the task file to a temp location and return its absolute path. */
   writeTaskFile?: (prompt: string) => string;
+  /** Resolve a bare repo nickname against the filesystem. */
+  resolveRepo?: (nickname: string) => Promise<RepoResolution>;
 }
 
 export interface SpawnDelegatedArgs {
@@ -368,6 +439,7 @@ export function createHandoffExtension(pi: ExtensionAPI, deps: HandoffDependenci
   const captureAnchor = deps.captureAnchor ?? (() => defaultCaptureAnchor(scriptDir));
   const writeTaskFile = deps.writeTaskFile ?? defaultWriteTaskFile;
   const spawnDelegated = deps.spawnDelegated ?? defaultSpawnDelegated;
+  const resolveRepo = deps.resolveRepo ?? ((nickname: string) => resolveRepoNickname(nickname));
 
   const makeHandler =
     (defaultMode: HandoffMode) =>
@@ -492,21 +564,36 @@ export function createHandoffExtension(pi: ExtensionAPI, deps: HandoffDependenci
         return;
       }
 
-      // Resolve targetDir tilde for display and for passing to the AppleScript.
-      const resolvedTargetDir = intent.targetDir ? expandTilde(intent.targetDir) : null;
-
-      // Confirmation safety net for any non-in-process delegation. Shows the
-      // resolved directory so the user can catch a wrong nickname/path guess.
-      if (intent.mode !== "in-process") {
-        const dirLine = resolvedTargetDir ? resolvedTargetDir : "(current working directory)";
-        const modeLine = intent.mode === "pane" ? `pane (${intent.direction})` : intent.mode;
-        const confirmed = await ctx.ui.confirm(
-          "Delegate to a new Ghostty session?",
-          `Mode:      ${modeLine}\nDirectory: ${dirLine}`,
-        );
-        if (!confirmed) {
-          ctx.ui.notify("Cancelled", "info");
+      // Resolve the target directory.
+      //   - intent.targetDir: explicit path from the user, used verbatim (tilde-expanded).
+      //   - intent.targetRepo: a bare nickname; resolved against the filesystem by
+      //     globbing ~/src/github.com/*/<nickname>. One hit = use it; zero hits = error;
+      //     multiple hits = prompt the user to pick. No prompt in the unambiguous cases.
+      //   - neither: spawn inherits current cwd; no prompt.
+      let resolvedTargetDir: string | null = null;
+      if (intent.targetDir) {
+        resolvedTargetDir = expandTilde(intent.targetDir);
+      } else if (intent.targetRepo) {
+        const resolution = await resolveRepo(intent.targetRepo);
+        if (resolution.kind === "none") {
+          ctx.ui.notify(
+            `No repo matching "${intent.targetRepo}" found under ~/src/github.com/*/${intent.targetRepo}.`,
+            "error",
+          );
           return;
+        }
+        if (resolution.kind === "ambiguous") {
+          const choice = await ctx.ui.select(
+            `Multiple repos match "${intent.targetRepo}". Pick one:`,
+            resolution.candidates,
+          );
+          if (choice === undefined) {
+            ctx.ui.notify("Cancelled", "info");
+            return;
+          }
+          resolvedTargetDir = choice;
+        } else {
+          resolvedTargetDir = resolution.dir;
         }
       }
 

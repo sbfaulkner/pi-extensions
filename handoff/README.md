@@ -74,7 +74,11 @@ So:
 - Requires interactive mode (uses Pi's editor, confirm, and loader UI).
 - Requires a selected model with valid credentials.
 - The in-process new session records the current session as its parent when a session file is available.
-- Repo nickname resolution uses the convention `~/src/github.com/<org>/<repo>`. The LLM resolves nicknames; the confirmation step lets you correct mistakes before anything spawns.
+- Repo nickname resolution is **filesystem-driven**, not LLM-driven. When you say "in edgey", the LLM passes through the bare nickname; the extension globs `~/src/github.com/*/edgey` and uses the result:
+  - 1 match → use it, no prompt.
+  - 0 matches → error, nothing spawns. (The nickname doesn't correspond to anything you have checked out.)
+  - 2+ matches → `ctx.ui.select` lets you pick (e.g. when both `Shopify/edgey` and `sbfaulkner/edgey` exist as a fork).
+- Explicit paths in the instruction (e.g. "in ~/some/path, ...") are used verbatim with no resolution step.
 - Ghostty delegation only works on macOS (uses AppleScript). On other platforms, only `in-process` mode is useful.
 
 ## Why this subsumes the old `delegate` skill

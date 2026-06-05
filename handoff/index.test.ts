@@ -5,8 +5,12 @@ import {
   expandTilde,
   getHandoffMessages,
   parseHandoffIntent,
+  resolveRepoNickname,
   responseDiagnostics,
 } from "./index.ts";
+import { mkdtempSync, mkdirSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import * as path from "node:path";
 
 const timestamp = "2026-01-01T00:00:00.000Z";
 
@@ -34,6 +38,7 @@ type SpawnCall = {
   scriptDir: string;
 };
 type ConfirmCall = { title: string; message: string };
+type SelectCall = { title: string; options: string[] };
 type TestContext = {
   hasUI: boolean;
   model?: { provider: string; id: string };
@@ -45,6 +50,7 @@ type TestContext = {
     custom(render: CustomRenderer): Promise<unknown>;
     editor(title: string, text: string): Promise<string | undefined>;
     confirm(title: string, message: string): Promise<boolean>;
+    select(title: string, options: string[]): Promise<string | undefined>;
   };
   newSession(options: NewSessionOptions): Promise<{ cancelled: boolean }>;
   testState: {
@@ -55,6 +61,7 @@ type TestContext = {
     stagedPrompt: string | undefined;
     waitedForIdle: boolean;
     confirmCalls: ConfirmCall[];
+    selectCalls: SelectCall[];
   };
 } & Record<string, unknown>;
 
@@ -89,6 +96,10 @@ function createHarness(deps: Record<string, unknown> = {}) {
     createLoader: () => ({ signal: new AbortController().signal }),
     now: () => 1234567890,
     captureAnchor: () => ({ windowId: "12345", terminalId: "t-abc" }),
+    resolveRepo: async (nickname: string) => ({
+      kind: "found" as const,
+      dir: `/fake/src/github.com/Shopify/${nickname}`,
+    }),
     writeTaskFile: (prompt: string) => `/tmp/pi-handoff-test/${Buffer.byteLength(prompt)}.md`,
     spawnDelegated: async () => ({ ok: true, stderr: "" }),
     scriptDir: "/fake/scripts",
@@ -110,11 +121,18 @@ function createHarness(deps: Record<string, unknown> = {}) {
 }
 
 function jsonIntent(
-  overrides: Partial<{ mode: string; direction: string | null; targetDir: string | null; prompt: string }> = {},
+  overrides: Partial<{
+    mode: string;
+    direction: string | null;
+    targetRepo: string | null;
+    targetDir: string | null;
+    prompt: string;
+  }> = {},
 ) {
   const obj = {
     mode: "in-process",
     direction: null,
+    targetRepo: null,
     targetDir: null,
     prompt: "generated prompt",
     ...overrides,
@@ -130,7 +148,9 @@ function createContext(overrides: Record<string, unknown> = {}) {
   let stagedPrompt: string | undefined;
   let waitedForIdle = false;
   const confirmCalls: ConfirmCall[] = [];
+  const selectCalls: SelectCall[] = [];
   const confirmAnswer = (overrides.confirmAnswer as boolean | undefined) ?? true;
+  const selectAnswer = overrides.selectAnswer as string | undefined;
 
   const ctx: TestContext = {
     hasUI: true,
@@ -172,6 +192,11 @@ function createContext(overrides: Record<string, unknown> = {}) {
         confirmCalls.push({ title, message });
         return confirmAnswer;
       },
+      async select(title: string, options: string[]) {
+        selectCalls.push({ title, options });
+        if ("selectAnswer" in overrides) return selectAnswer;
+        return options[0];
+      },
     },
     async newSession(options: NewSessionOptions) {
       newSessionOptions = options;
@@ -191,6 +216,7 @@ function createContext(overrides: Record<string, unknown> = {}) {
       branch,
       notifications,
       confirmCalls,
+      selectCalls,
       get editorInput() {
         return editorInput;
       },
@@ -249,18 +275,58 @@ test("responseDiagnostics includes stop reason, content types, error message, an
 });
 
 test("parseHandoffIntent accepts a bare JSON object", () => {
-  const intent = parseHandoffIntent('{"mode":"in-process","direction":null,"targetDir":null,"prompt":"go"}');
-  assert.deepEqual(intent, { mode: "in-process", direction: null, targetDir: null, prompt: "go" });
+  const intent = parseHandoffIntent(
+    '{"mode":"in-process","direction":null,"targetRepo":null,"targetDir":null,"prompt":"go"}',
+  );
+  assert.deepEqual(intent, {
+    mode: "in-process",
+    direction: null,
+    targetRepo: null,
+    targetDir: null,
+    prompt: "go",
+  });
+});
+
+test("parseHandoffIntent reclassifies a bare nickname-in-targetDir as targetRepo", () => {
+  const intent = parseHandoffIntent('{"mode":"pane","direction":"right","targetDir":"edgey","prompt":"go"}');
+  assert.equal(intent?.targetRepo, "edgey");
+  assert.equal(intent?.targetDir, null);
+});
+
+test("parseHandoffIntent prefers explicit targetDir when both are set", () => {
+  const intent = parseHandoffIntent(
+    '{"mode":"pane","direction":"right","targetRepo":"edgey","targetDir":"/abs/path","prompt":"go"}',
+  );
+  assert.equal(intent?.targetRepo, null);
+  assert.equal(intent?.targetDir, "/abs/path");
+});
+
+test("parseHandoffIntent keeps tilde paths in targetDir (not reclassified)", () => {
+  const intent = parseHandoffIntent('{"mode":"pane","direction":"right","targetDir":"~/foo","prompt":"go"}');
+  assert.equal(intent?.targetDir, "~/foo");
+  assert.equal(intent?.targetRepo, null);
 });
 
 test("parseHandoffIntent tolerates a ```json fence", () => {
   const intent = parseHandoffIntent('```json\n{"mode":"pane","direction":"right","targetDir":null,"prompt":"go"}\n```');
-  assert.deepEqual(intent, { mode: "pane", direction: "right", targetDir: null, prompt: "go" });
+  assert.deepEqual(intent, {
+    mode: "pane",
+    direction: "right",
+    targetRepo: null,
+    targetDir: null,
+    prompt: "go",
+  });
 });
 
 test("parseHandoffIntent defaults split direction to right when missing for pane mode", () => {
   const intent = parseHandoffIntent('{"mode":"pane","direction":null,"targetDir":"~/x","prompt":"go"}');
-  assert.deepEqual(intent, { mode: "pane", direction: "right", targetDir: "~/x", prompt: "go" });
+  assert.deepEqual(intent, {
+    mode: "pane",
+    direction: "right",
+    targetRepo: null,
+    targetDir: "~/x",
+    prompt: "go",
+  });
 });
 
 test("parseHandoffIntent clears direction for non-pane modes", () => {
@@ -285,6 +351,52 @@ test("parseHandoffIntent returns null on missing prompt", () => {
 
 test("parseHandoffIntent returns null on non-JSON input", () => {
   assert.equal(parseHandoffIntent("definitely not JSON"), null);
+});
+
+test("resolveRepoNickname returns 'none' for unknown nicknames", async () => {
+  const root = mkdtempSync(path.join(tmpdir(), "pi-handoff-resolve-"));
+  // empty root
+  assert.deepEqual(await resolveRepoNickname("missing", root), { kind: "none" });
+});
+
+test("resolveRepoNickname returns 'found' on a single match", async () => {
+  const root = mkdtempSync(path.join(tmpdir(), "pi-handoff-resolve-"));
+  mkdirSync(path.join(root, "Shopify", "edgey"), { recursive: true });
+  // a sibling org with an unrelated repo
+  mkdirSync(path.join(root, "OtherOrg", "unrelated"), { recursive: true });
+  const result = await resolveRepoNickname("edgey", root);
+  assert.equal(result.kind, "found");
+  if (result.kind === "found") {
+    assert.equal(result.dir, path.join(root, "Shopify", "edgey"));
+  }
+});
+
+test("resolveRepoNickname returns 'ambiguous' on multiple matches", async () => {
+  const root = mkdtempSync(path.join(tmpdir(), "pi-handoff-resolve-"));
+  mkdirSync(path.join(root, "Shopify", "edgey"), { recursive: true });
+  mkdirSync(path.join(root, "sbfaulkner", "edgey"), { recursive: true });
+  const result = await resolveRepoNickname("edgey", root);
+  assert.equal(result.kind, "ambiguous");
+  if (result.kind === "ambiguous") {
+    // sorted alphabetically by full path
+    assert.deepEqual(result.candidates, [path.join(root, "Shopify", "edgey"), path.join(root, "sbfaulkner", "edgey")]);
+  }
+});
+
+test("resolveRepoNickname rejects path-traversal and slashes", async () => {
+  const root = mkdtempSync(path.join(tmpdir(), "pi-handoff-resolve-"));
+  mkdirSync(path.join(root, "Shopify", "edgey"), { recursive: true });
+  assert.deepEqual(await resolveRepoNickname("Shopify/edgey", root), { kind: "none" });
+  assert.deepEqual(await resolveRepoNickname("../etc", root), { kind: "none" });
+  assert.deepEqual(await resolveRepoNickname("", root), { kind: "none" });
+});
+
+test("resolveRepoNickname ignores non-directory entries", async () => {
+  const root = mkdtempSync(path.join(tmpdir(), "pi-handoff-resolve-"));
+  mkdirSync(path.join(root, "Shopify"), { recursive: true });
+  // a stray file where a repo dir would be
+  writeFileSync(path.join(root, "Shopify", "edgey"), "not a directory");
+  assert.deepEqual(await resolveRepoNickname("edgey", root), { kind: "none" });
 });
 
 test("expandTilde resolves ~ and ~/sub", () => {
@@ -323,9 +435,10 @@ test("handoff generates a prompt, opens the editor, and stages the edited prompt
   });
 });
 
-test("handoff delegates to a new pane when the model selects pane mode, after user confirms", async () => {
+test("delegate spawns a pane without confirm when targetRepo resolves to one match", async () => {
   const spawnCalls: SpawnCall[] = [];
   const captured: string[] = [];
+  const resolveCalls: string[] = [];
   const harness = createHarness({
     complete: async () => ({
       stopReason: "end_turn",
@@ -335,7 +448,7 @@ test("handoff delegates to a new pane when the model selects pane mode, after us
           text: jsonIntent({
             mode: "pane",
             direction: "right",
-            targetDir: "~/src/github.com/Shopify/edgey",
+            targetRepo: "edgey",
             prompt: "do the thing",
           }),
         },
@@ -349,6 +462,10 @@ test("handoff delegates to a new pane when the model selects pane mode, after us
       spawnCalls.push(args);
       return { ok: true, stderr: "" };
     },
+    resolveRepo: async (nickname: string) => {
+      resolveCalls.push(nickname);
+      return { kind: "found" as const, dir: `/fake/src/github.com/Shopify/${nickname}` };
+    },
     writeTaskFile: (prompt: string) => `/tmp/task-${prompt.length}.md`,
     scriptDir: "/fake/scripts",
   });
@@ -358,28 +475,156 @@ test("handoff delegates to a new pane when the model selects pane mode, after us
   // Anchor captured exactly once, synchronously at command entry (before LLM call).
   assert.deepEqual(captured, ["captured"]);
 
-  // User confirmation was shown with the resolved path.
-  assert.equal(ctx.testState.confirmCalls.length, 1);
-  assert.match(ctx.testState.confirmCalls[0].message, /pane \(right\)/);
-  assert.match(ctx.testState.confirmCalls[0].message, /\/src\/github\.com\/Shopify\/edgey/);
+  // Repo was resolved via filesystem lookup, not LLM guess.
+  assert.deepEqual(resolveCalls, ["edgey"]);
+
+  // No confirm and no select — single match is unambiguous.
+  assert.equal(ctx.testState.confirmCalls.length, 0);
+  assert.equal(ctx.testState.selectCalls.length, 0);
 
   // Editor was opened with the generated prompt.
   assert.equal(ctx.testState.editorInput.text, "do the thing");
 
-  // Spawn was invoked with edited prompt resolved into a task file.
+  // Spawn was invoked with the resolved path.
   assert.equal(spawnCalls.length, 1);
   const spawn = spawnCalls[0];
   assert.equal(spawn.mode, "pane");
   assert.equal(spawn.direction, "right");
-  assert.match(spawn.targetDir ?? "", /\/src\/github\.com\/Shopify\/edgey$/);
+  assert.equal(spawn.targetDir, "/fake/src/github.com/Shopify/edgey");
   assert.deepEqual(spawn.anchor, { windowId: "9999", terminalId: "t-xyz" });
   assert.equal(spawn.scriptDir, "/fake/scripts");
-  assert.match(spawn.taskFile, /^\/tmp\/task-\d+\.md$/);
 
-  // No in-process session replacement.
   assert.equal(ctx.testState.newSessionOptions, undefined);
-
   assert.match(ctx.testState.notifications.at(-1)?.message ?? "", /Delegated to new pane \(right\)/);
+});
+
+test("delegate prompts via select when a nickname matches multiple repos", async () => {
+  const spawnCalls: SpawnCall[] = [];
+  const harness = createHarness({
+    complete: async () => ({
+      stopReason: "end_turn",
+      content: [
+        {
+          type: "text",
+          text: jsonIntent({ mode: "pane", direction: "right", targetRepo: "edgey", prompt: "go" }),
+        },
+      ],
+    }),
+    resolveRepo: async () => ({
+      kind: "ambiguous" as const,
+      candidates: ["/fake/src/github.com/Shopify/edgey", "/fake/src/github.com/sbfaulkner/edgey"],
+    }),
+    spawnDelegated: async (args: SpawnCall) => {
+      spawnCalls.push(args);
+      return { ok: true, stderr: "" };
+    },
+  });
+
+  const ctx = await harness.run(
+    "in edgey, do X",
+    createContext({ selectAnswer: "/fake/src/github.com/sbfaulkner/edgey" }),
+  );
+
+  assert.equal(ctx.testState.selectCalls.length, 1);
+  assert.deepEqual(ctx.testState.selectCalls[0].options, [
+    "/fake/src/github.com/Shopify/edgey",
+    "/fake/src/github.com/sbfaulkner/edgey",
+  ]);
+  assert.match(ctx.testState.selectCalls[0].title, /Multiple repos match "edgey"/);
+
+  assert.equal(spawnCalls.length, 1);
+  assert.equal(spawnCalls[0].targetDir, "/fake/src/github.com/sbfaulkner/edgey");
+});
+
+test("delegate cancels when the user cancels the multi-match select", async () => {
+  const spawnCalls: SpawnCall[] = [];
+  const harness = createHarness({
+    complete: async () => ({
+      stopReason: "end_turn",
+      content: [
+        { type: "text", text: jsonIntent({ mode: "pane", direction: "right", targetRepo: "edgey", prompt: "go" }) },
+      ],
+    }),
+    resolveRepo: async () => ({
+      kind: "ambiguous" as const,
+      candidates: ["/a/edgey", "/b/edgey"],
+    }),
+    spawnDelegated: async (args: SpawnCall) => {
+      spawnCalls.push(args);
+      return { ok: true, stderr: "" };
+    },
+  });
+
+  const ctx = await harness.run("in edgey, do X", createContext({ selectAnswer: undefined }));
+
+  assert.equal(spawnCalls.length, 0);
+  assert.deepEqual(ctx.testState.notifications.at(-1), { message: "Cancelled", level: "info" });
+});
+
+test("delegate errors out when a nickname has no filesystem match", async () => {
+  const spawnCalls: SpawnCall[] = [];
+  const harness = createHarness({
+    complete: async () => ({
+      stopReason: "end_turn",
+      content: [
+        {
+          type: "text",
+          text: jsonIntent({ mode: "pane", direction: "right", targetRepo: "does-not-exist", prompt: "go" }),
+        },
+      ],
+    }),
+    resolveRepo: async () => ({ kind: "none" as const }),
+    spawnDelegated: async (args: SpawnCall) => {
+      spawnCalls.push(args);
+      return { ok: true, stderr: "" };
+    },
+  });
+
+  const ctx = await harness.run("in does-not-exist, do X");
+
+  assert.equal(spawnCalls.length, 0);
+  const last = ctx.testState.notifications.at(-1);
+  assert.ok(last);
+  assert.equal(last.level, "error");
+  assert.match(last.message, /No repo matching "does-not-exist"/);
+});
+
+test("delegate uses an explicit targetDir verbatim without resolving", async () => {
+  const spawnCalls: SpawnCall[] = [];
+  let resolveCalled = false;
+  const harness = createHarness({
+    complete: async () => ({
+      stopReason: "end_turn",
+      content: [
+        {
+          type: "text",
+          text: jsonIntent({
+            mode: "tab",
+            direction: null,
+            targetDir: "~/some/explicit/path",
+            prompt: "go",
+          }),
+        },
+      ],
+    }),
+    resolveRepo: async () => {
+      resolveCalled = true;
+      return { kind: "none" as const };
+    },
+    spawnDelegated: async (args: SpawnCall) => {
+      spawnCalls.push(args);
+      return { ok: true, stderr: "" };
+    },
+  });
+
+  const ctx = await harness.run("in ~/some/explicit/path, do X");
+
+  assert.equal(resolveCalled, false);
+  assert.equal(ctx.testState.confirmCalls.length, 0);
+  assert.equal(spawnCalls.length, 1);
+  // ~ should be expanded.
+  assert.match(spawnCalls[0].targetDir ?? "", /\/some\/explicit\/path$/);
+  assert.ok(!(spawnCalls[0].targetDir ?? "").startsWith("~"));
 });
 
 test("handoff surfaces spawn failure with the saved task file path", async () => {
@@ -427,27 +672,6 @@ test("handoff downgrades success-with-stderr to a warning", async () => {
   assert.match(last.message, /some non-fatal diagnostic/);
 });
 
-test("handoff cancels delegation when user declines confirm", async () => {
-  const spawnCalls: SpawnCall[] = [];
-  const harness = createHarness({
-    complete: async () => ({
-      stopReason: "end_turn",
-      content: [{ type: "text", text: jsonIntent({ mode: "tab", direction: null, targetDir: "~/x", prompt: "go" }) }],
-    }),
-    spawnDelegated: async (args: SpawnCall) => {
-      spawnCalls.push(args);
-      return { ok: true, stderr: "" };
-    },
-  });
-
-  const ctx = await harness.run("delegate to ~/x in a new tab", createContext({ confirmAnswer: false }));
-
-  assert.equal(ctx.testState.confirmCalls.length, 1);
-  assert.equal(spawnCalls.length, 0);
-  assert.equal(ctx.testState.editorInput, undefined);
-  assert.deepEqual(ctx.testState.notifications.at(-1), { message: "Cancelled", level: "info" });
-});
-
 test("/delegate defaults to pane mode when the model omits a mode", async () => {
   const spawnCalls: SpawnCall[] = [];
   const harness = createHarness({
@@ -464,10 +688,12 @@ test("/delegate defaults to pane mode when the model omits a mode", async () => 
 
   const ctx = await harness.run("finish the migration", createContext(), "delegate");
 
-  // Confirm was shown (we're spawning) and spawn happened in pane mode.
-  assert.equal(ctx.testState.confirmCalls.length, 1);
+  // No confirm, no select — nothing to verify (no targetRepo/targetDir).
+  assert.equal(ctx.testState.confirmCalls.length, 0);
+  assert.equal(ctx.testState.selectCalls.length, 0);
   assert.equal(spawnCalls.length, 1);
   assert.equal(spawnCalls[0].mode, "pane");
+  assert.equal(spawnCalls[0].targetDir, null);
 });
 
 test("handoff reports a parse error if the model returns unparseable output", async () => {
