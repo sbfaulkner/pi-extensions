@@ -32,7 +32,7 @@ on run argv
         set targetWin to missing value
         if winIdStr is not equal to "" then
             try
-                set targetWin to window id (winIdStr as integer)
+                set targetWin to window id winIdStr
             on error
                 set targetWin to missing value
             end try

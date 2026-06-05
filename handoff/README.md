@@ -62,7 +62,7 @@ So:
 
 ## What it does
 
-1. **Capture the current Ghostty window id** synchronously at command entry — so if you Cmd-Tab around or switch Ghostty windows while the LLM is thinking, a delegated pane/tab still lands in the window you invoked from. (Race fix vs. the old `delegate` skill.)
+1. **Capture Ghostty anchors synchronously at command entry** — the front window id *and* the focused terminal surface's stable id. A later pane spawn splits the **exact** surface you invoked from, regardless of where focus is when the spawn actually runs. Tab spawn targets the captured window. (Strict race fix vs. the old `delegate` skill, which captured nothing.)
 2. **Collect messages from the current branch**, preserving the most recent compaction summary, branch summaries, and extension custom messages.
 3. **Ask the current model to return a JSON intent** with `mode` (`in-process` / `pane` / `tab` / `window`), `direction` (for pane), `targetDir` (resolved repo nickname or path), and a self-contained `prompt`.
 4. **Confirm** the resolved directory and spawn target when delegating, so you can catch a wrong nickname guess.
@@ -88,4 +88,4 @@ The previous `delegate` skill had three weaknesses that this extension fixes:
 
 1. **Manual prompt authoring.** The skill asked the model to dump context into a markdown file from memory only ("do not research"). Handoff already had proper context synthesis from the session branch — same machinery now produces delegation prompts.
 2. **Same code path.** Delegation and handoff differed only in *where* the new session runs. One extension, one prompt-synthesis step, one editor review.
-3. **Race condition.** The old AppleScript captured `front window` at *execution time*, so switching Ghostty windows between invocation and execution dropped the new pane in the wrong place. The extension now captures the window id synchronously at command entry and passes `--window-id` to the AppleScript, with a `new window` fallback if the captured window is gone by spawn time.
+3. **Race condition.** The old AppleScript captured `front window` at *execution time*, so switching Ghostty windows between invocation and execution dropped the new pane in the wrong place. The extension now captures **stable ids for the focused terminal surface and its window** synchronously at command entry (Ghostty exposes both per its scripting dictionary) and passes `--terminal-id` / `--window-id` to the AppleScript. Pane spawns split the exact captured surface; tab spawns target the captured window. The resolution chain falls back through window-id → front window → new window if anchors are gone by spawn time.

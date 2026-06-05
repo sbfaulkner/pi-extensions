@@ -32,6 +32,9 @@ import { mkdtempSync, writeFileSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
+import { promisify } from "node:util";
+
+const execFileAsync = promisify(execFile);
 import type { AgentMessage } from "@mariozechner/pi-agent-core";
 import { complete, type AssistantMessage, type UserMessage } from "@mariozechner/pi-ai";
 import type { ExtensionAPI, SessionEntry } from "@mariozechner/pi-coding-agent";
@@ -236,11 +239,29 @@ type HandoffLoader = {
   onAbort?: () => void;
 };
 
+/** Anchors captured synchronously at command entry to defeat focus races. */
+export interface GhosttyAnchor {
+  /** Stable id of the front Ghostty window when /handoff was invoked. "" if none. */
+  windowId: string;
+  /** Stable id of the focused terminal surface within that window. "" if unavailable. */
+  terminalId: string;
+}
+
+/** Result of a delegated spawn attempt. */
+export interface SpawnResult {
+  /** True when osascript exited cleanly. */
+  ok: boolean;
+  /** Non-empty stderr from osascript (warnings or error text). */
+  stderr: string;
+  /** Error message if osascript failed to run or exited non-zero. */
+  error?: string;
+}
+
 export interface HandoffSpawnDeps {
-  /** Synchronously capture the current Ghostty window id (or "" if unavailable). */
-  captureWindowId?: () => string;
-  /** Spawn a delegated Ghostty pane/tab/window. */
-  spawnDelegated?: (args: SpawnDelegatedArgs) => void;
+  /** Synchronously capture Ghostty anchors (window + focused terminal) at command entry. */
+  captureAnchor?: () => GhosttyAnchor;
+  /** Spawn a delegated Ghostty pane/tab/window. Awaited so failures surface to the user. */
+  spawnDelegated?: (args: SpawnDelegatedArgs) => Promise<SpawnResult>;
   /** Write the task file to a temp location and return its absolute path. */
   writeTaskFile?: (prompt: string) => string;
 }
@@ -250,7 +271,7 @@ export interface SpawnDelegatedArgs {
   direction: SplitDirection | null;
   targetDir: string | null;
   taskFile: string;
-  windowId: string;
+  anchor: GhosttyAnchor;
   scriptDir: string;
 }
 
@@ -265,17 +286,18 @@ interface HandoffDependencies extends HandoffSpawnDeps {
 
 const DEFAULT_SCRIPT_DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), "scripts");
 
-function defaultCaptureWindowId(scriptDir: string): string {
-  if (process.platform !== "darwin") return "";
+function defaultCaptureAnchor(scriptDir: string): GhosttyAnchor {
+  if (process.platform !== "darwin") return { windowId: "", terminalId: "" };
   try {
-    const out = execFileSync("osascript", [path.join(scriptDir, "ghostty-current-window-id.applescript")], {
+    const out = execFileSync("osascript", [path.join(scriptDir, "ghostty-current-anchor.applescript")], {
       encoding: "utf8",
       timeout: 2000,
       stdio: ["ignore", "pipe", "ignore"],
     });
-    return out.trim();
+    const [windowId = "", terminalId = ""] = out.split(/\r?\n/).map((line) => line.trim());
+    return { windowId, terminalId };
   } catch {
-    return "";
+    return { windowId: "", terminalId: "" };
   }
 }
 
@@ -289,7 +311,7 @@ function defaultWriteTaskFile(prompt: string): string {
   return file;
 }
 
-function defaultSpawnDelegated(args: SpawnDelegatedArgs): void {
+async function defaultSpawnDelegated(args: SpawnDelegatedArgs): Promise<SpawnResult> {
   const cmd = `${path.join(args.scriptDir, "pi-delegate")} @${args.taskFile}`;
   const scriptName =
     args.mode === "pane"
@@ -304,18 +326,29 @@ function defaultSpawnDelegated(args: SpawnDelegatedArgs): void {
   }
   cliArgs.push("--cmd", cmd);
   if (args.targetDir) cliArgs.push("--dir", args.targetDir);
-  // Window mode is unambiguous — no window-id needed.
-  if (args.mode !== "window" && args.windowId) {
-    cliArgs.push("--window-id", args.windowId);
+
+  // Race-anchoring: strictest available signal per mode.
+  //   pane mode  → terminal id (split the exact surface) + window id fallback.
+  //   tab mode   → window id (which window gets the new tab).
+  //   window mode→ nothing; new windows are unambiguous.
+  if (args.mode === "pane" && args.anchor.terminalId) {
+    cliArgs.push("--terminal-id", args.anchor.terminalId);
+  }
+  if (args.mode !== "window" && args.anchor.windowId) {
+    cliArgs.push("--window-id", args.anchor.windowId);
   }
 
-  // Fire and forget. Errors surface to the user via Ghostty itself.
-  execFile("osascript", cliArgs, (err) => {
-    if (err) {
-      // Best-effort; nothing useful to do here. The handler has already
-      // returned by this point.
-    }
-  });
+  try {
+    const { stderr } = await execFileAsync("osascript", cliArgs, { timeout: 5000 });
+    return { ok: true, stderr: stderr.trim() };
+  } catch (err) {
+    const e = err as NodeJS.ErrnoException & { stderr?: string };
+    return {
+      ok: false,
+      stderr: (e.stderr ?? "").trim(),
+      error: e.message || String(err),
+    };
+  }
 }
 
 export function createHandoffExtension(pi: ExtensionAPI, deps: HandoffDependencies = {}) {
@@ -332,7 +365,7 @@ export function createHandoffExtension(pi: ExtensionAPI, deps: HandoffDependenci
       ));
   const now = deps.now ?? Date.now;
   const scriptDir = deps.scriptDir ?? DEFAULT_SCRIPT_DIR;
-  const captureWindowId = deps.captureWindowId ?? (() => defaultCaptureWindowId(scriptDir));
+  const captureAnchor = deps.captureAnchor ?? (() => defaultCaptureAnchor(scriptDir));
   const writeTaskFile = deps.writeTaskFile ?? defaultWriteTaskFile;
   const spawnDelegated = deps.spawnDelegated ?? defaultSpawnDelegated;
 
@@ -356,13 +389,14 @@ export function createHandoffExtension(pi: ExtensionAPI, deps: HandoffDependenci
         return;
       }
 
-      // RACE FIX: capture the current Ghostty window id synchronously, before
-      // we do any awaitable work. If the user switches focus to a different
-      // Ghostty window during the LLM call or the editor step, a later spawn
-      // can still anchor to this window. Cheap (~50ms osascript) and silent
-      // on failure (returns "" — spawn will fall back to front window /
-      // new window).
-      const capturedWindowId = captureWindowId();
+      // RACE FIX: capture stable Ghostty anchors (front window id + focused
+      // terminal id) synchronously, before any awaitable work. A later pane
+      // spawn can then split the exact terminal surface the user invoked from,
+      // regardless of where focus is when osascript actually runs. Tab spawn
+      // can still target the captured window. Cheap (~50ms osascript) and
+      // silent on failure (empty anchor — spawn falls back gracefully to
+      // front window / new window).
+      const capturedAnchor = captureAnchor();
 
       await ctx.waitForIdle();
 
@@ -504,21 +538,42 @@ export function createHandoffExtension(pi: ExtensionAPI, deps: HandoffDependenci
         return;
       }
 
-      // Delegated spawn into a new Ghostty pane/tab/window.
+      // Delegated spawn into a new Ghostty pane/tab/window. We await this so
+      // failures (osascript missing, Ghostty not running, scripting permission
+      // denied, etc.) surface honestly to the user instead of silently
+      // claiming success. The osascript call itself is fast (~100-300ms),
+      // invisible after the multi-second LLM call we just did.
       const taskFile = writeTaskFile(editedPrompt);
-      spawnDelegated({
+      const spawnResult = await spawnDelegated({
         mode: intent.mode,
         direction: intent.direction,
         targetDir: resolvedTargetDir,
         taskFile,
-        windowId: capturedWindowId,
+        anchor: capturedAnchor,
         scriptDir,
       });
 
       const where =
         intent.mode === "pane" ? `new pane (${intent.direction})` : intent.mode === "tab" ? "new tab" : "new window";
       const inDir = resolvedTargetDir ? ` in ${resolvedTargetDir}` : "";
-      ctx.ui.notify(`Delegated to ${where}${inDir}.`, "info");
+
+      if (!spawnResult.ok) {
+        const detail = spawnResult.stderr || spawnResult.error || "unknown error";
+        ctx.ui.notify(
+          `Delegation to ${where}${inDir} failed: ${truncateForNotification(detail, 600)}\nPrompt saved at: ${taskFile}`,
+          "error",
+        );
+        return;
+      }
+
+      if (spawnResult.stderr) {
+        ctx.ui.notify(
+          `Delegated to ${where}${inDir} (warnings: ${truncateForNotification(spawnResult.stderr, 400)}).`,
+          "warning",
+        );
+      } else {
+        ctx.ui.notify(`Delegated to ${where}${inDir}.`, "info");
+      }
     };
 
   pi.registerCommand("handoff", {

@@ -30,7 +30,7 @@ type SpawnCall = {
   direction: string | null;
   targetDir: string | null;
   taskFile: string;
-  windowId: string;
+  anchor: { windowId: string; terminalId: string };
   scriptDir: string;
 };
 type ConfirmCall = { title: string; message: string };
@@ -88,9 +88,9 @@ function createHarness(deps: Record<string, unknown> = {}) {
     serializeConversation: () => "serialized conversation",
     createLoader: () => ({ signal: new AbortController().signal }),
     now: () => 1234567890,
-    captureWindowId: () => "12345",
+    captureAnchor: () => ({ windowId: "12345", terminalId: "t-abc" }),
     writeTaskFile: (prompt: string) => `/tmp/pi-handoff-test/${Buffer.byteLength(prompt)}.md`,
-    spawnDelegated: () => {},
+    spawnDelegated: async () => ({ ok: true, stderr: "" }),
     scriptDir: "/fake/scripts",
     ...(deps as Partial<HandoffDeps>),
   });
@@ -341,12 +341,13 @@ test("handoff delegates to a new pane when the model selects pane mode, after us
         },
       ],
     }),
-    captureWindowId: () => {
+    captureAnchor: () => {
       captured.push("captured");
-      return "9999";
+      return { windowId: "9999", terminalId: "t-xyz" };
     },
-    spawnDelegated: (args: SpawnCall) => {
+    spawnDelegated: async (args: SpawnCall) => {
       spawnCalls.push(args);
+      return { ok: true, stderr: "" };
     },
     writeTaskFile: (prompt: string) => `/tmp/task-${prompt.length}.md`,
     scriptDir: "/fake/scripts",
@@ -354,7 +355,7 @@ test("handoff delegates to a new pane when the model selects pane mode, after us
 
   const ctx = await harness.run("in edgey, finish the migration");
 
-  // Window id captured exactly once, synchronously at command entry (before LLM call).
+  // Anchor captured exactly once, synchronously at command entry (before LLM call).
   assert.deepEqual(captured, ["captured"]);
 
   // User confirmation was shown with the resolved path.
@@ -371,7 +372,7 @@ test("handoff delegates to a new pane when the model selects pane mode, after us
   assert.equal(spawn.mode, "pane");
   assert.equal(spawn.direction, "right");
   assert.match(spawn.targetDir ?? "", /\/src\/github\.com\/Shopify\/edgey$/);
-  assert.equal(spawn.windowId, "9999");
+  assert.deepEqual(spawn.anchor, { windowId: "9999", terminalId: "t-xyz" });
   assert.equal(spawn.scriptDir, "/fake/scripts");
   assert.match(spawn.taskFile, /^\/tmp\/task-\d+\.md$/);
 
@@ -381,6 +382,51 @@ test("handoff delegates to a new pane when the model selects pane mode, after us
   assert.match(ctx.testState.notifications.at(-1)?.message ?? "", /Delegated to new pane \(right\)/);
 });
 
+test("handoff surfaces spawn failure with the saved task file path", async () => {
+  const harness = createHarness({
+    complete: async () => ({
+      stopReason: "end_turn",
+      content: [
+        { type: "text", text: jsonIntent({ mode: "pane", direction: "right", targetDir: null, prompt: "go" }) },
+      ],
+    }),
+    spawnDelegated: async () => ({
+      ok: false,
+      stderr: "Ghostty got an error: not authorised",
+      error: "Command failed: osascript",
+    }),
+    writeTaskFile: () => "/tmp/task-failed.md",
+  });
+
+  const ctx = await harness.run("in a new pane, go");
+
+  const last = ctx.testState.notifications.at(-1);
+  assert.ok(last);
+  assert.equal(last.level, "error");
+  assert.match(last.message, /Delegation to new pane \(right\) failed/);
+  assert.match(last.message, /not authorised/);
+  // Task file path is included so the user can recover the prompt.
+  assert.match(last.message, /\/tmp\/task-failed\.md/);
+});
+
+test("handoff downgrades success-with-stderr to a warning", async () => {
+  const harness = createHarness({
+    complete: async () => ({
+      stopReason: "end_turn",
+      content: [{ type: "text", text: jsonIntent({ mode: "tab", direction: null, targetDir: null, prompt: "go" }) }],
+    }),
+    spawnDelegated: async () => ({ ok: true, stderr: "some non-fatal diagnostic" }),
+  });
+
+  const ctx = await harness.run("in a new tab, go");
+
+  const last = ctx.testState.notifications.at(-1);
+  assert.ok(last);
+  assert.equal(last.level, "warning");
+  assert.match(last.message, /Delegated to new tab/);
+  assert.match(last.message, /some non-fatal diagnostic/);
+});
+
 test("handoff cancels delegation when user declines confirm", async () => {
   const spawnCalls: SpawnCall[] = [];
   const harness = createHarness({
@@ -388,8 +434,9 @@ test("handoff cancels delegation when user declines confirm", async () => {
       stopReason: "end_turn",
       content: [{ type: "text", text: jsonIntent({ mode: "tab", direction: null, targetDir: "~/x", prompt: "go" }) }],
     }),
-    spawnDelegated: (args: SpawnCall) => {
+    spawnDelegated: async (args: SpawnCall) => {
       spawnCalls.push(args);
+      return { ok: true, stderr: "" };
     },
   });
 
@@ -409,8 +456,9 @@ test("/delegate defaults to pane mode when the model omits a mode", async () => 
       // Model returns an unknown mode — parser should fall back to the command's default (pane for /delegate).
       content: [{ type: "text", text: '{"mode":"wat","direction":"right","targetDir":null,"prompt":"go"}' }],
     }),
-    spawnDelegated: (args: SpawnCall) => {
+    spawnDelegated: async (args: SpawnCall) => {
       spawnCalls.push(args);
+      return { ok: true, stderr: "" };
     },
   });
 
