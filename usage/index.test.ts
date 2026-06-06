@@ -14,6 +14,12 @@ type GhFixtureOptions =
       netAmount?: number;
     }
   | {
+      mode: "ai-credits-ai-units";
+      credits: number;
+      grossAmount?: number;
+      netAmount?: number;
+    }
+  | {
       mode: "empty-ai-credits";
     }
   | {
@@ -77,6 +83,20 @@ if (endpoint.startsWith("/users/octocat/settings/billing/usage/summary")) {
         product: "Copilot",
         sku: "Copilot AI Credits",
         unitType: "credits",
+        grossQuantity: options.credits,
+        grossAmount: options.grossAmount,
+        netAmount: options.netAmount,
+      }],
+    }));
+    process.exit(0);
+  }
+
+  if (options.mode === "ai-credits-ai-units") {
+    console.log(JSON.stringify({
+      usageItems: [{
+        product: "Copilot",
+        sku: "copilot_ai_unit",
+        unitType: "ai-units",
         grossQuantity: options.credits,
         grossAmount: options.grossAmount,
         netAmount: options.netAmount,
@@ -270,6 +290,23 @@ test("turn_end ignores unsupported providers", async () => {
     }
 
     assert.equal(statuses.has("provider-usage"), false);
+  } finally {
+    harness.restoreEnv();
+  }
+});
+
+test("recognizes ai-units/copilot_ai_unit skus as AI credits", async () => {
+  const fixture = await createGhFixture({ mode: "ai-credits-ai-units", credits: 16.398825, grossAmount: 0.16398825 });
+  const harness = await setupExtension(fixture.binDir);
+
+  try {
+    const { ctx, statuses } = createContext("github-copilot");
+
+    for (const handler of harness.handlers.get("session_start") ?? []) {
+      await handler({}, ctx);
+    }
+
+    assert.equal(statuses.get("provider-usage"), "<dim>16.4 · $0.16 (github-copilot)</dim>");
   } finally {
     harness.restoreEnv();
   }
