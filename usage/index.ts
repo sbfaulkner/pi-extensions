@@ -102,7 +102,17 @@ function isAiCreditItem(item: BillingUsageItem) {
   }
 
   const text = itemSearchText(item);
-  return text.includes("ai credit") || text.includes("aic") || text.includes("credit");
+  return (
+    text.includes("ai credit") ||
+    text.includes("aic") ||
+    text.includes("credit") ||
+    // New SKU/unit names observed in responses
+    text.includes("ai-unit") ||
+    text.includes("ai-units") ||
+    text.includes("ai_unit") ||
+    text.includes("copilot_ai_unit") ||
+    text.includes("ai units")
+  );
 }
 
 function isPremiumRequestItem(item: BillingUsageItem) {
