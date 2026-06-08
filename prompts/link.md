@@ -1,8 +1,8 @@
 ---
-description: Create Graphite-style Slack-pastable PR link(s)
+description: Create Slack-pastable links; currently supports GitHub PRs
 argument-hint: "[PR number/URL/branch ...]"
 ---
-Create Graphite-style, Slack-pastable PR link line(s).
+Create Slack-pastable link line(s). Currently, this template supports GitHub PRs and formats them in Graphite's pasteable-stack style.
 
 Arguments provided to this template: $ARGUMENTS
 
@@ -19,4 +19,4 @@ For each PR:
    👀 [#<number> <title>](<graphite-url>) `+<additions>/-<deletions>`
    ```
 
-If multiple PRs were requested, output one line per PR. If a PR URL cannot be converted to a Graphite URL, use the original PR URL in the same format.
+If multiple PRs were requested, output one line per PR. If a PR URL cannot be converted to a Graphite URL, use the original PR URL in the same format. If a provided ref cannot be resolved as a PR, briefly say that `/link` currently supports GitHub PRs only.

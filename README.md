@@ -32,7 +32,7 @@ Personal extensions, skills, and prompt templates for the [Pi coding agent](http
 
 | Template | Description |
 |----------|-------------|
-| [`/pr-link`](./prompts/pr-link.md) | Create Graphite-style Slack-pastable PR link line(s) from the current branch's PR or provided PR number, URL, or branch. |
+| [`/link`](./prompts/link.md) | Create Slack-pastable links. Currently supports Graphite-style GitHub PR links from the current branch's PR or provided PR number, URL, or branch. |
 
 ## Git workflow configuration
 

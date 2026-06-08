@@ -2,7 +2,7 @@
 
 ## 2.11.0
 
-- Add `/pr-link` prompt template to create Graphite-style Slack-pastable PR link line(s), using the current branch PR or provided PR number, URL, or branch
+- Add `/link` prompt template to create Slack-pastable links, starting with Graphite-style GitHub PR link line(s) from the current branch PR or provided PR number, URL, or branch
 
 ## 2.10.0
 
