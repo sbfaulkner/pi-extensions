@@ -1,6 +1,6 @@
 # pi-extensions
 
-Personal extensions for the [Pi coding agent](https://buildwithpi.com).
+Personal extensions, skills, and prompt templates for the [Pi coding agent](https://buildwithpi.com).
 
 ## Extensions
 
@@ -27,6 +27,12 @@ Personal extensions for the [Pi coding agent](https://buildwithpi.com).
 | [git-workflow](./skills/git-workflow/) | Local git workflow guidance for repositories with no remote configured (no `gh`/PR commands). |
 | [github-workflow](./skills/github-workflow/) | GitHub PR workflow guidance (branching, commits, `gh` CLI, PR creation). |
 | [gws-docs-markdown](./skills/gws-docs-markdown/) | Create and update Google Docs from markdown content. |
+
+## Prompt Templates
+
+| Template | Description |
+|----------|-------------|
+| [`/link`](./prompts/link.md) | Create Slack-pastable links. Currently supports Graphite-style GitHub PR links from the current branch's PR or provided PR number, URL, or branch. |
 
 ## Git workflow configuration
 

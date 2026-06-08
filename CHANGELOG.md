@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.11.0
+
+- Add `/link` prompt template to create Slack-pastable links, starting with Graphite-style GitHub PR link line(s) from the current branch PR or provided PR number, URL, or branch
+
 ## 2.10.0
 
 - New `freshness` extension: at pi startup, checks user-managed extension/skill repos for upstream commits and announces any that are behind
