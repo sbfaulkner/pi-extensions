@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.12.0
+
+- Rename `interview` extension to `answer`, matching the existing `/answer` command and package path
+
 ## 2.11.0
 
 - Add `/link` prompt template to create Slack-pastable links, starting with Graphite-style GitHub PR link line(s) from the current branch PR or provided PR number, URL, or branch

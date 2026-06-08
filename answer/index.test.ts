@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import interviewExtension, { findLastAssistantText, parseExtractionResult } from "./index.ts";
+import answerExtension, { findLastAssistantText, parseExtractionResult } from "./index.ts";
 
 type Notification = { message: string; level: string };
 type Command = { name: string; handler: (args: string, ctx: unknown) => Promise<void> };
@@ -30,7 +30,7 @@ function createHarness() {
     },
   };
 
-  interviewExtension(pi as Parameters<typeof interviewExtension>[0]);
+  answerExtension(pi as Parameters<typeof answerExtension>[0]);
   assert.ok(command, "answer command should be registered");
   assert.equal(command.name, "answer");
   const registeredCommand = command;

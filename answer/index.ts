@@ -1,5 +1,5 @@
 /**
- * Interview Extension — extract questions from assistant messages and answer them in a form.
+ * Answer Extension — extract questions from assistant messages and answer them in a form.
  *
  * Uses `/answer` command to:
  * 1. Find the last assistant message
