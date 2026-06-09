@@ -2,7 +2,7 @@
 description: Create Slack-pastable links; currently supports GitHub PRs
 argument-hint: "[PR number/URL/branch ...]"
 ---
-Create Slack-pastable link line(s). Currently, this template supports GitHub PRs and formats them with a Graphite review URL.
+Create Slack-pastable link line(s). Currently, this template supports GitHub PRs.
 
 Arguments provided to this template: $ARGUMENTS
 
@@ -11,12 +11,10 @@ Use the current branch's PR when no argument is provided. When one or more PR re
 For each PR:
 
 1. Fetch metadata non-interactively with `gh pr view` and explicit JSON fields: `number,title,url,additions,deletions`.
-2. Convert GitHub PR URLs of the form `https://github.com/<owner>/<repo>/pull/<number>` into the Graphite URL:
-   `https://app.graphite.com/github/pr/<owner>/<repo>/<number>`
-3. Output exactly this format, with no code fence or surrounding commentary in your final answer:
+2. Output exactly this format, with no code fence or surrounding commentary in your final answer:
 
    ```text
-   👀 [#<number> <title>](<graphite-url>) `+<additions>/-<deletions>`
+   👀 [#<number> <title>](<url>) `+<additions>/-<deletions>`
    ```
 
 If multiple PRs were requested, output one line per PR. If a PR cannot be resolved, briefly say that `/link` currently supports GitHub PRs only.
@@ -25,13 +23,13 @@ If multiple PRs were requested, output one line per PR. If a PR cannot be resolv
 
    For each PR, build two representations:
 
-   - **Plain text** (same format as step 3):
+   - **Plain text** (same format as step 2):
      ```
-     👀 [#<number> <title>](<graphite-url>) `+<additions>/-<deletions>`
+     👀 [#<number> <title>](<url>) `+<additions>/-<deletions>`
      ```
    - **HTML**:
      ```html
-     <meta charset="utf-8">👀 <a href="<graphite-url>">#<number> <title></a> <code>+<additions>/-<deletions></code>
+     <meta charset="utf-8">👀 <a href="<url>">#<number> <title></a> <code>+<additions>/-<deletions></code>
      ```
 
    For multiple PRs, join with newlines in plain text and `<br>` in HTML.
