@@ -21,4 +21,26 @@ For each PR:
 
 If multiple PRs were requested, output one line per PR. If a PR cannot be resolved, briefly say that `/link` currently supports GitHub PRs only.
 
-4. After producing the formatted line(s), copy the exact output text to the system clipboard by piping it to `pbcopy`. Do this silently — do not mention the clipboard step in your answer, just confirm the link is copied.
+4. After producing the formatted line(s), copy them to the system clipboard with **both rich (HTML) and plain-text formats** so that pasting into Slack or Google Docs produces clickable links. Do this silently — do not mention the clipboard step in your answer, just confirm the link is copied.
+
+   For each PR, build two representations:
+
+   - **Plain text** (same format as step 3):
+     ```
+     👀 [#<number> <title>](<graphite-url>) `+<additions>/-<deletions>`
+     ```
+   - **HTML**:
+     ```html
+     <meta charset="utf-8">👀 <a href="<graphite-url>">#<number> <title></a> <code>+<additions>/-<deletions></code>
+     ```
+
+   For multiple PRs, join with newlines in plain text and `<br>` in HTML.
+
+   Then set the clipboard using `osascript`:
+
+   ```bash
+   hex=$(printf '%s' "$html" | xxd -p | tr -d '\n')
+   osascript -e "set the clipboard to {string:\"${plain}\", «class HTML»:«data HTML${hex}»}"
+   ```
+
+   Be careful to escape any double quotes inside `$plain` (replace `"` with `\"`) before interpolating into the `osascript` command.
