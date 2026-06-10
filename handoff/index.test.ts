@@ -423,14 +423,13 @@ test("handoff generates a prompt, opens the editor, and stages the edited prompt
   assert.equal(ctx.testState.waitedForIdle, true);
   assert.equal(completeCalls.length, 1);
   assert.equal(completeCalls[0].options.apiKey, "test-key");
-  assert.equal(ctx.testState.editorInput.title, "Edit handoff prompt");
-  assert.equal(ctx.testState.editorInput.text, "generated prompt");
-  // No confirm for in-process mode.
+  // In-process mode skips the editor dialog and stages directly in the new session.
+  assert.equal(ctx.testState.editorInput, undefined);
   assert.equal(ctx.testState.confirmCalls.length, 0);
   assert.equal(ctx.testState.newSessionOptions.parentSession, "/tmp/session.json");
-  assert.equal(ctx.testState.stagedPrompt, "edited prompt");
+  assert.equal(ctx.testState.stagedPrompt, "generated prompt");
   assert.deepEqual(ctx.testState.notifications.at(-1), {
-    message: "Handoff ready. Submit when ready.",
+    message: "Handoff ready \u2014 review the prompt and submit when ready.",
     level: "info",
   });
 });

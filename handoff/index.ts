@@ -597,7 +597,26 @@ export function createHandoffExtension(pi: ExtensionAPI, deps: HandoffDependenci
         }
       }
 
-      // Let the user review/edit the generated prompt before starting / spawning.
+      if (intent.mode === "in-process") {
+        // In-process: skip the editor dialog and stage the prompt directly in
+        // the new session's input editor. The user can review/edit there before
+        // submitting — one Enter instead of two.
+        const newSessionResult = await ctx.newSession({
+          parentSession: currentSessionFile,
+          withSession: async (replacementCtx) => {
+            replacementCtx.ui.setEditorText(intent.prompt);
+            replacementCtx.ui.notify("Handoff ready — review the prompt and submit when ready.", "info");
+          },
+        });
+
+        if (newSessionResult.cancelled) {
+          ctx.ui.notify("New session cancelled", "info");
+        }
+        return;
+      }
+
+      // Delegated modes need the final prompt text for the task file, so let
+      // the user review/edit via the editor dialog before spawning.
       const editedPrompt = await ctx.ui.editor("Edit handoff prompt", intent.prompt);
       if (editedPrompt === undefined) {
         ctx.ui.notify("Cancelled", "info");
@@ -606,22 +625,6 @@ export function createHandoffExtension(pi: ExtensionAPI, deps: HandoffDependenci
 
       if (!editedPrompt.trim()) {
         ctx.ui.notify("Handoff prompt was empty", "error");
-        return;
-      }
-
-      if (intent.mode === "in-process") {
-        // Existing behavior: replace the current session, stage the prompt.
-        const newSessionResult = await ctx.newSession({
-          parentSession: currentSessionFile,
-          withSession: async (replacementCtx) => {
-            replacementCtx.ui.setEditorText(editedPrompt);
-            replacementCtx.ui.notify("Handoff ready. Submit when ready.", "info");
-          },
-        });
-
-        if (newSessionResult.cancelled) {
-          ctx.ui.notify("New session cancelled", "info");
-        }
         return;
       }
 
