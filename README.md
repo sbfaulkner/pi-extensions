@@ -1,6 +1,6 @@
 # pi-extensions
 
-Personal extensions, skills, and prompt templates for the [Pi coding agent](https://buildwithpi.com).
+Personal extensions and skills for the [Pi coding agent](https://buildwithpi.com).
 
 ## Extensions
 
@@ -10,6 +10,7 @@ Personal extensions, skills, and prompt templates for the [Pi coding agent](http
 | [freshness](./freshness/) | At pi startup, check user-managed extension/skill repos (anything loaded from outside `~/.pi/`) for upstream commits via `git ls-remote`. Inserts one transcript block listing repos behind upstream; silent otherwise. No commands, no cache, no nag — pulling clears it. |
 | [git-workflow](./git-workflow/) | Auto-detect git workflow (local git, non-GitHub remotes, standard GitHub PRs, or Graphite) and inject context hints. `/workflow` command to manage configured Graphite orgs. |
 | [handoff](./handoff/) | Transfer context into a new focused session. Registers two commands sharing one handler: `/handoff <goal>` defaults to replacing the current session in-place; `/delegate <goal>` defaults to spawning a parallel Ghostty pane (current session continues). Both accept natural-language overrides for mode (pane/tab/window) and target repo via the `~/src/github.com/<org>/<repo>` convention. Subsumes the old delegate skill. |
+| [link](./link/) | Create Slack-pastable GitHub PR links with `/link [PR number/URL/branch ...]`. Resolves PR metadata with `gh`, emits exact markdown link line(s), and copies both rich HTML and plain text to the clipboard. |
 | [nodoz](./nodoz/) | Keep macOS awake while Pi is actively working. Uses lifecycle-scoped `caffeinate` in interactive TTY sessions only. |
 | [secrets](./secrets/) | Load environment variables from ejson secret files into all bash commands. `/secrets` command + `load_secrets` tool. |
 | [system-theme](./system-theme/) | Sync pi's theme with macOS/Linux system appearance (dark/light mode). `/system-theme` command to configure. |
@@ -30,9 +31,7 @@ Personal extensions, skills, and prompt templates for the [Pi coding agent](http
 
 ## Prompt Templates
 
-| Template | Description |
-|----------|-------------|
-| [`/link`](./prompts/link.md) | Create Slack-pastable links. Currently supports Graphite-style GitHub PR links from the current branch's PR or provided PR number, URL, or branch. |
+This package currently does not ship prompt templates. Deterministic workflows like `/link` live in extensions so they can be tested and run without an agent turn.
 
 ## Git workflow configuration
 

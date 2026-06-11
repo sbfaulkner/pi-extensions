@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.13.0
+
+- Replace the brittle `/link` prompt template with a first-class `link` extension command
+  - Resolves GitHub PR metadata via `gh pr view --json number,title,url,additions,deletions`
+  - Emits exact Slack-pastable markdown link line(s) in the transcript
+  - Copies both plain text and rich HTML to the clipboard from TypeScript, with tested HTML escaping and AppleScript argument handling
+  - Supports `LINK_SKIP_CLIPBOARD=1` for tests and dry runs
+
 ## 2.12.0
 
 - Rename `interview` extension to `answer`, matching the existing `/answer` command and package path
