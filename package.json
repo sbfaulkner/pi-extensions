@@ -1,6 +1,6 @@
 {
   "name": "pi-extensions",
-  "version": "2.12.0",
+  "version": "2.13.0",
   "license": "MIT",
   "private": true,
   "type": "module",
@@ -26,15 +26,13 @@
       "./freshness/index.ts",
       "./git-workflow/index.ts",
       "./handoff/index.ts",
+      "./link/index.ts",
       "./nodoz/index.ts",
       "./secrets/index.ts",
       "./system-theme/index.ts",
       "./usage/index.ts",
       "./vim/index.ts",
       "./web-search/index.ts"
-    ],
-    "prompts": [
-      "./prompts"
     ],
     "skills": [
       "./skills"
