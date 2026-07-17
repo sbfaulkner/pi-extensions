@@ -10,7 +10,7 @@ gt checkout <branch>
 gt create --all --message "feat: describe change" --no-interactive
 gt modify --all --no-interactive
 gt modify --commit --all --message "fix: describe follow-up" --no-interactive
-gt submit --stack --no-edit --no-interactive
+gt submit --stack --draft --no-edit --no-interactive
 gt submit --update-only --no-edit --no-interactive
 gt sync --no-interactive
 gt restack --no-interactive
@@ -88,11 +88,11 @@ Notes:
 ## Submitting PRs
 
 ```bash
-# Submit current branch and ancestors
-gt submit --no-edit --no-interactive
+# Submit current branch and ancestors; create any new PRs as drafts
+gt submit --draft --no-edit --no-interactive
 
-# Submit current branch, ancestors, and descendants
-gt submit --stack --no-edit --no-interactive
+# Submit current branch, ancestors, and descendants; create any new PRs as drafts
+gt submit --stack --draft --no-edit --no-interactive
 
 # Update existing PRs only
 gt submit --update-only --no-edit --no-interactive
@@ -101,7 +101,8 @@ gt submit --update-only --no-edit --no-interactive
 Notes:
 
 - `--no-edit` avoids PR title/body prompts.
-- Use `--draft` or `--publish` only when requested.
+- Use `--draft` whenever a submit may create PRs. It affects new PRs without downgrading existing ready PRs.
+- Use `--publish` only when the user explicitly asks to publish/request review or repo docs require it. Passing checks alone is not permission to publish.
 - Avoid `--web`, `--edit`, and `--confirm` unless the user wants an interactive flow.
 
 ## Syncing and restacking

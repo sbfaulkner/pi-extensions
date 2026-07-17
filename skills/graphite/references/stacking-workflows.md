@@ -24,9 +24,14 @@ gt create --all --message "feat: first focused change" --no-interactive
 # edit files...
 gt create --all --message "feat: dependent focused change" --no-interactive
 
-# Open/update PRs for the whole stack
-gt submit --stack --no-edit --no-interactive
+# Open/update PRs for the whole stack; create any new PRs as drafts
+gt submit --stack --draft --no-edit --no-interactive
 ```
+
+`--draft` affects newly created PRs without downgrading existing ready PRs. Keep new PRs in draft until the user explicitly
+asks to publish/request review or repo docs require it. Passing checks alone is not permission to publish. When explicitly
+requested, publish the intended submitted PRs with `gt submit --publish --no-edit --no-interactive` (add `--stack` only
+when the whole stack should be published).
 
 ## Add another PR on top of the current stack
 
@@ -37,7 +42,7 @@ gt checkout <top-branch>
 
 # edit files...
 gt create --all --message "feat: next focused change" --no-interactive
-gt submit --stack --no-edit --no-interactive
+gt submit --stack --draft --no-edit --no-interactive
 ```
 
 ## Address review feedback on one branch
@@ -46,7 +51,7 @@ gt submit --stack --no-edit --no-interactive
 gt checkout <branch-needing-feedback>
 # edit files...
 gt modify --all --no-interactive
-gt submit --stack --no-edit --no-interactive
+gt submit --stack --draft --no-edit --no-interactive
 ```
 
 Graphite automatically restacks descendants after `gt modify`.
@@ -65,7 +70,7 @@ If there is a single obvious child:
 gt checkout <parent-branch>
 # edit files...
 gt create --insert --all --message "feat: inserted change" --no-interactive
-gt submit --stack --no-edit --no-interactive
+gt submit --stack --draft --no-edit --no-interactive
 ```
 
 If Graphite prompts because multiple children exist, stop and ask which child should move onto the new branch.
@@ -78,7 +83,7 @@ gt checkout <parent-branch>
 gt create --all --message "feat: inserted change" --no-interactive
 gt checkout <child-branch>
 gt move --onto <new-branch> --no-interactive
-gt submit --stack --no-edit --no-interactive
+gt submit --stack --draft --no-edit --no-interactive
 ```
 
 ## Sync with trunk
@@ -115,7 +120,7 @@ Conflicts may cascade up the stack. Resolve each branch in the order Graphite re
 # Stage only changes that should be absorbed
 git add <files>
 gt absorb --no-interactive
-gt submit --stack --no-edit --no-interactive
+gt submit --stack --draft --no-edit --no-interactive
 ```
 
 Use this when fixes belong to existing commits/branches in the stack rather than a new branch.
@@ -125,7 +130,7 @@ Use this when fixes belong to existing commits/branches in the stack rather than
 ```bash
 gt checkout <branch-to-move>
 gt move --onto <new-parent-branch> --no-interactive
-gt submit --stack --no-edit --no-interactive
+gt submit --stack --draft --no-edit --no-interactive
 ```
 
 Avoid bare `gt move`; it asks for interactive parent selection.
@@ -135,7 +140,7 @@ Avoid bare `gt move`; it asks for interactive parent selection.
 ```bash
 gt checkout <branch-to-fold>
 gt fold --no-interactive
-gt submit --stack --no-edit --no-interactive
+gt submit --stack --draft --no-edit --no-interactive
 ```
 
 This removes the folded branch and puts its changes into the parent.
@@ -159,7 +164,7 @@ gt log short
 gt checkout <branch-to-edit>
 # edit files...
 gt modify --all --no-interactive
-gt submit --stack --no-edit --no-interactive
+gt submit --stack --draft --no-edit --no-interactive
 ```
 
 Coordinate before changing shared branches.

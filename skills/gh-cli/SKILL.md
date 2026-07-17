@@ -11,7 +11,7 @@ Using `--body "..."` with interpolated or multi-line content is fragile and dang
 
 ```bash
 # ❌ BAD — breaks on quotes, backticks, $variables, newlines
-gh pr create --title "feat: thing" --body "$(generate_description)"
+gh pr create --draft --title "feat: thing" --body "$(generate_description)"
 gh pr edit 123 --body "## Summary\nThis uses $PATH and `code`"
 gh pr comment 123 --body "The user said \"hello\" and $vars expand"
 ```
@@ -46,7 +46,7 @@ Content with $variables, `backticks`, and "quotes" that won't break.
 - So does ```code fencing```
 EOF
 
-gh pr create --title "feat: add widget" --body-file "$body_file"
+gh pr create --draft --title "feat: add widget" --body-file "$body_file"
 rm -f "$body_file"
 ```
 
@@ -80,7 +80,9 @@ gh pr comment 123 --body "LGTM, merging."
 - **Quote the heredoc delimiter** (`<<'EOF'`) to prevent shell expansion inside the body
 - **Use `printf '%s'`** not `echo` when writing variables (avoids backslash interpretation)
 - **Clean up temp files** if creating them in shared locations
-- For `gh pr create`, prefer `--fill` when the commit messages already describe the change well
+- For `gh pr create`, add `--draft` by default so creating the PR does not prematurely request review
+- Prefer `--fill` when the commit messages already describe the change well
+- Use `gh pr ready <number>` only when the user explicitly asks to publish/request review or repo docs require it
 
 ## Quick Reference
 
