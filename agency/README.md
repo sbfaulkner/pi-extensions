@@ -100,7 +100,7 @@ Goals / roadmap (what we're aiming for)
 
 Contributing
 
-- This repo uses a standard GitHub PR workflow. Please branch off main (or the active feature branch), make small focused changes, and open a PR. Commit messages should be clear and use conventional prefixes (feat:, fix:, docs:, chore:).
+- This repo uses a standard GitHub PR workflow. Please branch off main (or the active feature branch), make small focused changes, and open a draft PR. Keep it in draft until explicitly asked to request review. Commit messages should be clear and use conventional prefixes (feat:, fix:, docs:, chore:).
 
 Decisions (current)
 

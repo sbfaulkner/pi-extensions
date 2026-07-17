@@ -9,6 +9,8 @@ description: Standard GitHub PR workflow reference. Use when a remote exists and
 
 - **Never commit directly to `main`** — always use feature branches and PRs
 - **Small, focused PRs** — easier to review, faster to merge
+- **Draft first** — create new PRs as drafts so early iterations do not request review
+- **Explicit readiness** — do not mark a draft ready unless the user explicitly asks or repo docs require it
 - **Clear commit messages** — describe what and why, not how
 
 ## Workflow
@@ -34,8 +36,8 @@ Use the GitHub CLI safely (see the gh-cli skill). Examples:
 
 ```bash
 git push -u origin feature-name
-# Create a PR using the commits as the description
-gh pr create --fill --head feature-name --base main
+# Create a draft PR using the commits as the description
+gh pr create --draft --fill --head feature-name --base main
 
 # Or supply an explicit title/body file
 body_file="$(mktemp)"
@@ -44,9 +46,23 @@ Summary of changes...
 
 More details.
 EOF
-gh pr create --title "feat: ..." --body-file "$body_file" --head feature-name --base main
+gh pr create --draft --title "feat: ..." --body-file "$body_file" --head feature-name --base main
 rm -f "$body_file"
 ```
+
+Creating a PR as a draft does not prevent pushing follow-up commits. Keep it in draft while the implementation or PR
+metadata is still being refined.
+
+### Publish for review
+
+Only when the user explicitly asks to publish, request review, or mark the PR ready (or repo docs require it), run:
+
+```bash
+gh pr ready <number>
+```
+
+Passing tests alone is not permission to mark a PR ready. Do not downgrade an existing ready PR to draft unless the user
+asks.
 
 ### Update from main
 
@@ -85,7 +101,8 @@ Use [Conventional Commits](https://www.conventionalcommits.org/) format:
 
 | Command | Description |
 |---------|-------------|
-| `gh pr create` | Create a pull request |
+| `gh pr create --draft` | Create a draft pull request |
+| `gh pr ready <number>` | Mark a draft ready when explicitly requested |
 | `gh pr view` | View PR details |
 | `gh pr checks` | Check CI status |
 | `gh pr merge` | Merge a PR |

@@ -28,8 +28,8 @@ gt create --all --message "feat: describe change" --no-interactive
 gt modify --all --no-interactive
 gt modify --commit --all --message "fix: describe follow-up" --no-interactive
 
-# Submit without opening PR metadata editors
-gt submit --stack --no-edit --no-interactive
+# Submit without opening PR metadata editors; any new PRs start as drafts
+gt submit --stack --draft --no-edit --no-interactive
 gt submit --update-only --no-edit --no-interactive
 
 # Sync/restack without prompting
@@ -40,7 +40,7 @@ gt restack --no-interactive
 Avoid or ask before running:
 
 - Bare `gt checkout` — opens a branch picker. Use `gt checkout <branch>`.
-- Bare `gt submit` / `gt submit --stack` — may open PR metadata prompts. Add `--no-edit --no-interactive`.
+- Bare `gt submit` / `gt submit --stack` — may open PR metadata prompts and create ready PRs. Add `--draft --no-edit --no-interactive` whenever the submit may create PRs.
 - `gt split`, `gt reorder`, bare `gt move`, `gt config`, `gt create --patch`, `gt modify --patch` — require human choices.
 - Any command with `--web`, `--edit`, `--confirm`, or `--interactive`.
 
@@ -55,8 +55,8 @@ Plain `git` is still appropriate for status, diffs, staging specific files, and 
 | Create stacked branch from current branch | `gt create --all --message "msg" --no-interactive` |
 | Amend current branch with all changes | `gt modify --all --no-interactive` |
 | Add a new commit on current branch | `gt modify --commit --all --message "msg" --no-interactive` |
-| Submit current branch + ancestors | `gt submit --no-edit --no-interactive` |
-| Submit whole stack | `gt submit --stack --no-edit --no-interactive` |
+| Submit current branch + ancestors | `gt submit --draft --no-edit --no-interactive` |
+| Submit whole stack | `gt submit --stack --draft --no-edit --no-interactive` |
 | Update only existing PRs | `gt submit --update-only --no-edit --no-interactive` |
 | Sync with trunk and cleanup | `gt sync --no-interactive` |
 | Restack without fetching trunk | `gt restack --no-interactive` |
@@ -76,8 +76,13 @@ gt create --all --message "feat: first focused change" --no-interactive
 # make dependent changes...
 gt create --all --message "feat: dependent focused change" --no-interactive
 
-gt submit --stack --no-edit --no-interactive
+gt submit --stack --draft --no-edit --no-interactive
 ```
+
+`--draft` affects newly created PRs without downgrading existing ready PRs. Keep new PRs in draft until the user explicitly
+asks to publish/request review or repo docs require it. Passing checks alone is not permission to publish. When explicitly
+requested, publish the intended submitted PRs with `gt submit --publish --no-edit --no-interactive` (add `--stack` only
+when the whole stack should be published).
 
 ### Address review feedback
 
@@ -85,7 +90,7 @@ gt submit --stack --no-edit --no-interactive
 gt checkout <branch-needing-changes>
 # edit files...
 gt modify --all --no-interactive
-gt submit --stack --no-edit --no-interactive
+gt submit --stack --draft --no-edit --no-interactive
 ```
 
 If you only want to update PRs that already exist:

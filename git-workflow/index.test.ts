@@ -83,6 +83,25 @@ test("getRemoteOrg extracts GitHub orgs and ignores non-GitHub remotes", async (
   }
 });
 
+test("remote workflow contexts default new PRs to drafts and require explicit readiness", async () => {
+  const originalAgentDir = process.env.PI_CODING_AGENT_DIR;
+  const originalPath = process.env.PATH;
+  const agentDir = await makeTempDir("agent");
+  const pathValue = await makePathWithGit();
+
+  try {
+    const workflow = await loadModule(agentDir, pathValue);
+
+    assert.match(workflow.GITHUB_CONTEXT, /gh pr create --draft/);
+    assert.match(workflow.GITHUB_CONTEXT, /do not mark them ready unless the user explicitly asks/);
+    assert.match(workflow.GRAPHITE_CONTEXT, /gt submit --draft/);
+    assert.match(workflow.GRAPHITE_CONTEXT, /do not publish them unless the user explicitly asks/);
+  } finally {
+    process.env.PI_CODING_AGENT_DIR = originalAgentDir;
+    process.env.PATH = originalPath;
+  }
+});
+
 test("detectWorkflow distinguishes local, non-GitHub, GitHub, and Graphite workflows", async () => {
   const originalAgentDir = process.env.PI_CODING_AGENT_DIR;
   const originalPath = process.env.PATH;
