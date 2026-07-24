@@ -93,6 +93,7 @@ If you keep a local clone, add to settings:
 - Do not commit generated JavaScript, declaration files, source maps, or other build output.
 - Prefer small, testable modules. For extensions with meaningful logic, expose a dependency-injected factory such as `createExampleExtension(pi, deps)` and keep the default export as a thin wrapper.
 - Put tests next to the extension they cover and name them `*.test.ts`.
+- Skills are validated by `skills/skills.test.ts`: frontmatter rules, relative link integrity, and (for the refactoring skill) catalog consistency and Ruby example syntax. Keep new skill content passing `pnpm test skills`.
 
 ### Formatting, linting, and testing
 

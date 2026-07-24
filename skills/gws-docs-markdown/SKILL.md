@@ -13,7 +13,7 @@ formatting (headings, bold, italic, lists, tables, code blocks, links) when you
 upload a `.md` file with the target mimeType set to `application/vnd.google-apps.document`.
 
 > **Prerequisites:** `gws` must be on `$PATH` and authenticated (`gws auth login`).
-> See the [gws-shared](../gws-shared/SKILL.md) skill for auth and global flags.
+> See the `gws-shared` skill (separate package) for auth and global flags.
 
 ## Create a new Google Doc from markdown
 
@@ -128,7 +128,9 @@ This also applies to `files get`, `files create` (with `parents` on a shared dri
 
 ## See Also
 
-- [gws-drive](../gws-drive/SKILL.md) — Drive file operations
-- [gws-drive-upload](../gws-drive-upload/SKILL.md) — Upload helper
-- [gws-docs](../gws-docs/SKILL.md) — Docs API operations
-- [gws-docs-write](../gws-docs-write/SKILL.md) — Append plain text to a doc
+- `gws-drive` — Drive file operations
+- `gws-drive-upload` — Upload helper
+- `gws-docs` — Docs API operations
+- `gws-docs-write` — Append plain text to a doc
+
+These are separate skills (not part of this package); load them by name from the skills list.
