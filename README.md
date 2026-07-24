@@ -28,6 +28,7 @@ Personal extensions and skills for the [Pi coding agent](https://buildwithpi.com
 | [git-workflow](./skills/git-workflow/) | Local git workflow guidance for repositories with no remote configured (no `gh`/PR commands). |
 | [github-workflow](./skills/github-workflow/) | GitHub PR workflow guidance (branching, commits, `gh` CLI, PR creation). |
 | [gws-docs-markdown](./skills/gws-docs-markdown/) | Create and update Google Docs from markdown content. |
+| [refactoring](./skills/refactoring/) | Safely apply refactorings from Martin Fowler's catalog (2nd ed. + Ruby Edition) in small, behavior-preserving steps. Dispatcher with a smell→refactoring table and on-demand reference files (Ruby examples) for each refactoring. |
 
 ## Prompt Templates
 
@@ -92,6 +93,7 @@ If you keep a local clone, add to settings:
 - Do not commit generated JavaScript, declaration files, source maps, or other build output.
 - Prefer small, testable modules. For extensions with meaningful logic, expose a dependency-injected factory such as `createExampleExtension(pi, deps)` and keep the default export as a thin wrapper.
 - Put tests next to the extension they cover and name them `*.test.ts`.
+- Skills are validated by `skills/skills.test.ts`: frontmatter rules, relative link integrity, and (for the refactoring skill) catalog consistency and Ruby example syntax. Keep new skill content passing `pnpm test skills`.
 
 ### Formatting, linting, and testing
 

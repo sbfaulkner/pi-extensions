@@ -1,5 +1,17 @@
 # Changelog
 
+## 2.14.0
+
+- New `refactoring` skill: teaches the agent to safely apply refactorings from Martin Fowler's *Refactoring* catalog (2nd edition + Ruby Edition) in small, behavior-preserving steps
+  - `SKILL.md` acts as a dispatcher: core small-steps principle (start green, smallest step, run tests between each, commit often, one hat at a time), a code-smell → refactoring lookup table, and a catalog index grouped by Fowler's tags (basic, encapsulation, moving-features, organizing-data, simplify-conditional-logic, refactoring-apis, dealing-with-inheritance)
+  - 66 on-demand reference files under `references/`, one per refactoring, each with Motivation, safe numbered Mechanics, a Ruby example, and inverse/related cross-links
+  - Auto-registers via the existing `pi.skills` entry; no wiring needed
+- New `skills/skills.test.ts`: automated validation for all skills, run by `pnpm test`/CI
+  - Generic: frontmatter validity per the Agent Skills spec (name rules, description presence and ≤1024 chars) and relative markdown link integrity across every skill file
+  - Refactoring-specific: every reference file linked from SKILL.md, catalog lists each reference exactly once, per-file `**Tag:**` lines match their catalog section, required Motivation/Mechanics/Example/Related sections present, and every Ruby example block parses (`ruby -c`, skipped if ruby is unavailable)
+  - Mutation-tested: injected broken links, tag mismatches, and Ruby syntax errors are all detected
+- Fix broken cross-package links in `gws-docs-markdown` (found by the new link check): sibling `gws-*` skills live in a separate package, so relative `../gws-*/SKILL.md` paths could never resolve; reference them by skill name instead
+
 ## 2.13.0
 
 - Replace the brittle `/link` prompt template with a first-class `link` extension command
