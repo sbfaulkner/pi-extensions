@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.14.0
+
+- New `refactoring` skill: teaches the agent to safely apply refactorings from Martin Fowler's *Refactoring* catalog (2nd edition + Ruby Edition) in small, behavior-preserving steps
+  - `SKILL.md` acts as a dispatcher: core small-steps principle (start green, smallest step, run tests between each, commit often, one hat at a time), a code-smell → refactoring lookup table, and a catalog index grouped by Fowler's tags (basic, encapsulation, moving-features, organizing-data, simplify-conditional-logic, refactoring-apis, dealing-with-inheritance)
+  - 66 on-demand reference files under `references/`, one per refactoring, each with Motivation, safe numbered Mechanics, a Ruby example, and inverse/related cross-links
+  - Auto-registers via the existing `pi.skills` entry; no wiring needed
+
 ## 2.13.0
 
 - Replace the brittle `/link` prompt template with a first-class `link` extension command
