@@ -1,5 +1,18 @@
 # Changelog
 
+## 2.15.0
+
+- Extend the `refactoring` skill with the 18 *Refactoring: Ruby Edition* entries hosted on refactoring.com but not carded on the catalog index page (discovered by probing `/catalog/` URLs; the 1st-edition "Big Refactorings" have no pages and are excluded)
+  - Composing methods: Extract Surrounding Method, Introduce Class Annotation, Dynamic Method Definition, Replace Dynamic Receptor with Dynamic Method Definition, Isolate Dynamic Receptor, Move Eval from Runtime to Parse Time, Replace Temp with Chain
+  - APIs: Introduce Named Parameter (modernized to real keyword arguments), Remove Named Parameter, Remove Unused Default Parameter
+  - Moving features: Introduce Gateway, Introduce Expression Builder
+  - Inheritance: Replace Abstract Superclass with Module, Extract Module, Inline Module
+  - Organizing data: Lazily/Eagerly Initialized Attribute, Replace Hash with Object
+  - Replace Loop with Collection Closure Method is recorded as an alias of Replace Loop with Pipeline rather than duplicated
+  - Entries carry a `Source: Refactoring: Ruby Edition` marker and *(Ruby Edition)* tags in the SKILL.md index; metaprogramming entries include short **With Sorbet** caveats (RBI/tapioca visibility, `method_missing` untypeability)
+  - Smell table gains Opaque `method_missing` and Hash-Driven Data rows
+- New coverage fixture test in `skills/skills.test.ts`: the reference directory must match the expected slug list (66 catalog + 18 Ruby Edition) exactly, so additions and removals are deliberate and the coverage claim is CI-enforced
+
 ## 2.14.0
 
 - New `refactoring` skill: teaches the agent to safely apply refactorings from Martin Fowler's *Refactoring* catalog (2nd edition + Ruby Edition) in small, behavior-preserving steps
