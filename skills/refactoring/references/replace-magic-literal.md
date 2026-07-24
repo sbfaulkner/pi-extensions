@@ -1,6 +1,6 @@
 # Replace Magic Literal
 
-**Tag:** simplify-conditional-logic · **Alias:** Replace Magic Number with Symbolic Constant
+**Tag:** organizing-data · **Alias:** Replace Magic Number with Symbolic Constant
 
 ## Motivation
 

@@ -71,8 +71,8 @@ reference files for mechanics.
 ## Catalog (grouped by tag)
 
 Each entry links to a reference file with **Motivation**, **Mechanics** (safe numbered
-steps), a **Ruby example**, and **inverse / related** cross-links. Examples in *italics*
-are still to be authored.
+steps), a **Ruby example**, and **inverse / related** cross-links. Names in *italics*
+are aliases — older or alternate names for the same refactoring.
 
 ### basic
 
@@ -119,6 +119,7 @@ are still to be authored.
 - [Replace Derived Variable with Query](references/replace-derived-variable-with-query.md)
 - [Change Reference to Value](references/change-reference-to-value.md)
 - [Change Value to Reference](references/change-value-to-reference.md)
+- [Replace Magic Literal](references/replace-magic-literal.md) — *(alias: Replace Magic Number with Symbolic Constant)*
 
 ### simplify-conditional-logic
 
@@ -128,6 +129,7 @@ are still to be authored.
 - [Replace Conditional with Polymorphism](references/replace-conditional-with-polymorphism.md)
 - [Introduce Special Case](references/introduce-special-case.md) — *(alias: Introduce Null Object)*
 - [Introduce Assertion](references/introduce-assertion.md)
+- [Replace Control Flag with Break](references/replace-control-flag-with-break.md) — *(alias: Remove Control Flag)*
 
 ### refactoring-apis
 
@@ -158,12 +160,6 @@ are still to be authored.
 - [Collapse Hierarchy](references/collapse-hierarchy.md)
 - [Replace Subclass with Delegate](references/replace-subclass-with-delegate.md)
 - [Replace Superclass with Delegate](references/replace-superclass-with-delegate.md) — *(alias: Replace Inheritance with Delegation)*
-
-### other conditional/fragment refactorings
-
-- [Replace Control Flag with Break](references/replace-control-flag-with-break.md) — *(alias: Remove Control Flag)*
-- [Replace Magic Literal](references/replace-magic-literal.md) — *(alias: Replace Magic Number with Symbolic Constant)*
-- [Replace Nested Conditional with Guard Clauses](references/replace-nested-conditional-with-guard-clauses.md)
 
 ## How to use this skill
 

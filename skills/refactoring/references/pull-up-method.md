@@ -24,7 +24,7 @@ identical, use [Extract Function](extract-function.md) first to isolate the iden
 
 ## Example
 
-Before — both subclasses define an identical `name`:
+Before — both subclasses define an identical `annual_cost`:
 
 ```ruby
 class Employee < Party; end

@@ -29,6 +29,8 @@ After the refactoring, a "premium" booking that used to be a subclass becomes a 
 
 ```ruby
 class Booking
+  attr_reader :show
+
   def initialize(show, date)
     @show = show
     @date = date
