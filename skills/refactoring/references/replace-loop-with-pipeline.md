@@ -1,6 +1,6 @@
 # Replace Loop with Pipeline
 
-**Tag:** moving-features
+**Tag:** moving-features · **Alias:** Replace Loop with Collection Closure Method (*Refactoring: Ruby Edition*)
 
 ## Motivation
 

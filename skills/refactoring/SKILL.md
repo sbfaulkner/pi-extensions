@@ -44,7 +44,7 @@ reference files for mechanics.
 | Smell | Try these refactorings |
 |-------|------------------------|
 | **Mysterious Name** | [Change Function Declaration](references/change-function-declaration.md), [Rename Variable](references/rename-variable.md), [Rename Field](references/rename-field.md) |
-| **Duplicated Code** | [Extract Function](references/extract-function.md), [Slide Statements](references/slide-statements.md), [Pull Up Method](references/pull-up-method.md) |
+| **Duplicated Code** | [Extract Function](references/extract-function.md), [Slide Statements](references/slide-statements.md), [Pull Up Method](references/pull-up-method.md), [Extract Surrounding Method](references/extract-surrounding-method.md), [Extract Module](references/extract-module.md) |
 | **Long Function** | [Extract Function](references/extract-function.md), [Replace Temp with Query](references/replace-temp-with-query.md), [Introduce Parameter Object](references/introduce-parameter-object.md), [Preserve Whole Object](references/preserve-whole-object.md), [Decompose Conditional](references/decompose-conditional.md), [Replace Conditional with Polymorphism](references/replace-conditional-with-polymorphism.md), [Split Loop](references/split-loop.md) |
 | **Long Parameter List** | [Replace Parameter with Query](references/replace-parameter-with-query.md), [Preserve Whole Object](references/preserve-whole-object.md), [Introduce Parameter Object](references/introduce-parameter-object.md), [Remove Flag Argument](references/remove-flag-argument.md), [Combine Functions into Class](references/combine-functions-into-class.md) |
 | **Global Data / Mutable Data** | [Encapsulate Variable](references/encapsulate-variable.md), [Split Variable](references/split-variable.md), [Slide Statements](references/slide-statements.md), [Extract Function](references/extract-function.md), [Separate Query from Modifier](references/separate-query-from-modifier.md), [Remove Setting Method](references/remove-setting-method.md), [Replace Derived Variable with Query](references/replace-derived-variable-with-query.md), [Change Reference to Value](references/change-reference-to-value.md) |
@@ -66,13 +66,17 @@ reference files for mechanics.
 | **Data Class** | [Encapsulate Record](references/encapsulate-record.md), [Remove Setting Method](references/remove-setting-method.md), [Move Function](references/move-function.md), [Extract Function](references/extract-function.md), [Split Phase](references/split-phase.md) |
 | **Refused Bequest** | [Push Down Method](references/push-down-method.md), [Push Down Field](references/push-down-field.md), [Replace Subclass with Delegate](references/replace-subclass-with-delegate.md), [Replace Superclass with Delegate](references/replace-superclass-with-delegate.md) |
 | **Comments (explaining bad code)** | [Extract Function](references/extract-function.md), [Change Function Declaration](references/change-function-declaration.md), [Introduce Assertion](references/introduce-assertion.md) |
+| **Opaque `method_missing`** | [Replace Dynamic Receptor with Dynamic Method Definition](references/replace-dynamic-receptor-with-dynamic-method-definition.md), [Isolate Dynamic Receptor](references/isolate-dynamic-receptor.md) |
+| **Hash-Driven Data** (a hash accreting keys) | [Replace Hash with Object](references/replace-hash-with-object.md), [Encapsulate Record](references/encapsulate-record.md), [Introduce Parameter Object](references/introduce-parameter-object.md) |
 | **Complex Conditional** | [Decompose Conditional](references/decompose-conditional.md), [Consolidate Conditional Expression](references/consolidate-conditional-expression.md), [Replace Nested Conditional with Guard Clauses](references/replace-nested-conditional-with-guard-clauses.md), [Replace Conditional with Polymorphism](references/replace-conditional-with-polymorphism.md) |
 
 ## Catalog (grouped by tag)
 
 Each entry links to a reference file with **Motivation**, **Mechanics** (safe numbered
 steps), a **Ruby example**, and **inverse / related** cross-links. Names in *italics*
-are aliases — older or alternate names for the same refactoring.
+are aliases — older or alternate names for the same refactoring. Entries marked
+*(Ruby Edition)* come from *Refactoring: Ruby Edition* (Fields, Harvie, Fowler) and are
+not in the 2nd-edition catalog index.
 
 ### basic
 
@@ -87,6 +91,13 @@ are aliases — older or alternate names for the same refactoring.
 - [Combine Functions into Class](references/combine-functions-into-class.md)
 - [Combine Functions into Transform](references/combine-functions-into-transform.md)
 - [Split Phase](references/split-phase.md)
+- [Extract Surrounding Method](references/extract-surrounding-method.md) — *(Ruby Edition)*
+- [Introduce Class Annotation](references/introduce-class-annotation.md) — *(Ruby Edition)*
+- [Dynamic Method Definition](references/dynamic-method-definition.md) — *(Ruby Edition)*
+- [Replace Dynamic Receptor with Dynamic Method Definition](references/replace-dynamic-receptor-with-dynamic-method-definition.md) — *(Ruby Edition)*
+- [Isolate Dynamic Receptor](references/isolate-dynamic-receptor.md) — *(Ruby Edition)*
+- [Move Eval from Runtime to Parse Time](references/move-eval-from-runtime-to-parse-time.md) — *(Ruby Edition)*
+- [Replace Temp with Chain](references/replace-temp-with-chain.md) — *(Ruby Edition)*
 
 ### encapsulation
 
@@ -109,8 +120,10 @@ are aliases — older or alternate names for the same refactoring.
 - [Replace Inline Code with Function Call](references/replace-inline-code-with-function-call.md)
 - [Slide Statements](references/slide-statements.md) — *(related: Consolidate Duplicate Conditional Fragments)*
 - [Split Loop](references/split-loop.md)
-- [Replace Loop with Pipeline](references/replace-loop-with-pipeline.md)
+- [Replace Loop with Pipeline](references/replace-loop-with-pipeline.md) — *(alias: Replace Loop with Collection Closure Method)*
 - [Remove Dead Code](references/remove-dead-code.md)
+- [Introduce Gateway](references/introduce-gateway.md) — *(Ruby Edition)*
+- [Introduce Expression Builder](references/introduce-expression-builder.md) — *(Ruby Edition)*
 
 ### organizing-data
 
@@ -120,6 +133,9 @@ are aliases — older or alternate names for the same refactoring.
 - [Change Reference to Value](references/change-reference-to-value.md)
 - [Change Value to Reference](references/change-value-to-reference.md)
 - [Replace Magic Literal](references/replace-magic-literal.md) — *(alias: Replace Magic Number with Symbolic Constant)*
+- [Lazily Initialized Attribute](references/lazily-initialized-attribute.md) — *(Ruby Edition)*
+- [Eagerly Initialized Attribute](references/eagerly-initialized-attribute.md) — *(Ruby Edition)*
+- [Replace Hash with Object](references/replace-hash-with-object.md) — *(Ruby Edition)*
 
 ### simplify-conditional-logic
 
@@ -146,6 +162,9 @@ are aliases — older or alternate names for the same refactoring.
 - [Return Modified Value](references/return-modified-value.md)
 - [Replace Error Code with Exception](references/replace-error-code-with-exception.md)
 - [Replace Exception with Precheck](references/replace-exception-with-precheck.md) — *(alias: Replace Exception with Test)*
+- [Introduce Named Parameter](references/introduce-named-parameter.md) — *(Ruby Edition)*
+- [Remove Named Parameter](references/remove-named-parameter.md) — *(Ruby Edition)*
+- [Remove Unused Default Parameter](references/remove-unused-default-parameter.md) — *(Ruby Edition)*
 
 ### dealing-with-inheritance
 
@@ -160,6 +179,9 @@ are aliases — older or alternate names for the same refactoring.
 - [Collapse Hierarchy](references/collapse-hierarchy.md)
 - [Replace Subclass with Delegate](references/replace-subclass-with-delegate.md)
 - [Replace Superclass with Delegate](references/replace-superclass-with-delegate.md) — *(alias: Replace Inheritance with Delegation)*
+- [Replace Abstract Superclass with Module](references/replace-abstract-superclass-with-module.md) — *(Ruby Edition)*
+- [Extract Module](references/extract-module.md) — *(Ruby Edition)*
+- [Inline Module](references/inline-module.md) — *(Ruby Edition)*
 
 ## How to use this skill
 

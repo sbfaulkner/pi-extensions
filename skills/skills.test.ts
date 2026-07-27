@@ -103,6 +103,100 @@ test("every relative markdown link in every skill resolves to a file", () => {
 const REFACTORING_DIR = path.join(SKILLS_ROOT, "refactoring");
 const REFERENCES_DIR = path.join(REFACTORING_DIR, "references");
 
+/** The 66 main entries of https://refactoring.com/catalog/ (verified against the index page's DOM). */
+const CATALOG_SLUGS = [
+  "change-function-declaration",
+  "change-reference-to-value",
+  "change-value-to-reference",
+  "collapse-hierarchy",
+  "combine-functions-into-class",
+  "combine-functions-into-transform",
+  "consolidate-conditional-expression",
+  "decompose-conditional",
+  "encapsulate-collection",
+  "encapsulate-record",
+  "encapsulate-variable",
+  "extract-class",
+  "extract-function",
+  "extract-superclass",
+  "extract-variable",
+  "hide-delegate",
+  "inline-class",
+  "inline-function",
+  "inline-variable",
+  "introduce-assertion",
+  "introduce-parameter-object",
+  "introduce-special-case",
+  "move-field",
+  "move-function",
+  "move-statements-into-function",
+  "move-statements-to-callers",
+  "parameterize-function",
+  "preserve-whole-object",
+  "pull-up-constructor-body",
+  "pull-up-field",
+  "pull-up-method",
+  "push-down-field",
+  "push-down-method",
+  "remove-dead-code",
+  "remove-flag-argument",
+  "remove-middle-man",
+  "remove-setting-method",
+  "remove-subclass",
+  "rename-field",
+  "rename-variable",
+  "replace-command-with-function",
+  "replace-conditional-with-polymorphism",
+  "replace-constructor-with-factory-function",
+  "replace-control-flag-with-break",
+  "replace-derived-variable-with-query",
+  "replace-error-code-with-exception",
+  "replace-exception-with-precheck",
+  "replace-function-with-command",
+  "replace-inline-code-with-function-call",
+  "replace-loop-with-pipeline",
+  "replace-magic-literal",
+  "replace-nested-conditional-with-guard-clauses",
+  "replace-parameter-with-query",
+  "replace-primitive-with-object",
+  "replace-query-with-parameter",
+  "replace-subclass-with-delegate",
+  "replace-superclass-with-delegate",
+  "replace-temp-with-query",
+  "replace-type-code-with-subclasses",
+  "return-modified-value",
+  "separate-query-from-modifier",
+  "slide-statements",
+  "split-loop",
+  "split-phase",
+  "split-variable",
+  "substitute-algorithm",
+];
+
+/** Refactoring: Ruby Edition entries hosted under /catalog/ but not carded on the index page. */
+const RUBY_EDITION_SLUGS = [
+  "dynamic-method-definition",
+  "eagerly-initialized-attribute",
+  "extract-module",
+  "extract-surrounding-method",
+  "inline-module",
+  "introduce-class-annotation",
+  "introduce-expression-builder",
+  "introduce-gateway",
+  "introduce-named-parameter",
+  "isolate-dynamic-receptor",
+  "lazily-initialized-attribute",
+  "move-eval-from-runtime-to-parse-time",
+  "remove-named-parameter",
+  "remove-unused-default-parameter",
+  "replace-abstract-superclass-with-module",
+  "replace-dynamic-receptor-with-dynamic-method-definition",
+  "replace-hash-with-object",
+  "replace-temp-with-chain",
+];
+// Note: replace-loop-with-collection-closure-method (Ruby Edition) is covered as an alias of
+// replace-loop-with-pipeline rather than a separate file.
+
 function referenceSlugs(): string[] {
   return readdirSync(REFERENCES_DIR)
     .filter((name) => name.endsWith(".md"))
@@ -131,6 +225,19 @@ function catalogEntries(): { slug: string; tag: string }[] {
   }
   return entries;
 }
+
+test("refactoring: reference files match the expected catalog coverage exactly", () => {
+  const expected = [...CATALOG_SLUGS, ...RUBY_EDITION_SLUGS].sort();
+  const actual = referenceSlugs();
+  const missing = expected.filter((slug) => !actual.includes(slug));
+  const unexpected = actual.filter((slug) => !expected.includes(slug));
+  assert.deepEqual(missing, [], `expected reference files are missing: ${missing.join(", ")}`);
+  assert.deepEqual(
+    unexpected,
+    [],
+    `unexpected reference files (add deliberately to the fixture): ${unexpected.join(", ")}`,
+  );
+});
 
 test("refactoring: every reference file is linked from SKILL.md", () => {
   const content = readFileSync(path.join(REFACTORING_DIR, "SKILL.md"), "utf8");
