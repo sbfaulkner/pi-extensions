@@ -185,6 +185,8 @@ const RUBY_EDITION_SLUGS = [
   "introduce-gateway",
   "introduce-named-parameter",
   "isolate-dynamic-receptor",
+  "recompose-conditional",
+  "replace-type-code-with-module-extension",
   "lazily-initialized-attribute",
   "move-eval-from-runtime-to-parse-time",
   "remove-named-parameter",
@@ -194,8 +196,25 @@ const RUBY_EDITION_SLUGS = [
   "replace-hash-with-object",
   "replace-temp-with-chain",
 ];
-// Note: replace-loop-with-collection-closure-method (Ruby Edition) is covered as an alias of
-// replace-loop-with-pipeline rather than a separate file.
+// Aliases covered without separate files: replace-loop-with-collection-closure-method (→
+// replace-loop-with-pipeline), replace-type-code-with-polymorphism (→
+// replace-type-code-with-subclasses), replace-delegation-with-hierarchy (variant noted in
+// replace-delegation-with-inheritance).
+
+/** 1st-edition-only entries hosted under /catalog/ but not carded on the index page. */
+const FIRST_EDITION_SLUGS = [
+  "change-bidirectional-association-to-unidirectional",
+  "change-unidirectional-association-to-bidirectional",
+  "duplicate-observed-data",
+  "encapsulate-downcast",
+  "extract-interface",
+  "form-template-method",
+  "hide-method",
+  "introduce-foreign-method",
+  "introduce-local-extension",
+  "replace-array-with-object",
+  "replace-delegation-with-inheritance",
+];
 
 function referenceSlugs(): string[] {
   return readdirSync(REFERENCES_DIR)
@@ -227,7 +246,7 @@ function catalogEntries(): { slug: string; tag: string }[] {
 }
 
 test("refactoring: reference files match the expected catalog coverage exactly", () => {
-  const expected = [...CATALOG_SLUGS, ...RUBY_EDITION_SLUGS].sort();
+  const expected = [...CATALOG_SLUGS, ...RUBY_EDITION_SLUGS, ...FIRST_EDITION_SLUGS].sort();
   const actual = referenceSlugs();
   const missing = expected.filter((slug) => !actual.includes(slug));
   const unexpected = actual.filter((slug) => !expected.includes(slug));

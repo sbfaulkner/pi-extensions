@@ -1,6 +1,6 @@
 # Replace Type Code with Subclasses
 
-**Tag:** dealing-with-inheritance · **Aliases:** Extract Subclass, Replace Type Code with State/Strategy · **Inverse:** [Remove Subclass](remove-subclass.md)
+**Tag:** dealing-with-inheritance · **Aliases:** Extract Subclass, Replace Type Code with State/Strategy, Replace Type Code with Polymorphism (*Ruby Edition*) · **Inverse:** [Remove Subclass](remove-subclass.md)
 
 ## Motivation
 
@@ -64,5 +64,6 @@ end
 ## Related
 
 - Inverse: [Remove Subclass](remove-subclass.md)
+- When the type changes during the object's lifetime: [Replace Type Code with Module Extension](replace-type-code-with-module-extension.md)
 - Then apply [Replace Conditional with Polymorphism](replace-conditional-with-polymorphism.md)
 - Uses [Encapsulate Variable](encapsulate-variable.md), [Replace Constructor with Factory Function](replace-constructor-with-factory-function.md)

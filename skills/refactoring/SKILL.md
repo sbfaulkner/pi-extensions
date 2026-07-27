@@ -66,6 +66,7 @@ reference files for mechanics.
 | **Data Class** | [Encapsulate Record](references/encapsulate-record.md), [Remove Setting Method](references/remove-setting-method.md), [Move Function](references/move-function.md), [Extract Function](references/extract-function.md), [Split Phase](references/split-phase.md) |
 | **Refused Bequest** | [Push Down Method](references/push-down-method.md), [Push Down Field](references/push-down-field.md), [Replace Subclass with Delegate](references/replace-subclass-with-delegate.md), [Replace Superclass with Delegate](references/replace-superclass-with-delegate.md) |
 | **Comments (explaining bad code)** | [Extract Function](references/extract-function.md), [Change Function Declaration](references/change-function-declaration.md), [Introduce Assertion](references/introduce-assertion.md) |
+| **Incomplete Library Class** | [Introduce Foreign Method](references/introduce-foreign-method.md), [Introduce Local Extension](references/introduce-local-extension.md), [Introduce Gateway](references/introduce-gateway.md) |
 | **Opaque `method_missing`** | [Replace Dynamic Receptor with Dynamic Method Definition](references/replace-dynamic-receptor-with-dynamic-method-definition.md), [Isolate Dynamic Receptor](references/isolate-dynamic-receptor.md) |
 | **Hash-Driven Data** (a hash accreting keys) | [Replace Hash with Object](references/replace-hash-with-object.md), [Encapsulate Record](references/encapsulate-record.md), [Introduce Parameter Object](references/introduce-parameter-object.md) |
 | **Complex Conditional** | [Decompose Conditional](references/decompose-conditional.md), [Consolidate Conditional Expression](references/consolidate-conditional-expression.md), [Replace Nested Conditional with Guard Clauses](references/replace-nested-conditional-with-guard-clauses.md), [Replace Conditional with Polymorphism](references/replace-conditional-with-polymorphism.md) |
@@ -75,8 +76,9 @@ reference files for mechanics.
 Each entry links to a reference file with **Motivation**, **Mechanics** (safe numbered
 steps), a **Ruby example**, and **inverse / related** cross-links. Names in *italics*
 are aliases — older or alternate names for the same refactoring. Entries marked
-*(Ruby Edition)* come from *Refactoring: Ruby Edition* (Fields, Harvie, Fowler) and are
-not in the 2nd-edition catalog index.
+*(Ruby Edition)* come from *Refactoring: Ruby Edition* (Fields, Harvie, Fowler), and
+entries marked *(1st edition)* survive only from the original 1999 book; neither group is
+carded on the 2nd-edition catalog index page.
 
 ### basic
 
@@ -124,6 +126,8 @@ not in the 2nd-edition catalog index.
 - [Remove Dead Code](references/remove-dead-code.md)
 - [Introduce Gateway](references/introduce-gateway.md) — *(Ruby Edition)*
 - [Introduce Expression Builder](references/introduce-expression-builder.md) — *(Ruby Edition)*
+- [Introduce Foreign Method](references/introduce-foreign-method.md) — *(1st edition)*
+- [Introduce Local Extension](references/introduce-local-extension.md) — *(1st edition)*
 
 ### organizing-data
 
@@ -136,6 +140,10 @@ not in the 2nd-edition catalog index.
 - [Lazily Initialized Attribute](references/lazily-initialized-attribute.md) — *(Ruby Edition)*
 - [Eagerly Initialized Attribute](references/eagerly-initialized-attribute.md) — *(Ruby Edition)*
 - [Replace Hash with Object](references/replace-hash-with-object.md) — *(Ruby Edition)*
+- [Replace Array with Object](references/replace-array-with-object.md) — *(1st edition)*
+- [Duplicate Observed Data](references/duplicate-observed-data.md) — *(1st edition; largely historical)*
+- [Change Unidirectional Association to Bidirectional](references/change-unidirectional-association-to-bidirectional.md) — *(1st edition)*
+- [Change Bidirectional Association to Unidirectional](references/change-bidirectional-association-to-unidirectional.md) — *(1st edition)*
 
 ### simplify-conditional-logic
 
@@ -146,6 +154,7 @@ not in the 2nd-edition catalog index.
 - [Introduce Special Case](references/introduce-special-case.md) — *(alias: Introduce Null Object)*
 - [Introduce Assertion](references/introduce-assertion.md)
 - [Replace Control Flag with Break](references/replace-control-flag-with-break.md) — *(alias: Remove Control Flag)*
+- [Recompose Conditional](references/recompose-conditional.md) — *(Ruby Edition)*
 
 ### refactoring-apis
 
@@ -165,6 +174,8 @@ not in the 2nd-edition catalog index.
 - [Introduce Named Parameter](references/introduce-named-parameter.md) — *(Ruby Edition)*
 - [Remove Named Parameter](references/remove-named-parameter.md) — *(Ruby Edition)*
 - [Remove Unused Default Parameter](references/remove-unused-default-parameter.md) — *(Ruby Edition)*
+- [Encapsulate Downcast](references/encapsulate-downcast.md) — *(1st edition; reframed for Sorbet's `T.cast`/`T.must`)*
+- [Hide Method](references/hide-method.md) — *(1st edition)*
 
 ### dealing-with-inheritance
 
@@ -173,7 +184,7 @@ not in the 2nd-edition catalog index.
 - [Pull Up Constructor Body](references/pull-up-constructor-body.md)
 - [Push Down Method](references/push-down-method.md)
 - [Push Down Field](references/push-down-field.md)
-- [Replace Type Code with Subclasses](references/replace-type-code-with-subclasses.md) — *(aliases: Extract Subclass, Replace Type Code with State/Strategy)*
+- [Replace Type Code with Subclasses](references/replace-type-code-with-subclasses.md) — *(aliases: Extract Subclass, Replace Type Code with State/Strategy, Replace Type Code with Polymorphism)*
 - [Remove Subclass](references/remove-subclass.md) — *(alias: Replace Subclass with Fields)*
 - [Extract Superclass](references/extract-superclass.md)
 - [Collapse Hierarchy](references/collapse-hierarchy.md)
@@ -182,6 +193,10 @@ not in the 2nd-edition catalog index.
 - [Replace Abstract Superclass with Module](references/replace-abstract-superclass-with-module.md) — *(Ruby Edition)*
 - [Extract Module](references/extract-module.md) — *(Ruby Edition)*
 - [Inline Module](references/inline-module.md) — *(Ruby Edition)*
+- [Replace Type Code with Module Extension](references/replace-type-code-with-module-extension.md) — *(Ruby Edition)*
+- [Form Template Method](references/form-template-method.md) — *(1st edition)*
+- [Extract Interface](references/extract-interface.md) — *(1st edition)*
+- [Replace Delegation with Inheritance](references/replace-delegation-with-inheritance.md) — *(1st edition; Ruby Edition variant: Replace Delegation with Hierarchy)*
 
 ## How to use this skill
 
