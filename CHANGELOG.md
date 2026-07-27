@@ -1,5 +1,14 @@
 # Changelog
 
+## 2.16.0
+
+- Extend the `refactoring` skill with the remaining Fowler-book entries hosted under refactoring.com/catalog/, enumerated definitively via the Wayback Machine CDX index (154 URLs ever captured: 28 alias redirects, 13 dead J2EE-era guest pages, and the live set below)
+  - 11 first-edition-only entries: Form Template Method, Extract Interface, Replace Delegation with Inheritance (Ruby Edition variant “Replace Delegation with Hierarchy” noted), Introduce Foreign Method, Introduce Local Extension, Encapsulate Downcast (reframed for Sorbet's `T.cast`/`T.must` hygiene — meaningless in untyped Ruby, essential in typed codebases), Hide Method, Duplicate Observed Data (marked largely historical), Replace Array with Object, Change Unidirectional/Bidirectional Association pair
+  - 2 Ruby Edition entries missed by 2.15.0: Recompose Conditional, Replace Type Code with Module Extension; Replace Type Code with Polymorphism recorded as a Ruby Edition alias of Replace Type Code with Subclasses
+  - Smell table gains an Incomplete Library Class row; **With Sorbet** notes where the type system changes the guidance (`interface!` for Extract Interface, `abstract!` for Form Template Method, per-instance `extend` invisibility for Module Extension)
+  - Coverage fixture extended: 66 catalog + 20 Ruby Edition + 11 first edition = 97 reference files, exact-match enforced
+  - 11 live guest-authored entries (Davison, Henricson, Whipp, Mitrovic, Murphy, Frieze, Vittek) deliberately deferred to a future PR
+
 ## 2.15.0
 
 - Extend the `refactoring` skill with the 18 *Refactoring: Ruby Edition* entries hosted on refactoring.com but not carded on the catalog index page (discovered by probing `/catalog/` URLs; the 1st-edition "Big Refactorings" have no pages and are excluded)
