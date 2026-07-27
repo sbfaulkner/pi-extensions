@@ -28,7 +28,7 @@ Personal extensions and skills for the [Pi coding agent](https://buildwithpi.com
 | [git-workflow](./skills/git-workflow/) | Local git workflow guidance for repositories with no remote configured (no `gh`/PR commands). |
 | [github-workflow](./skills/github-workflow/) | GitHub PR workflow guidance (branching, commits, `gh` CLI, PR creation). |
 | [gws-docs-markdown](./skills/gws-docs-markdown/) | Create and update Google Docs from markdown content. |
-| [refactoring](./skills/refactoring/) | Safely apply refactorings from Martin Fowler's catalog (2nd ed. + Ruby Edition) in small, behavior-preserving steps. Dispatcher with a smell→refactoring table and on-demand reference files (Ruby examples) for each refactoring. |
+| [refactoring](./skills/refactoring/) | Safely apply refactorings from Martin Fowler's catalog (2nd ed. + Ruby Edition) in small, behavior-preserving steps. Dispatcher with a smell→refactoring table, on-demand reference files (Ruby examples) for each refactoring, and dialect notes for modern Ruby, Sorbet, and Rust. |
 
 ## Prompt Templates
 
