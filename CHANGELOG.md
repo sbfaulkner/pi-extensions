@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.19.0
+
+- Slim the `refactoring` skill's SKILL.md (~21.5KB → ~13KB) by replacing per-entry markdown links in the smell table and catalog with plain names plus a single stated convention: reference files live at `references/<kebab-case-name>.md`
+  - Dialect-note links and reference-file cross-links are unchanged
+  - Tests reworked from link-integrity to convention-enforcement (a stronger check): catalog names must resolve to files via the slug rule, smell-table recommendations must resolve to files, and every reference file's H1 must slugify back to its filename
+
 ## 2.18.0
 
 - Add dialect notes to the `refactoring` skill under `references/dialects/`, with SKILL.md routing ("examples are Ruby; load the dialect note for your working context")

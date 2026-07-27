@@ -242,14 +242,26 @@ function referenceSlugs(): string[] {
     .sort();
 }
 
-/** Parse the catalog section of the refactoring SKILL.md into (slug, tag) entries. */
-function catalogEntries(): { slug: string; tag: string }[] {
-  const content = readFileSync(path.join(REFACTORING_DIR, "SKILL.md"), "utf8");
+/** SKILL.md names reference files by convention: kebab-case of the refactoring name. */
+function slugify(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+function refactoringSkillContent(): string {
+  return readFileSync(path.join(REFACTORING_DIR, "SKILL.md"), "utf8");
+}
+
+/** Parse the catalog section of the refactoring SKILL.md into (name, slug, tag) entries. */
+function catalogEntries(): { name: string; slug: string; tag: string }[] {
+  const content = refactoringSkillContent();
   const start = content.indexOf("## Catalog");
   const end = content.indexOf("## How to use");
   assert.ok(start !== -1 && end > start, "SKILL.md catalog section not found");
 
-  const entries: { slug: string; tag: string }[] = [];
+  const entries: { name: string; slug: string; tag: string }[] = [];
   let tag = "";
   for (const line of content.slice(start, end).split("\n")) {
     const heading = line.match(/^### (.+)$/);
@@ -257,11 +269,30 @@ function catalogEntries(): { slug: string; tag: string }[] {
       tag = heading[1];
       continue;
     }
-    for (const match of line.matchAll(/references\/([a-z-]+)\.md/g)) {
-      entries.push({ slug: match[1], tag });
+    // Entries look like "- Name" or "- Name — *(annotation)*".
+    const item = line.match(/^- ([^—*]+?)(?:\s+—.*)?$/);
+    if (item) {
+      const name = item[1].trim();
+      entries.push({ name, slug: slugify(name), tag });
     }
   }
   return entries;
+}
+
+/** Parse the smell-table section into the refactoring names it recommends. */
+function smellTableNames(): string[] {
+  const content = refactoringSkillContent();
+  const start = content.indexOf("## Code smell");
+  const end = content.indexOf("## Catalog");
+  assert.ok(start !== -1 && end > start, "SKILL.md smell table section not found");
+
+  const names: string[] = [];
+  for (const line of content.slice(start, end).split("\n")) {
+    const row = line.match(/^\| \*\*.+\*\*[^|]* \| (.+) \|$/);
+    if (!row) continue;
+    names.push(...row[1].split(", ").map((name) => name.trim()));
+  }
+  return names;
 }
 
 test("refactoring: reference files match the expected catalog coverage exactly", () => {
@@ -290,24 +321,42 @@ test("refactoring: dialect notes match the expected set and are linked from SKIL
   assert.deepEqual(unlinked, [], `dialect notes not linked from SKILL.md: ${unlinked.join(", ")}`);
 });
 
-test("refactoring: every reference file is linked from SKILL.md", () => {
-  const content = readFileSync(path.join(REFACTORING_DIR, "SKILL.md"), "utf8");
-  const linked = new Set([...content.matchAll(/references\/([a-z-]+)\.md/g)].map((match) => match[1]));
-  const orphans = referenceSlugs().filter((slug) => !linked.has(slug));
-  assert.deepEqual(orphans, [], `reference files not linked from SKILL.md: ${orphans.join(", ")}`);
-});
-
-test("refactoring: catalog lists each reference exactly once", () => {
+test("refactoring: catalog lists each reference exactly once, and every name resolves to a file", () => {
+  const files = referenceSlugs();
   const seen = new Map<string, number>();
-  for (const { slug } of catalogEntries()) {
+  const unresolved: string[] = [];
+  for (const { name, slug } of catalogEntries()) {
     seen.set(slug, (seen.get(slug) ?? 0) + 1);
+    if (!files.includes(slug)) unresolved.push(`${name} -> references/${slug}.md`);
   }
+
+  assert.deepEqual(unresolved, [], `catalog names with no reference file:\n${unresolved.join("\n")}`);
 
   const duplicates = [...seen.entries()].filter(([, count]) => count > 1).map(([slug]) => slug);
   assert.deepEqual(duplicates, [], `duplicated catalog entries: ${duplicates.join(", ")}`);
 
-  const missing = referenceSlugs().filter((slug) => !seen.has(slug));
+  const missing = files.filter((slug) => !seen.has(slug));
   assert.deepEqual(missing, [], `reference files missing from the catalog index: ${missing.join(", ")}`);
+});
+
+test("refactoring: every smell-table recommendation resolves to a reference file", () => {
+  const files = referenceSlugs();
+  const names = smellTableNames();
+  assert.ok(names.length > 0, "no smell-table recommendations parsed");
+  const unresolved = names.filter((name) => !files.includes(slugify(name)));
+  assert.deepEqual(unresolved, [], `smell-table names with no reference file: ${unresolved.join(", ")}`);
+});
+
+test("refactoring: each reference file's H1 matches its filename under the slug convention", () => {
+  const mismatches: string[] = [];
+  for (const slug of referenceSlugs()) {
+    const content = readFileSync(path.join(REFERENCES_DIR, `${slug}.md`), "utf8");
+    const h1 = content.match(/^# (.+)$/m);
+    if (!h1 || slugify(h1[1]) !== slug) {
+      mismatches.push(`${slug}.md: H1 "${h1?.[1] ?? "(none)"}" does not slugify to "${slug}"`);
+    }
+  }
+  assert.deepEqual(mismatches, [], `H1/filename mismatches:\n${mismatches.join("\n")}`);
 });
 
 test("refactoring: each reference file's Tag line matches its catalog section", () => {
