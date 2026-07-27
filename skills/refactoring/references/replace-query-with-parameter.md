@@ -48,3 +48,4 @@ target_temperature(plan, $thermostat.current_temperature)
 
 - Inverse: [Replace Parameter with Query](replace-parameter-with-query.md)
 - Uses [Extract Variable](extract-variable.md), [Extract Function](extract-function.md), [Inline Function](inline-function.md), [Change Function Declaration](change-function-declaration.md)
+- The guest entry *Replace Static Variable with Parameter* (Marian Vittek, refactoring.com) is essentially this refactoring applied to a global or class-level variable

@@ -216,6 +216,22 @@ const FIRST_EDITION_SLUGS = [
   "replace-delegation-with-inheritance",
 ];
 
+/** Guest-authored entries hosted under /catalog/ but not carded on the index page. */
+const GUEST_SLUGS = [
+  "reduce-scope-of-variable",
+  "remove-double-negative",
+  "replace-assignment-with-initialization",
+  "replace-conditional-with-visitor",
+  "replace-iteration-with-recursion",
+  "replace-recursion-with-iteration",
+  "reverse-conditional",
+];
+// Guest entries covered as see-also notes without separate files:
+// replace-static-variable-with-parameter (Vittek → noted in replace-query-with-parameter),
+// move-class + extract-package (Davison → noted in move-function),
+// convert-dynamic-to-static-construction + convert-static-to-dynamic-construction
+// (Davison → noted in replace-constructor-with-factory-function).
+
 function referenceSlugs(): string[] {
   return readdirSync(REFERENCES_DIR)
     .filter((name) => name.endsWith(".md"))
@@ -246,7 +262,7 @@ function catalogEntries(): { slug: string; tag: string }[] {
 }
 
 test("refactoring: reference files match the expected catalog coverage exactly", () => {
-  const expected = [...CATALOG_SLUGS, ...RUBY_EDITION_SLUGS, ...FIRST_EDITION_SLUGS].sort();
+  const expected = [...CATALOG_SLUGS, ...RUBY_EDITION_SLUGS, ...FIRST_EDITION_SLUGS, ...GUEST_SLUGS].sort();
   const actual = referenceSlugs();
   const missing = expected.filter((slug) => !actual.includes(slug));
   const unexpected = actual.filter((slug) => !expected.includes(slug));

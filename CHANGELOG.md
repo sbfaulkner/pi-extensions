@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.17.0
+
+- Complete the `refactoring` skill's coverage of refactoring.com/catalog/ with the 11 live guest-authored entries
+  - 7 full reference files with author attribution: Replace Iteration with Recursion (Whipp) / Replace Recursion with Iteration (Mitrovic) as an inverse pair, Reverse Conditional (Murphy & Fowler), Remove Double Negative (Frieze & Fowler), Reduce Scope of Variable (Henricson), Replace Assignment with Initialization (Henricson), Replace Conditional with Visitor (Fowler — catalog page is a stub; mechanics and example authored here, with a Sorbet note preferring `sealed!` + exhaustive `case` over double dispatch)
+  - 4 + 1 covered as see-also notes without files: Davison's Java-packaging set (Move Class, Extract Package → noted in Move Function; Convert Dynamic↔Static Construction → noted in Replace Constructor with Factory Function) and Vittek's Replace Static Variable with Parameter (→ noted in Replace Query with Parameter)
+  - Smell table: Repeated Switches gains Replace Conditional with Visitor; Complex Conditional gains Reverse Conditional and Remove Double Negative
+  - Coverage fixture extended: 66 catalog + 20 Ruby Edition + 11 first edition + 7 guest = 104 reference files, exact-match enforced
+
 ## 2.16.0
 
 - Extend the `refactoring` skill with the remaining Fowler-book entries hosted under refactoring.com/catalog/, enumerated definitively via the Wayback Machine CDX index (154 URLs ever captured: 28 alias redirects, 13 dead J2EE-era guest pages, and the live set below)
