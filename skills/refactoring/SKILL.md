@@ -1,6 +1,6 @@
 ---
 name: refactoring
-description: Safely apply refactorings from Martin Fowler's Refactoring catalog (2nd edition + Ruby Edition) to improve code without changing behavior. Use when asked to "refactor", "clean up", "improve", "simplify", or "restructure" code, when tackling code smells (long method, duplicated code, large class, feature envy, etc.), or when you need the safe step-by-step mechanics for a named refactoring like Extract Function, Move Function, or Replace Conditional with Polymorphism.
+description: Safely apply refactorings from Martin Fowler's Refactoring catalog (2nd edition + Ruby Edition) to improve code without changing behavior. Use when asked to "refactor", "clean up", "improve", "simplify", or "restructure" code, when tackling code smells (long method, duplicated code, large class, feature envy, etc.), or when you need the safe step-by-step mechanics for a named refactoring like Extract Function, Move Function, or Replace Conditional with Polymorphism. Includes dialect notes for modern Ruby, Sorbet-typed codebases, and Rust.
 ---
 
 # Refactoring
@@ -35,6 +35,18 @@ the most conservative (automated, if available) mechanics.
 - Deadline-driven: only if the refactoring won't pay off before the deadline. "Refactor
   when you add a function, when you fix a bug, and when you do a code review" (the Rule of
   Three: refactor on the third duplication).
+
+## Dialects
+
+Examples throughout are Ruby. Before applying mechanics, load the dialect note for your
+working context:
+
+- [Modern Ruby](references/dialects/ruby.md) — baseline for any Ruby codebase: `Data.define`
+  targets, pattern matching, keyword arguments, `&.`, immutability.
+- [Sorbet](references/dialects/sorbet.md) — typed-Ruby overlay (load with the Ruby note):
+  `srb tc`-driven mechanics, the `sealed!`/`T.absurd` inversion, `T::Struct` targets.
+- [Rust](references/dialects/rust.md) — cross-language remap: inheritance → traits/enums,
+  exceptions → `Result`, borrow-aware extraction.
 
 ## Code smell → refactoring lookup
 

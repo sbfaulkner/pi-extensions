@@ -216,6 +216,9 @@ const FIRST_EDITION_SLUGS = [
   "replace-delegation-with-inheritance",
 ];
 
+/** Dialect overlay notes under references/dialects/ (not catalog entries). */
+const DIALECT_SLUGS = ["ruby", "rust", "sorbet"];
+
 /** Guest-authored entries hosted under /catalog/ but not carded on the index page. */
 const GUEST_SLUGS = [
   "reduce-scope-of-variable",
@@ -272,6 +275,19 @@ test("refactoring: reference files match the expected catalog coverage exactly",
     [],
     `unexpected reference files (add deliberately to the fixture): ${unexpected.join(", ")}`,
   );
+});
+
+test("refactoring: dialect notes match the expected set and are linked from SKILL.md", () => {
+  const dialectsDir = path.join(REFERENCES_DIR, "dialects");
+  const actual = readdirSync(dialectsDir)
+    .filter((name) => name.endsWith(".md"))
+    .map((name) => name.replace(/\.md$/, ""))
+    .sort();
+  assert.deepEqual(actual, [...DIALECT_SLUGS].sort(), "dialect files do not match the fixture");
+
+  const content = readFileSync(path.join(REFACTORING_DIR, "SKILL.md"), "utf8");
+  const unlinked = DIALECT_SLUGS.filter((slug) => !content.includes(`references/dialects/${slug}.md`));
+  assert.deepEqual(unlinked, [], `dialect notes not linked from SKILL.md: ${unlinked.join(", ")}`);
 });
 
 test("refactoring: every reference file is linked from SKILL.md", () => {
@@ -336,8 +352,15 @@ test("refactoring: all ruby example blocks parse", (t) => {
   }
 
   const failures: string[] = [];
-  for (const slug of referenceSlugs()) {
-    const blocks = rubyBlocks(readFileSync(path.join(REFERENCES_DIR, `${slug}.md`), "utf8"));
+  const files = [
+    ...referenceSlugs().map((slug) => ({ slug, file: path.join(REFERENCES_DIR, `${slug}.md`) })),
+    ...DIALECT_SLUGS.map((slug) => ({
+      slug: `dialects/${slug}`,
+      file: path.join(REFERENCES_DIR, "dialects", `${slug}.md`),
+    })),
+  ];
+  for (const { slug, file } of files) {
+    const blocks = rubyBlocks(readFileSync(file, "utf8"));
     if (blocks.length === 0) continue;
     // Concatenated valid programs still parse, so one ruby -c per file keeps this fast.
     const combined = spawnSync("ruby", ["-c"], { input: blocks.join("\n"), encoding: "utf8" });

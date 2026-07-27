@@ -1,5 +1,14 @@
 # Changelog
 
+## 2.18.0
+
+- Add dialect notes to the `refactoring` skill under `references/dialects/`, with SKILL.md routing ("examples are Ruby; load the dialect note for your working context")
+  - `ruby.md` — modern-Ruby baseline vs the books' vintage: `Data.define` (3.2+) as the value-object target, pattern matching (`case/in`), real keyword arguments, `&.` vs Introduce Special Case, immutability signals
+  - `sorbet.md` — typed-Ruby overlay (loads on top of ruby.md): `srb tc` as the "find every caller" mechanic, the `sealed!` + `T.absurd` inversion of Replace Conditional with Polymorphism, `T::Struct` record targets, `abstract!`/`override`/`interface!` teeth for the inheritance chapter, `T.must`-noise as the Introduce Special Case signal; header states the placement rule (refactoring-specific notes stay inline, cross-cutting guidance lives here — the 19 existing inline **With Sorbet** notes are supplemented, not absorbed)
+  - `rust.md` — cross-language remap: inheritance chapter → traits/enums table, Replace Error Code with Exception inverted to Replace Panic with Result, Option/Default as the built-in special case, iterator chains, Extract Function's variable analysis becoming borrow analysis (the two-`&mut self` extraction problem)
+  - Each dialect file opens with an "Exceptions at a glance" table (N/A / inverted / superseded / remapped) instead of per-file language tags
+  - Tests: `DIALECT_SLUGS` fixture (exact-match set + SKILL.md linkage); ruby example syntax checking extended to dialect files
+
 ## 2.17.0
 
 - Complete the `refactoring` skill's coverage of refactoring.com/catalog/ with the 11 live guest-authored entries
