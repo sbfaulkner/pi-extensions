@@ -42,3 +42,4 @@ The factory can later return a specialized subclass without touching callers.
 
 - Often works with [Replace Type Code with Subclasses](replace-type-code-with-subclasses.md)
 - Wrap creation in a command: [Replace Function with Command](replace-function-with-command.md)
+- The guest entries *Convert Static to Dynamic Construction* and its inverse (Gerard M. Davison, refactoring.com) swap `new` for reflection-driven creation in Java; in Ruby, a factory function (possibly taking the class or a symbol) covers both directions

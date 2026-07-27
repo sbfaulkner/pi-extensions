@@ -88,3 +88,4 @@ end
 - Move parts of a function: [Move Statements into Function](move-statements-into-function.md), [Move Statements to Callers](move-statements-to-callers.md)
 - Group related functions and their data: [Extract Class](extract-class.md), [Combine Functions into Class](combine-functions-into-class.md)
 - The mechanics rely on [Extract Function](extract-function.md) and [Inline Function](inline-function.md)
+- The guest entries *Move Class* and *Extract Package* (Gerard M. Davison, refactoring.com) apply the same idea at class/package granularity; for Ruby, moving a class between namespaces or gems follows the same mechanics — new home, forwarding shim, retarget references, remove the shim

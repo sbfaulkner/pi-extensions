@@ -53,7 +53,7 @@ reference files for mechanics.
 | **Feature Envy** | [Move Function](references/move-function.md), [Extract Function](references/extract-function.md) |
 | **Data Clumps** | [Extract Class](references/extract-class.md), [Introduce Parameter Object](references/introduce-parameter-object.md), [Preserve Whole Object](references/preserve-whole-object.md) |
 | **Primitive Obsession** | [Replace Primitive with Object](references/replace-primitive-with-object.md), [Replace Type Code with Subclasses](references/replace-type-code-with-subclasses.md), [Replace Conditional with Polymorphism](references/replace-conditional-with-polymorphism.md), [Extract Class](references/extract-class.md), [Introduce Parameter Object](references/introduce-parameter-object.md) |
-| **Repeated Switches** | [Replace Conditional with Polymorphism](references/replace-conditional-with-polymorphism.md) |
+| **Repeated Switches** | [Replace Conditional with Polymorphism](references/replace-conditional-with-polymorphism.md), [Replace Conditional with Visitor](references/replace-conditional-with-visitor.md) |
 | **Loops** | [Replace Loop with Pipeline](references/replace-loop-with-pipeline.md), [Split Loop](references/split-loop.md) |
 | **Lazy Element** | [Inline Function](references/inline-function.md), [Inline Class](references/inline-class.md), [Collapse Hierarchy](references/collapse-hierarchy.md) |
 | **Speculative Generality** | [Collapse Hierarchy](references/collapse-hierarchy.md), [Inline Function](references/inline-function.md), [Inline Class](references/inline-class.md), [Change Function Declaration](references/change-function-declaration.md), [Remove Dead Code](references/remove-dead-code.md) |
@@ -69,7 +69,7 @@ reference files for mechanics.
 | **Incomplete Library Class** | [Introduce Foreign Method](references/introduce-foreign-method.md), [Introduce Local Extension](references/introduce-local-extension.md), [Introduce Gateway](references/introduce-gateway.md) |
 | **Opaque `method_missing`** | [Replace Dynamic Receptor with Dynamic Method Definition](references/replace-dynamic-receptor-with-dynamic-method-definition.md), [Isolate Dynamic Receptor](references/isolate-dynamic-receptor.md) |
 | **Hash-Driven Data** (a hash accreting keys) | [Replace Hash with Object](references/replace-hash-with-object.md), [Encapsulate Record](references/encapsulate-record.md), [Introduce Parameter Object](references/introduce-parameter-object.md) |
-| **Complex Conditional** | [Decompose Conditional](references/decompose-conditional.md), [Consolidate Conditional Expression](references/consolidate-conditional-expression.md), [Replace Nested Conditional with Guard Clauses](references/replace-nested-conditional-with-guard-clauses.md), [Replace Conditional with Polymorphism](references/replace-conditional-with-polymorphism.md) |
+| **Complex Conditional** | [Decompose Conditional](references/decompose-conditional.md), [Consolidate Conditional Expression](references/consolidate-conditional-expression.md), [Replace Nested Conditional with Guard Clauses](references/replace-nested-conditional-with-guard-clauses.md), [Replace Conditional with Polymorphism](references/replace-conditional-with-polymorphism.md), [Reverse Conditional](references/reverse-conditional.md), [Remove Double Negative](references/remove-double-negative.md) |
 
 ## Catalog (grouped by tag)
 
@@ -78,7 +78,8 @@ steps), a **Ruby example**, and **inverse / related** cross-links. Names in *ita
 are aliases — older or alternate names for the same refactoring. Entries marked
 *(Ruby Edition)* come from *Refactoring: Ruby Edition* (Fields, Harvie, Fowler), and
 entries marked *(1st edition)* survive only from the original 1999 book; neither group is
-carded on the 2nd-edition catalog index page.
+carded on the 2nd-edition catalog index page. Entries marked *(guest)* are guest
+contributions hosted on the refactoring.com catalog, credited to their authors.
 
 ### basic
 
@@ -128,6 +129,8 @@ carded on the 2nd-edition catalog index page.
 - [Introduce Expression Builder](references/introduce-expression-builder.md) — *(Ruby Edition)*
 - [Introduce Foreign Method](references/introduce-foreign-method.md) — *(1st edition)*
 - [Introduce Local Extension](references/introduce-local-extension.md) — *(1st edition)*
+- [Replace Iteration with Recursion](references/replace-iteration-with-recursion.md) — *(guest: Dave Whipp)*
+- [Replace Recursion with Iteration](references/replace-recursion-with-iteration.md) — *(guest: Ivan Mitrovic)*
 
 ### organizing-data
 
@@ -144,6 +147,8 @@ carded on the 2nd-edition catalog index page.
 - [Duplicate Observed Data](references/duplicate-observed-data.md) — *(1st edition; largely historical)*
 - [Change Unidirectional Association to Bidirectional](references/change-unidirectional-association-to-bidirectional.md) — *(1st edition)*
 - [Change Bidirectional Association to Unidirectional](references/change-bidirectional-association-to-unidirectional.md) — *(1st edition)*
+- [Reduce Scope of Variable](references/reduce-scope-of-variable.md) — *(guest: Mats Henricson)*
+- [Replace Assignment with Initialization](references/replace-assignment-with-initialization.md) — *(guest: Mats Henricson)*
 
 ### simplify-conditional-logic
 
@@ -155,6 +160,9 @@ carded on the 2nd-edition catalog index page.
 - [Introduce Assertion](references/introduce-assertion.md)
 - [Replace Control Flag with Break](references/replace-control-flag-with-break.md) — *(alias: Remove Control Flag)*
 - [Recompose Conditional](references/recompose-conditional.md) — *(Ruby Edition)*
+- [Reverse Conditional](references/reverse-conditional.md) — *(guest: Bill Murphy & Martin Fowler)*
+- [Remove Double Negative](references/remove-double-negative.md) — *(guest: Ashley Frieze & Martin Fowler)*
+- [Replace Conditional with Visitor](references/replace-conditional-with-visitor.md) — *(guest: Martin Fowler)*
 
 ### refactoring-apis
 
