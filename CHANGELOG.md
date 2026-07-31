@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.20.0
+
+- Stop overriding the `bash` tool in the `secrets` extension
+  - Registering a `createBashTool` override conflicted with other extensions that also override `bash` (pi allows only one), e.g. `Tool "bash" conflicts with .../secrets/index.ts`
+  - The override was redundant: loaded secrets are written to `process.env`, and pi's bash tool builds its child environment from `process.env` at spawn time (`getShellEnv`), so secrets already reach agent bash, user bash (`!` / `!!`), and any extension-provided bash tool whose `spawnHook` spreads the incoming env
+  - No behavior change for secret loading, clearing, session restore, or status display
+
 ## 2.19.0
 
 - Slim the `refactoring` skill's SKILL.md (~21.5KB → ~13KB) by replacing per-entry markdown links in the smell table and catalog with plain names plus a single stated convention: reference files live at `references/<kebab-case-name>.md`

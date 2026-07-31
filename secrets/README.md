@@ -1,6 +1,6 @@
 # Secrets
 
-Loads environment variables from encrypted ejson files (`${XDG_CONFIG_HOME:-$HOME/.config}/secrets`) and injects them into all bash tool invocations.
+Loads environment variables from encrypted ejson files (`${XDG_CONFIG_HOME:-$HOME/.config}/secrets`) and makes them available to all bash commands via the process environment.
 
 ## Features
 
@@ -8,7 +8,8 @@ Loads environment variables from encrypted ejson files (`${XDG_CONFIG_HOME:-$HOM
 - **`load_secrets` tool** — LLM can load secrets by name when a command needs API tokens
 - **`/secrets` command** — manually load, list, or clear secrets
 - **Session restore** — secrets are automatically reloaded when resuming a session; unavailable files are skipped silently
-- **Robust process environment injection** — secrets are available in both bash commands and Node.js (process.env), cleared from both with `/secrets clear`
+- **Robust process environment injection** — secrets are written to `process.env`, which pi's bash tool snapshots at spawn time, so they're available in agent bash, user bash (`!` / `!!`), and Node.js; cleared with `/secrets clear`
+- **Composes with other extensions** — does not override the `bash` tool, so extensions that do (e.g. `spawnHook`-based PATH injection) still see loaded secrets
 - **Explicit load errors** — decrypt failures, malformed decrypted JSON, and missing decrypted `environment` objects are reported without marking secrets as loaded
 
 ## Usage
