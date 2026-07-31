@@ -8,11 +8,14 @@
  * Provides:
  *   - load_secrets tool: LLM can load secrets by name
  *   - /secrets command: manually load secrets
- *   - Automatic env injection via bash spawnHook
+ *
+ * Loaded secrets are written to process.env. Pi's bash tool builds its child
+ * environment from process.env at spawn time (getShellEnv), so secrets are
+ * visible to agent bash, user bash (! / !!), and any extension-provided bash
+ * tool without overriding the bash tool here.
  */
 
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
-import { createBashTool } from "@mariozechner/pi-coding-agent";
 import { Type } from "@sinclair/typebox";
 import { execFileSync } from "node:child_process";
 import { existsSync, readdirSync } from "node:fs";
@@ -77,15 +80,11 @@ function loadSecretsFromEjson(name: string): Record<string, string> {
 }
 
 export default function (pi: ExtensionAPI) {
-  const cwd = process.cwd();
-
-  // In-memory store of loaded secrets
-  let loadedSecrets: Record<string, string> = {};
+  // Names of loaded secret files and the env vars they set
   let loadedNames: string[] = [];
   const loadedEnvVarNames = new Set<string>();
 
   function rememberLoadedSecrets(name: string, vars: Record<string, string>): string[] {
-    loadedSecrets = { ...loadedSecrets, ...vars };
     for (const [key, value] of Object.entries(vars)) {
       process.env[key] = value;
       loadedEnvVarNames.add(key);
@@ -102,7 +101,6 @@ export default function (pi: ExtensionAPI) {
   }
 
   function clearLoadedSecrets(): void {
-    loadedSecrets = {};
     loadedNames = [];
     for (const key of loadedEnvVarNames) {
       delete process.env[key];
@@ -113,22 +111,6 @@ export default function (pi: ExtensionAPI) {
   function loadedSecretsStatus(): string {
     return `🔑 ${loadedNames.join(", ")}`;
   }
-
-  // Override bash tool to inject secrets via spawnHook
-  const bashTool = createBashTool(cwd, {
-    spawnHook: ({ command, cwd, env }) => ({
-      command,
-      cwd,
-      env: { ...env, ...loadedSecrets },
-    }),
-  });
-
-  pi.registerTool({
-    ...bashTool,
-    execute: async (id, params, signal, onUpdate, _ctx) => {
-      return bashTool.execute(id, params, signal, onUpdate);
-    },
-  });
 
   // Register tool for LLM to load secrets
   pi.registerTool({
