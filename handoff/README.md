@@ -63,11 +63,24 @@ So:
 ## What it does
 
 1. **Capture Ghostty anchors synchronously at command entry** — the front window id *and* the focused terminal surface's stable id. A later pane spawn splits the **exact** surface you invoked from, regardless of where focus is when the spawn actually runs. Tab spawn targets the captured window. (Strict race fix vs. the old `delegate` skill, which captured nothing.)
-2. **Collect messages from the current branch**, preserving the most recent compaction summary, branch summaries, and extension custom messages.
+2. **Collect messages from the current branch**, preserving the most recent compaction summary, branch summaries, and extension custom messages. Custom messages whose `customType` is `brain-context` are replaced with a one-line stub (see [Brain memory bank context](#brain-memory-bank-context) below); every other custom type is passed through unchanged.
 3. **Ask the current model to return a JSON intent** with `mode` (`in-process` / `pane` / `tab` / `window`), `direction` (for pane), `targetDir` (resolved repo nickname or path), and a self-contained `prompt`.
 4. **Confirm** the resolved directory and spawn target when delegating, so you can catch a wrong nickname guess.
-5. **Open the prompt in an editor** for review/editing.
+5. **Open the prompt in an editor** for review/editing. When the current branch carries brain memory bank context, the editor title names the fixed token cost the new session will start with.
 6. **Either** replace the current session with the edited prompt staged, **or** write the prompt to a temp file and spawn a Ghostty pane/tab/window running `pi-delegate @<taskfile>` (which re-execs under a login shell so PATH/nix/shadowenv all work).
+
+## Brain memory bank context
+
+The brain pi extension (a separate, nix-built package) injects the memory banks, the knowledge catalog, the standing working-agreement rules and the daily context as a `custom_message` with `customType: "brain-context"` at session start. Measured on 2026-10-01, one injection was 142,795 bytes — roughly 36k tokens.
+
+The receiving session gets that block again, in full, when it starts. So this extension does two things with it:
+
+- **Synthesis input.** The block is replaced with `[brain memory bank context — automatically available in the new session]` before the branch is handed to the synthesis model, and the synthesis prompt gains a paragraph stating that the receiving session already has the banks, the rules and the daily context, so the generated prompt should reference memory bank material by path rather than quoting it back. Both halves matter: without the prompt change, the model only learns that the material is missing and compensates by re-deriving it. Other custom types (`link/result`, `answers`) carry real conversational content and are left alone.
+- **Visible cost.** The size of the most recent `brain-context` injection in the branch is measured and shown before a new session is created — in the editor title when delegating, and in the "handoff ready" notification in-process — so fanning out is a deliberate choice. The figure is derived from the actual content length (estimated at 4 bytes per token); when the branch carries no brain context, nothing is shown.
+
+**Brain is optional.** Everything above is driven by the presence of a `brain-context` message in the current branch. Without brain — or in a session that never received an injection — nothing is stubbed, the synthesis prompt contains no mention of brain or memory banks at all, and no cost line is shown. The extension has no dependency on brain being installed.
+
+Neither change touches the brain extension itself. In particular, the re-injection of the block on compaction and on session events is a brain extension behavior and is out of scope here.
 
 ## Notes
 
