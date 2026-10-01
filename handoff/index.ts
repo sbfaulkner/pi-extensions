@@ -41,7 +41,15 @@ import type { ExtensionAPI, SessionEntry } from "@mariozechner/pi-coding-agent";
 import { BorderedLoader, convertToLlm, serializeConversation } from "@mariozechner/pi-coding-agent";
 import type { Component } from "@mariozechner/pi-tui";
 
-function buildSystemPrompt(defaultMode: HandoffMode): string {
+/**
+ * Added to the synthesis prompt ONLY when the current branch actually carries
+ * brain memory bank context. Without brain in use, none of this is true and
+ * naming it would just confuse the model.
+ */
+export const BRAIN_CONTEXT_GUIDANCE = `What the receiving session ALREADY HAS, automatically, at its own session start: the brain memory banks (personal and team), the knowledge catalog, the standing working-agreement rules, and the daily context. Do NOT restate, summarise, quote or re-derive any of that material in the prompt — it is injected in full regardless, so repeating it only consumes the new session's context window. Reference memory bank material by path (for example personal/projects/generic/<name>, or a knowledge entry filename) and let the new session read it. The "no memory" caveat above is about the CONVERSATION, not about the memory banks.`;
+
+function buildSystemPrompt(defaultMode: HandoffMode, options: { hasBrainContext?: boolean } = {}): string {
+  const brainGuidance = options.hasBrainContext ? `\n\n  ${BRAIN_CONTEXT_GUIDANCE}\n` : "";
   const defaultModeExplanation =
     defaultMode === "in-process"
       ? `Default "mode" is "in-process" (start the new session in the current pi instance, same working directory — replacing this session). ALWAYS use "in-process" unless the user's instruction (the text after the command, NOT the conversation history) contains one of these EXPLICIT signals:\n  - Words like "new pane", "split", "side by side" → use "pane"\n  - Words like "new tab" → use "tab"\n  - Words like "new window" → use "window"\n  - An explicit "in <repo>" or "in <directory>" targeting a DIFFERENT repo/directory than the current one → use "pane"\nIf none of these patterns appear in the user's instruction, use "in-process". Do NOT infer a mode from repos, directories, or tools mentioned in the conversation history — only from the user's instruction.`
@@ -73,9 +81,7 @@ Field guidance:
   1. ## Context — relevant decisions, findings, file paths, approaches.
   2. ## Task — what to do next, based on the user's instruction.
   3. Acceptance criteria when meaningful.
-
-  What the receiving session ALREADY HAS, automatically, at its own session start: the brain memory banks (personal and team), the knowledge catalog, the standing working-agreement rules, and the daily context. Do NOT restate, summarise, quote or re-derive any of that material in the prompt — it is injected in full regardless, so repeating it only consumes the new session's context window. Reference memory bank material by path (for example personal/projects/generic/<name>, or a knowledge entry filename) and let the new session read it. The "no memory" caveat above is about the CONVERSATION, not about the memory banks.
-
+${brainGuidance}
   If "targetDir" is set and points to a different repository than the current cwd, the receiving session does NOT know the source repo. Reference files in the source repo by absolute or repo-qualified path and include enough orienting context that the new session can act independently.
 
 Output ONLY the JSON object.`;
@@ -83,6 +89,9 @@ Output ONLY the JSON object.`;
 
 /** Backwards-compatible export: the system prompt for the historical /handoff default. */
 export const SYSTEM_PROMPT = buildSystemPrompt("in-process");
+
+/** The same prompt as it is built for a session that carries brain memory bank context. */
+export const SYSTEM_PROMPT_WITH_BRAIN_CONTEXT = buildSystemPrompt("in-process", { hasBrainContext: true });
 
 function entryTimestamp(entry: SessionEntry): number {
   return new Date(entry.timestamp).getTime();
@@ -554,9 +563,11 @@ export function createHandoffExtension(pi: ExtensionAPI, deps: HandoffDependenci
         return;
       }
 
-      // Fixed startup cost of whatever session this produces. Null when the
-      // branch carries no brain context — then say nothing rather than guess.
-      const brainCostNote = formatBrainContextCost(brainContextCost(branch));
+      // Fixed startup cost of whatever session this produces. Null when brain
+      // is not in use (or the branch carries no injection) — then say nothing
+      // rather than guess, and leave the synthesis prompt silent about brain.
+      const brainCost = brainContextCost(branch);
+      const brainCostNote = formatBrainContextCost(brainCost);
 
       const llmMessages = toLlm(messages);
       const conversationText = serialize(llmMessages);
@@ -564,7 +575,7 @@ export function createHandoffExtension(pi: ExtensionAPI, deps: HandoffDependenci
 
       let generationError: string | undefined;
 
-      const systemPrompt = buildSystemPrompt(defaultMode);
+      const systemPrompt = buildSystemPrompt(defaultMode, { hasBrainContext: brainCost !== null });
 
       // Generate the handoff intent + prompt with loader UI.
       const result = await ctx.ui.custom<string | null>((tui, theme, _kb, done) => {

@@ -11,6 +11,7 @@ import {
   resolveRepoNickname,
   responseDiagnostics,
   SYSTEM_PROMPT,
+  SYSTEM_PROMPT_WITH_BRAIN_CONTEXT,
 } from "./index.ts";
 import { mkdtempSync, mkdirSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -391,11 +392,16 @@ test("brainContextCost returns null when the branch carries no brain context", (
   assert.equal(formatBrainContextCost(cost), null);
 });
 
-test("the synthesis prompt tells the model the receiving session already has the memory banks", () => {
+test("the synthesis prompt says nothing about brain when the session carries no brain context", () => {
   assert.match(SYSTEM_PROMPT, /NO memory of the source conversation/);
-  assert.match(SYSTEM_PROMPT, /ALREADY HAS, automatically, at its own session start/);
-  assert.match(SYSTEM_PROMPT, /brain memory banks/);
-  assert.match(SYSTEM_PROMPT, /Do NOT restate, summarise, quote or re-derive/);
+  assert.ok(!/brain/i.test(SYSTEM_PROMPT));
+});
+
+test("the synthesis prompt tells the model the receiving session already has the memory banks", () => {
+  assert.match(SYSTEM_PROMPT_WITH_BRAIN_CONTEXT, /NO memory of the source conversation/);
+  assert.match(SYSTEM_PROMPT_WITH_BRAIN_CONTEXT, /ALREADY HAS, automatically, at its own session start/);
+  assert.match(SYSTEM_PROMPT_WITH_BRAIN_CONTEXT, /brain memory banks/);
+  assert.match(SYSTEM_PROMPT_WITH_BRAIN_CONTEXT, /Do NOT restate, summarise, quote or re-derive/);
 });
 
 test("responseDiagnostics includes stop reason, content types, error message, and diagnostics", () => {
@@ -573,14 +579,20 @@ test("handoff generates a prompt, opens the editor, and stages the edited prompt
 });
 
 test("handoff shows the brain memory bank cost in the in-process ready notification", async () => {
+  const systemPrompts: string[] = [];
   const harness = createHarness({
-    complete: async () => ({
-      stopReason: "end_turn",
-      content: [{ type: "text", text: jsonIntent({ prompt: "generated prompt" }) }],
-    }),
+    complete: async (_model: unknown, request: { systemPrompt: string }) => {
+      systemPrompts.push(request.systemPrompt);
+      return {
+        stopReason: "end_turn",
+        content: [{ type: "text", text: jsonIntent({ prompt: "generated prompt" }) }],
+      };
+    },
   });
 
   const ctx = await harness.run("continue the work", createContext(withBrainContextBranch()));
+
+  assert.match(systemPrompts[0], /ALREADY HAS, automatically, at its own session start/);
 
   assert.deepEqual(ctx.testState.notifications.at(-1), {
     message:
@@ -609,20 +621,26 @@ test("delegate shows the brain memory bank cost in the editor title before spawn
   );
 });
 
-test("handoff omits the cost line when the branch carries no brain context", async () => {
+test("handoff stays silent about brain when the branch carries no brain context", async () => {
+  const systemPrompts: string[] = [];
   const harness = createHarness({
-    complete: async () => ({
-      stopReason: "end_turn",
-      content: [
-        { type: "text", text: jsonIntent({ mode: "pane", direction: "right", targetDir: null, prompt: "go" }) },
-      ],
-    }),
+    complete: async (_model: unknown, request: { systemPrompt: string }) => {
+      systemPrompts.push(request.systemPrompt);
+      return {
+        stopReason: "end_turn",
+        content: [
+          { type: "text", text: jsonIntent({ mode: "pane", direction: "right", targetDir: null, prompt: "go" }) },
+        ],
+      };
+    },
     spawnDelegated: async () => ({ ok: true, stderr: "" }),
   });
 
   const ctx = await harness.run("in a new pane, go");
 
+  // No cost line in the editor title, and no mention of brain in the prompt.
   assert.equal(ctx.testState.editorInput?.title, "Edit handoff prompt");
+  assert.ok(!/brain/i.test(systemPrompts[0]));
 });
 
 test("delegate spawns a pane without confirm when targetRepo resolves to one match", async () => {
