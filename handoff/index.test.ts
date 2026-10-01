@@ -1,12 +1,16 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  BRAIN_CONTEXT_STUB,
+  brainContextCost,
   createHandoffExtension,
   expandTilde,
+  formatBrainContextCost,
   getHandoffMessages,
   parseHandoffIntent,
   resolveRepoNickname,
   responseDiagnostics,
+  SYSTEM_PROMPT,
 } from "./index.ts";
 import { mkdtempSync, mkdirSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -78,6 +82,32 @@ function messageEntry(id: string, role: "user" | "assistant", text: string) {
   };
 }
 
+function customMessageEntry(
+  id: string,
+  customType: string,
+  content: string | { type: "text"; text: string }[],
+  details?: unknown,
+) {
+  return {
+    id,
+    type: "custom_message",
+    timestamp,
+    customType,
+    content,
+    display: false,
+    details,
+  };
+}
+
+type BranchEntries = Parameters<typeof getHandoffMessages>[0];
+type HandoffMessage = ReturnType<typeof getHandoffMessages>[number];
+
+/** Narrow a synthesized message to the custom shape so content/details are readable. */
+function asCustom(message: HandoffMessage) {
+  assert.equal(message.role, "custom");
+  return message as unknown as { role: "custom"; customType: string; content: unknown; details: unknown };
+}
+
 function flush() {
   return new Promise((resolve) => setImmediate(resolve));
 }
@@ -138,6 +168,23 @@ function jsonIntent(
     ...overrides,
   };
   return JSON.stringify(obj);
+}
+
+/**
+ * Context override whose branch carries a brain memory bank injection of the
+ * size measured in a real session (142,795 bytes).
+ */
+function withBrainContextBranch() {
+  const branch = [
+    customMessageEntry("brain", "brain-context", "z".repeat(142_795)),
+    messageEntry("m1", "user", "hello"),
+  ];
+  return {
+    sessionManager: {
+      getBranch: () => branch,
+      getSessionFile: () => "/tmp/session.json",
+    },
+  };
 }
 
 function createContext(overrides: Record<string, unknown> = {}) {
@@ -258,6 +305,97 @@ test("getHandoffMessages keeps latest compaction and entries from firstKeptEntry
   const firstMessage = messages[0];
   assert.equal(firstMessage.role, "compactionSummary");
   assert.equal(firstMessage.summary, "summary text");
+});
+
+test("getHandoffMessages replaces a brain-context custom message with a stub", () => {
+  const block = "x".repeat(40_000);
+  const messages = getHandoffMessages([
+    customMessageEntry("brain", "brain-context", block, { banks: ["personal"] }),
+    messageEntry("m1", "user", "hello"),
+  ] as unknown as BranchEntries);
+
+  assert.equal(messages.length, 2);
+  const brain = asCustom(messages[0]);
+  assert.equal(brain.customType, "brain-context");
+  assert.equal(brain.content, BRAIN_CONTEXT_STUB);
+  assert.equal(brain.details, undefined);
+  assert.ok(!JSON.stringify(messages).includes(block));
+});
+
+test("getHandoffMessages passes link/result and answers custom messages through unchanged", () => {
+  const linkContent = [{ type: "text" as const, text: "fetched page body" }];
+  const messages = getHandoffMessages([
+    customMessageEntry("link", "link/result", linkContent, { url: "https://example.com" }),
+    customMessageEntry("answer", "answers", "the user answered yes", { questionId: "q1" }),
+  ] as unknown as BranchEntries);
+
+  assert.equal(messages.length, 2);
+  assert.deepEqual(asCustom(messages[0]).content, linkContent);
+  assert.deepEqual(asCustom(messages[0]).details, { url: "https://example.com" });
+  assert.equal(asCustom(messages[1]).content, "the user answered yes");
+  assert.deepEqual(asCustom(messages[1]).details, { questionId: "q1" });
+});
+
+test("getHandoffMessages stubs brain context on both sides of a compaction", () => {
+  const block = "y".repeat(20_000);
+  const messages = getHandoffMessages([
+    customMessageEntry("dropped", "brain-context", block),
+    messageEntry("old", "user", "dropped context"),
+    customMessageEntry("kept", "brain-context", block),
+    {
+      id: "compact",
+      type: "compaction",
+      timestamp,
+      summary: "summary text",
+      tokensBefore: 123,
+      firstKeptEntryId: "kept",
+    },
+    customMessageEntry("after", "brain-context", block),
+    messageEntry("new", "user", "new context"),
+  ] as unknown as BranchEntries);
+
+  // Compaction summary, the kept brain message, the post-compaction brain
+  // message, then the trailing user message. The pre-firstKeptEntryId entries
+  // are dropped by the compaction rebuild.
+  assert.deepEqual(
+    messages.map((message) => message.role),
+    ["compactionSummary", "custom", "custom", "user"],
+  );
+  assert.equal(asCustom(messages[1]).content, BRAIN_CONTEXT_STUB);
+  assert.equal(asCustom(messages[2]).content, BRAIN_CONTEXT_STUB);
+  assert.ok(!JSON.stringify(messages).includes(block));
+});
+
+test("brainContextCost measures the most recent injection and formats it", () => {
+  const cost = brainContextCost([
+    customMessageEntry("first", "brain-context", "a".repeat(1000)),
+    customMessageEntry("link", "link/result", "b".repeat(90_000)),
+    customMessageEntry("second", "brain-context", [
+      { type: "text", text: "c".repeat(80_000) },
+      { type: "text", text: "d".repeat(62_795) },
+    ]),
+  ] as unknown as BranchEntries);
+
+  assert.deepEqual(cost, { bytes: 142_795, tokens: 35_699 });
+  assert.equal(formatBrainContextCost(cost), "new session starts at roughly 35.7k tokens of brain memory bank context");
+});
+
+test("brainContextCost returns null when the branch carries no brain context", () => {
+  const cost = brainContextCost([
+    messageEntry("m1", "user", "hello"),
+    customMessageEntry("link", "link/result", "a page"),
+    customMessageEntry("empty", "brain-context", ""),
+  ] as unknown as BranchEntries);
+
+  assert.equal(cost, null);
+  assert.equal(formatBrainContextCost(cost), null);
+});
+
+test("the synthesis prompt tells the model the receiving session already has the memory banks", () => {
+  assert.match(SYSTEM_PROMPT, /NO memory of the source conversation/);
+  assert.match(SYSTEM_PROMPT, /ALREADY HAS, automatically, at its own session start/);
+  assert.match(SYSTEM_PROMPT, /brain memory banks/);
+  assert.match(SYSTEM_PROMPT, /Do NOT restate, summarise, quote or re-derive/);
 });
 
 test("responseDiagnostics includes stop reason, content types, error message, and diagnostics", () => {
@@ -432,6 +570,59 @@ test("handoff generates a prompt, opens the editor, and stages the edited prompt
     message: "Handoff ready \u2014 review the prompt and submit when ready.",
     level: "info",
   });
+});
+
+test("handoff shows the brain memory bank cost in the in-process ready notification", async () => {
+  const harness = createHarness({
+    complete: async () => ({
+      stopReason: "end_turn",
+      content: [{ type: "text", text: jsonIntent({ prompt: "generated prompt" }) }],
+    }),
+  });
+
+  const ctx = await harness.run("continue the work", createContext(withBrainContextBranch()));
+
+  assert.deepEqual(ctx.testState.notifications.at(-1), {
+    message:
+      "Handoff ready \u2014 review the prompt and submit when ready. " +
+      "This new session starts at roughly 35.7k tokens of brain memory bank context.",
+    level: "info",
+  });
+});
+
+test("delegate shows the brain memory bank cost in the editor title before spawning", async () => {
+  const harness = createHarness({
+    complete: async () => ({
+      stopReason: "end_turn",
+      content: [
+        { type: "text", text: jsonIntent({ mode: "pane", direction: "right", targetDir: null, prompt: "go" }) },
+      ],
+    }),
+    spawnDelegated: async () => ({ ok: true, stderr: "" }),
+  });
+
+  const ctx = await harness.run("in a new pane, go", createContext(withBrainContextBranch()));
+
+  assert.equal(
+    ctx.testState.editorInput?.title,
+    "Edit handoff prompt \u2014 new session starts at roughly 35.7k tokens of brain memory bank context",
+  );
+});
+
+test("handoff omits the cost line when the branch carries no brain context", async () => {
+  const harness = createHarness({
+    complete: async () => ({
+      stopReason: "end_turn",
+      content: [
+        { type: "text", text: jsonIntent({ mode: "pane", direction: "right", targetDir: null, prompt: "go" }) },
+      ],
+    }),
+    spawnDelegated: async () => ({ ok: true, stderr: "" }),
+  });
+
+  const ctx = await harness.run("in a new pane, go");
+
+  assert.equal(ctx.testState.editorInput?.title, "Edit handoff prompt");
 });
 
 test("delegate spawns a pane without confirm when targetRepo resolves to one match", async () => {

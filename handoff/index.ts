@@ -74,6 +74,8 @@ Field guidance:
   2. ## Task — what to do next, based on the user's instruction.
   3. Acceptance criteria when meaningful.
 
+  What the receiving session ALREADY HAS, automatically, at its own session start: the brain memory banks (personal and team), the knowledge catalog, the standing working-agreement rules, and the daily context. Do NOT restate, summarise, quote or re-derive any of that material in the prompt — it is injected in full regardless, so repeating it only consumes the new session's context window. Reference memory bank material by path (for example personal/projects/generic/<name>, or a knowledge entry filename) and let the new session read it. The "no memory" caveat above is about the CONVERSATION, not about the memory banks.
+
   If "targetDir" is set and points to a different repository than the current cwd, the receiving session does NOT know the source repo. Reference files in the source repo by absolute or repo-qualified path and include enough orienting context that the new session can act independently.
 
 Output ONLY the JSON object.`;
@@ -84,6 +86,73 @@ export const SYSTEM_PROMPT = buildSystemPrompt("in-process");
 
 function entryTimestamp(entry: SessionEntry): number {
   return new Date(entry.timestamp).getTime();
+}
+
+/**
+ * The `customType` of the session-start custom message that carries the brain
+ * memory bank block (knowledge catalog, working-agreement rules, daily
+ * context). Matched exactly: the other custom types seen in session files
+ * (`link/result`, `answers`) can carry real conversational content and are
+ * passed through untouched.
+ */
+export const BRAIN_CONTEXT_CUSTOM_TYPE = "brain-context";
+
+/**
+ * What the synthesis model sees in place of the brain block. The receiving
+ * session is handed the whole block again at its own session start, so sending
+ * it to the synthesis model only burns tokens on material that is about to be
+ * duplicated. The stub keeps the model aware that the banks exist.
+ */
+export const BRAIN_CONTEXT_STUB = "[brain memory bank context — automatically available in the new session]";
+
+type CustomMessageContent = Extract<AgentMessage, { role: "custom" }>["content"];
+
+function contentByteLength(content: CustomMessageContent): number {
+  if (typeof content === "string") return Buffer.byteLength(content, "utf8");
+  return content.reduce((total, part) => total + (part.type === "text" ? Buffer.byteLength(part.text, "utf8") : 0), 0);
+}
+
+/** Measured size of one brain memory bank injection. */
+export interface BrainContextCost {
+  bytes: number;
+  /** Estimated at 4 bytes per token — good enough for an order-of-magnitude warning. */
+  tokens: number;
+}
+
+/**
+ * Measure the brain memory bank block carried by this branch, so the fixed
+ * startup cost of a new session can be shown before one is created.
+ *
+ * A new session receives ONE injection at its start, so this reports the size
+ * of the most recent injection in the branch rather than their sum (the block
+ * is re-injected on compaction and on session events, and later injections
+ * reflect the current state of the banks). Returns null when the branch
+ * carries no brain context — callers must then show nothing rather than a
+ * misleading zero.
+ */
+export function brainContextCost(branch: SessionEntry[]): BrainContextCost | null {
+  let bytes: number | null = null;
+  for (const entry of branch) {
+    if (entry.type !== "custom_message") continue;
+    if (entry.customType !== BRAIN_CONTEXT_CUSTOM_TYPE) continue;
+    bytes = contentByteLength(entry.content);
+  }
+
+  if (bytes === null || bytes === 0) return null;
+  return { bytes, tokens: Math.round(bytes / 4) };
+}
+
+function formatTokenCount(tokens: number): string {
+  return tokens >= 1000 ? `${(tokens / 1000).toFixed(1)}k` : String(tokens);
+}
+
+/**
+ * Render the measured brain-context cost as a clause for the confirmation
+ * surfaces, or null when there is nothing trustworthy to report.
+ */
+export function formatBrainContextCost(cost: BrainContextCost | null): string | null {
+  if (!cost) return null;
+  return `new session starts at roughly ${formatTokenCount(cost.tokens)} tokens of brain memory bank context`;
 }
 
 function entryToMessage(entry: SessionEntry): AgentMessage | undefined {
@@ -110,12 +179,16 @@ function entryToMessage(entry: SessionEntry): AgentMessage | undefined {
   }
 
   if (entry.type === "custom_message") {
+    // The brain memory bank block is ~36k tokens and is handed to the receiving
+    // session again at its own session start, so send a stub to the synthesis
+    // model instead of the block itself.
+    const isBrainContext = entry.customType === BRAIN_CONTEXT_CUSTOM_TYPE;
     return {
       role: "custom",
       customType: entry.customType,
-      content: entry.content,
+      content: isBrainContext ? BRAIN_CONTEXT_STUB : entry.content,
       display: entry.display,
-      details: entry.details,
+      details: isBrainContext ? undefined : entry.details,
       timestamp: entryTimestamp(entry),
     };
   }
@@ -474,11 +547,16 @@ export function createHandoffExtension(pi: ExtensionAPI, deps: HandoffDependenci
 
       // Gather conversation context from current branch. If the branch was compacted,
       // include the compaction summary plus entries from firstKeptEntryId onward.
-      const messages = getHandoffMessages(ctx.sessionManager.getBranch());
+      const branch = ctx.sessionManager.getBranch();
+      const messages = getHandoffMessages(branch);
       if (messages.length === 0) {
         ctx.ui.notify("No conversation to hand off", "error");
         return;
       }
+
+      // Fixed startup cost of whatever session this produces. Null when the
+      // branch carries no brain context — then say nothing rather than guess.
+      const brainCostNote = formatBrainContextCost(brainContextCost(branch));
 
       const llmMessages = toLlm(messages);
       const conversationText = serialize(llmMessages);
@@ -605,7 +683,12 @@ export function createHandoffExtension(pi: ExtensionAPI, deps: HandoffDependenci
           parentSession: currentSessionFile,
           withSession: async (replacementCtx) => {
             replacementCtx.ui.setEditorText(intent.prompt);
-            replacementCtx.ui.notify("Handoff ready — review the prompt and submit when ready.", "info");
+            replacementCtx.ui.notify(
+              brainCostNote
+                ? `Handoff ready — review the prompt and submit when ready. This ${brainCostNote}.`
+                : "Handoff ready — review the prompt and submit when ready.",
+              "info",
+            );
           },
         });
 
@@ -617,7 +700,8 @@ export function createHandoffExtension(pi: ExtensionAPI, deps: HandoffDependenci
 
       // Delegated modes need the final prompt text for the task file, so let
       // the user review/edit via the editor dialog before spawning.
-      const editedPrompt = await ctx.ui.editor("Edit handoff prompt", intent.prompt);
+      const editorTitle = brainCostNote ? `Edit handoff prompt — ${brainCostNote}` : "Edit handoff prompt";
+      const editedPrompt = await ctx.ui.editor(editorTitle, intent.prompt);
       if (editedPrompt === undefined) {
         ctx.ui.notify("Cancelled", "info");
         return;

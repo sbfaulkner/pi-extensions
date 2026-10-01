@@ -1,5 +1,14 @@
 # Changelog
 
+## 2.21.0
+
+- Stop spending the brain memory bank context twice on every `/handoff` and `/delegate`
+  - The brain pi extension injects the memory banks, knowledge catalog, working-agreement rules and daily context as a `custom_message` with `customType: "brain-context"`; one injection measured 142,795 bytes (~36k tokens) on 2026-10-01. The receiving session is given the whole block again at its own session start, so sending it to the synthesis model paid for it a second time and produced prompts that quoted memory bank material back into a session that already had it
+  - `getHandoffMessages` now replaces `brain-context` content with a one-line stub. Matched on `customType` exactly: `link/result` and `answers` custom messages carry real conversational content and pass through unchanged, including their `details`
+  - The synthesis prompt now states that the receiving session already has the banks, the rules and the daily context, and that memory bank material should be referenced by path rather than restated. Without this, the model reads the stub as missing context and re-derives it. The existing (correct) instruction that the new session has no memory of the *conversation* is unchanged
+  - The measured cost of one injection is shown before a new session is created — in the editor title when delegating, and in the "handoff ready" notification in-process — so fanning out is a deliberate choice. The figure comes from the actual content length in the current branch, estimated at 4 bytes per token; branches with no brain context show nothing rather than a misleading zero
+  - The brain extension's re-injection of the block on compaction and session events is a separate repository and remains out of scope
+
 ## 2.20.0
 
 - Stop overriding the `bash` tool in the `secrets` extension
