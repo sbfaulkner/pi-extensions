@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.22.0
+
+- Remove the vendored `graphite` skill; Graphite is no longer in use. The `git-workflow` extension's Graphite detection is unchanged
+
 ## 2.21.0
 
 - Stop spending the brain memory bank context twice on every `/handoff` and `/delegate`
