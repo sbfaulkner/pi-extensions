@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.23.0
+
+- Remove the `agency`, `freshness` and `link` extensions; none was in use
+
 ## 2.22.0
 
 - Remove Graphite support; Graphite is no longer in use
