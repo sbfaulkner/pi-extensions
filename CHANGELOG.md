@@ -2,7 +2,10 @@
 
 ## 2.22.0
 
-- Remove the vendored `graphite` skill; Graphite is no longer in use. The `git-workflow` extension's Graphite detection is unchanged
+- Remove Graphite support; Graphite is no longer in use
+  - Remove the vendored `graphite` skill
+  - Remove the `git-workflow` extension's Graphite mode: no `gt` detection, no `graphiteOrgs` config or `git-workflow.json`, and no Graphite context hint. GitHub remotes always get the GitHub PR workflow
+  - `/workflow` now only reports the detected workflow; `list`, `add` and `remove` are gone
 
 ## 2.21.0
 
