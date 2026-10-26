@@ -8,7 +8,7 @@ Personal extensions and skills for the [Pi coding agent](https://buildwithpi.com
 |-----------|-------------|
 | [answer](./answer/) | Answer assistant questions in batch via `/answer` command. Extracts questions cheaply, presents a form, sends all answers at once. |
 | [freshness](./freshness/) | At pi startup, check user-managed extension/skill repos (anything loaded from outside `~/.pi/`) for upstream commits via `git ls-remote`. Inserts one transcript block listing repos behind upstream; silent otherwise. No commands, no cache, no nag — pulling clears it. |
-| [git-workflow](./git-workflow/) | Auto-detect git workflow (local git, non-GitHub remotes, standard GitHub PRs, or Graphite) and inject context hints. `/workflow` command to manage configured Graphite orgs. |
+| [git-workflow](./git-workflow/) | Auto-detect git workflow (local git, non-GitHub remotes, or standard GitHub PRs) and inject context hints. `/workflow` command to show the detected workflow. |
 | [handoff](./handoff/) | Transfer context into a new focused session. Registers two commands sharing one handler: `/handoff <goal>` defaults to replacing the current session in-place; `/delegate <goal>` defaults to spawning a parallel Ghostty pane (current session continues). Both accept natural-language overrides for mode (pane/tab/window) and target repo via the `~/src/github.com/<org>/<repo>` convention. Subsumes the old delegate skill. |
 | [link](./link/) | Create Slack-pastable GitHub PR links with `/link [PR number/URL/branch ...]`. Resolves PR metadata with `gh`, emits exact markdown link line(s), and copies both rich HTML and plain text to the clipboard. |
 | [nodoz](./nodoz/) | Keep macOS awake while Pi is actively working. Uses lifecycle-scoped `caffeinate` in interactive TTY sessions only. |
@@ -24,7 +24,6 @@ Personal extensions and skills for the [Pi coding agent](https://buildwithpi.com
 |-------|-------------|
 | [codeowners](./skills/codeowners/) | Identify code owners for a given file path by locating and evaluating the repository's CODEOWNERS file. |
 | [gh-cli](./skills/gh-cli/) | Safe GitHub CLI patterns for PR/issue bodies, comments, and generated multi-line content. |
-| [graphite](./skills/graphite/) | Graphite CLI and stacked PR workflow guidance with agent-safe non-interactive command defaults. |
 | [git-workflow](./skills/git-workflow/) | Local git workflow guidance for repositories with no remote configured (no `gh`/PR commands). |
 | [github-workflow](./skills/github-workflow/) | GitHub PR workflow guidance (branching, commits, `gh` CLI, PR creation). |
 | [gws-docs-markdown](./skills/gws-docs-markdown/) | Create and update Google Docs from markdown content. |
@@ -34,18 +33,9 @@ Personal extensions and skills for the [Pi coding agent](https://buildwithpi.com
 
 This package currently does not ship prompt templates. Deterministic workflows like `/link` live in extensions so they can be tested and run without an agent turn.
 
-## Git workflow configuration
+## Git workflow detection
 
-Use `/workflow` to manage which GitHub orgs should use Graphite guidance. It supports both interactive use and explicit non-interactive commands:
-
-```text
-/workflow list
-/workflow add Shopify
-/workflow remove Shopify
-/workflow detect
-```
-
-The extension stores config in `${PI_CODING_AGENT_DIR:-~/.pi/agent}/git-workflow.json` and shows the detected workflow in the status bar. For both standard GitHub and Graphite workflows, newly created PRs default to drafts; agents should publish them for review only when explicitly requested or when repository-specific instructions require it.
+Use `/workflow` to show the current repo's GitHub org and detected workflow. The extension also shows the detected workflow in the status bar. For GitHub repos, newly created PRs default to drafts; agents should publish them for review only when explicitly requested or when repository-specific instructions require it.
 
 ## Install
 

@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.22.0
+
+- Remove Graphite support; Graphite is no longer in use
+  - Remove the vendored `graphite` skill
+  - Remove the `git-workflow` extension's Graphite mode: no `gt` detection, no `graphiteOrgs` config or `git-workflow.json`, and no Graphite context hint. GitHub remotes always get the GitHub PR workflow
+  - `/workflow` now only reports the detected workflow; `list`, `add` and `remove` are gone
+
 ## 2.21.0
 
 - Stop spending the brain memory bank context twice on every `/handoff` and `/delegate`
