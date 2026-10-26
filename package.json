@@ -1,6 +1,6 @@
 {
   "name": "pi-extensions",
-  "version": "2.22.0",
+  "version": "2.23.0",
   "license": "MIT",
   "private": true,
   "type": "module",
@@ -21,12 +21,10 @@
   },
   "pi": {
     "extensions": [
-      "./agency/index.ts",
       "./answer/index.ts",
       "./freshness/index.ts",
       "./git-workflow/index.ts",
       "./handoff/index.ts",
-      "./link/index.ts",
       "./nodoz/index.ts",
       "./secrets/index.ts",
       "./system-theme/index.ts",
