@@ -22,7 +22,6 @@
   "pi": {
     "extensions": [
       "./answer/index.ts",
-      "./freshness/index.ts",
       "./git-workflow/index.ts",
       "./handoff/index.ts",
       "./nodoz/index.ts",

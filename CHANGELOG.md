@@ -2,7 +2,7 @@
 
 ## 2.23.0
 
-- Remove the `agency` and `link` extensions; neither was in use
+- Remove the `agency`, `freshness` and `link` extensions; none was in use
 
 ## 2.22.0
 
