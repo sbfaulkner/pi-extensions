@@ -2,6 +2,8 @@
 
 Personal extensions and skills for the [Pi coding agent](https://buildwithpi.com).
 
+General-purpose only: nothing specific to an employer's internal tools or a particular host application (see [AGENTS.md](./AGENTS.md)).
+
 ## Extensions
 
 | Extension | Description |
@@ -24,6 +26,7 @@ Personal extensions and skills for the [Pi coding agent](https://buildwithpi.com
 | [gh-cli](./skills/gh-cli/) | Safe GitHub CLI patterns for PR/issue bodies, comments, and generated multi-line content. |
 | [git-workflow](./skills/git-workflow/) | Local git workflow guidance for repositories with no remote configured (no `gh`/PR commands). |
 | [github-workflow](./skills/github-workflow/) | GitHub PR workflow guidance (branching, commits, `gh` CLI, PR creation). |
+| [pre-push-review](./skills/pre-push-review/) | A quick independent review of a change before pushing it, against a checklist of the bugs that keep turning up in review. Works on any host. |
 | [gws-docs-markdown](./skills/gws-docs-markdown/) | Create and update Google Docs from markdown content. |
 | [refactoring](./skills/refactoring/) | Safely apply refactorings from Martin Fowler's catalog (2nd ed. + Ruby Edition) in small, behavior-preserving steps. Dispatcher with a smell→refactoring table, on-demand reference files (Ruby examples) for each refactoring, and dialect notes for modern Ruby, Sorbet, and Rust. |
 

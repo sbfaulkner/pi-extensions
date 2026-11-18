@@ -9,6 +9,7 @@ description: Standard GitHub PR workflow reference. Use when a remote exists and
 
 - **Never commit directly to `main`** — always use feature branches and PRs
 - **Small, focused PRs** — easier to review, faster to merge
+- **Review locally before you push** — see the pre-push-review skill
 - **Draft first** — create new PRs as drafts so early iterations do not request review
 - **Explicit readiness** — do not mark a draft ready unless the user explicitly asks or repo docs require it
 - **Clear commit messages** — describe what and why, not how
