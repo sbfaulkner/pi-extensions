@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.24.1
+
+- `github-workflow`: two more principles: follow the checks after a push (wait for them, then fix what failed), and never merge unless the user asks
+
 ## 2.24.0
 
 - Add the `pre-push-review` skill: one quick independent review of a change before pushing it or marking a PR ready, by a model from a different family than the one that wrote it, given only the diff, the goal and a checklist of the bugs that keep turning up in review. Fix each finding everywhere the same mistake can happen, and split changes much over about 1,000 lines. It applies on any host

@@ -12,6 +12,8 @@ description: Standard GitHub PR workflow reference. Use when a remote exists and
 - **Review locally before you push** — see the pre-push-review skill
 - **Draft first** — create new PRs as drafts so early iterations do not request review
 - **Explicit readiness** — do not mark a draft ready unless the user explicitly asks or repo docs require it
+- **Follow the checks after you push** — the work isn't done while checks run: wait for them, without a sleep loop when your host can wake you, then fix what failed
+- **Never merge on your own** — merge only when the user asks
 - **Clear commit messages** — describe what and why, not how
 
 ## Workflow
@@ -106,7 +108,7 @@ Use [Conventional Commits](https://www.conventionalcommits.org/) format:
 | `gh pr ready <number>` | Mark a draft ready when explicitly requested |
 | `gh pr view` | View PR details |
 | `gh pr checks` | Check CI status |
-| `gh pr merge` | Merge a PR |
+| `gh pr merge` | Merge a PR, only when the user asks |
 | `gh pr list` | List open PRs |
 | `gh pr checkout <number>` | Check out a PR locally |
 
