@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.24.0
+
+- Add the `pre-push-review` skill: one quick independent review of a change before pushing it or marking a PR ready, by a model from a different family than the one that wrote it, given only the diff, the goal and a checklist of the bugs that keep turning up in review. Fix each finding everywhere the same mistake can happen, and split changes much over about 1,000 lines. It applies on any host
+  - The `git-workflow` extension's hints for GitHub and other remotes now say to load it before pushing anything non-trivial
+  - `github-workflow` points to it from its principles
+- Add `AGENTS.md`: this repo is for general-purpose extensions and skills only; anything specific to an employer's internal tools or a particular host application belongs with what it depends on
+
 ## 2.23.0
 
 - Remove the `agency`, `freshness` and `link` extensions; none was in use

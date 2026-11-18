@@ -118,11 +118,11 @@ function updateStatus(workflow: WorkflowType): void {
 // --- Context messages ---
 
 export const GITHUB_CONTEXT =
-  'This repo uses standard GitHub PRs. Use `git` and `gh` for branching, pushing, and creating PRs. Create new PRs as drafts by default (`gh pr create --draft ...`) to avoid requesting review of early iterations, and do not mark them ready unless the user explicitly asks or repo docs require it. Load the github-workflow skill for best practices. Always provide explicit arguments and messages inline to avoid opening interactive prompts or an editor (e.g. `git commit -m "message"`, `gh pr edit --body-file ...`, `git rebase main`). Note: if the repo\'s AGENTS.md or project docs specify a different workflow, follow those instead.';
+  'This repo uses standard GitHub PRs. Use `git` and `gh` for branching, pushing, and creating PRs. Create new PRs as drafts by default (`gh pr create --draft ...`) to avoid requesting review of early iterations, and do not mark them ready unless the user explicitly asks or repo docs require it. Load the github-workflow skill for best practices, and the pre-push-review skill before pushing anything non-trivial. Always provide explicit arguments and messages inline to avoid opening interactive prompts or an editor (e.g. `git commit -m "message"`, `gh pr edit --body-file ...`, `git rebase main`). Note: if the repo\'s AGENTS.md or project docs specify a different workflow, follow those instead.';
 const GIT_CONTEXT =
   'This repo has no remote configured. Use local `git` workflows (branches, commits) — there is no remote GitHub PR workflow available. Load the git-workflow skill for best practices and use explicit arguments (e.g. `git commit -m "message"`).';
 const REMOTE_GIT_CONTEXT =
-  'This repo has a non-GitHub origin remote. Use explicit local `git` commands for branching, commits, fetching, rebasing, and pushing; do not assume GitHub PRs or `gh` are available unless repo docs say so. Load the git-workflow skill for best practices and use explicit arguments (e.g. `git commit -m "message"`).';
+  'This repo has a non-GitHub origin remote. Use explicit local `git` commands for branching, commits, fetching, rebasing, and pushing; do not assume GitHub PRs or `gh` are available unless repo docs say so. Load the git-workflow skill for best practices, and the pre-push-review skill before pushing anything non-trivial, and use explicit arguments (e.g. `git commit -m "message"`).';
 
 // --- Extension ---
 
