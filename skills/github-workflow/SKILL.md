@@ -33,6 +33,8 @@ git add <files>           # stage specific files
 git commit -m "feat: description of change"
 ```
 
+If signing fails ("gpg failed to sign the data", no YubiKey or card detected), see the yubikey-signing skill.
+
 ### Push and create PR
 
 Use the GitHub CLI safely (see the gh-cli skill). Examples:
