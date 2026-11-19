@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.25.0
+
+- Add the `yubikey-signing` skill: what to do when git or gpg cannot sign because the YubiKey, or another OpenPGP card, holding the signing key is not there
+  - Check the card with `gpg --card-status`. If it is there, retry the failed step once; if not, wait about 10 seconds and check again; then stop and ask the user. Check again before retrying later too: the card often comes back by itself
+  - The usual cause is brief: the OS takes a smart card away as the machine starts to sleep and gives it back a second or two after it wakes. A commit that ran in that moment fails, and the same commit a minute later signs
+  - Never turn signing off, sign with another key, restart gpg's agent or change the card unless the user asks
+  - `github-workflow` and `git-workflow` point to it from their commit steps
+
 ## 2.24.1
 
 - `github-workflow`: two more principles: follow the checks after a push (wait for them, then fix what failed), and never merge unless the user asks

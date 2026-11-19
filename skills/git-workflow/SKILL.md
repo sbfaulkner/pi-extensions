@@ -28,6 +28,8 @@ git add <files>           # stage specific files
 git commit -m "feat: description of change"
 ```
 
+If signing fails ("gpg failed to sign the data", no YubiKey or card detected), see the yubikey-signing skill.
+
 ### If you later add a remote
 
 If you configure an origin remote later (e.g., `git remote add origin <url>`), follow the GitHub PR guidance in the `github-workflow` skill.

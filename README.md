@@ -26,6 +26,7 @@ General-purpose only: nothing specific to an employer's internal tools or a part
 | [gh-cli](./skills/gh-cli/) | Safe GitHub CLI patterns for PR/issue bodies, comments, and generated multi-line content. |
 | [git-workflow](./skills/git-workflow/) | Local git workflow guidance for repositories with no remote configured (no `gh`/PR commands). |
 | [github-workflow](./skills/github-workflow/) | GitHub PR workflow guidance (branching, commits, `gh` CLI, PR creation). |
+| [yubikey-signing](./skills/yubikey-signing/) | What to do when git or gpg cannot sign because the YubiKey (or another OpenPGP card) is not there: check the card, retry once, then ask the user; never turn signing off. |
 | [pre-push-review](./skills/pre-push-review/) | A quick independent review of a change before pushing it, against a checklist of the bugs that keep turning up in review. Works on any host. |
 | [gws-docs-markdown](./skills/gws-docs-markdown/) | Create and update Google Docs from markdown content. |
 | [refactoring](./skills/refactoring/) | Safely apply refactorings from Martin Fowler's catalog (2nd ed. + Ruby Edition) in small, behavior-preserving steps. Dispatcher with a smell→refactoring table, on-demand reference files (Ruby examples) for each refactoring, and dialect notes for modern Ruby, Sorbet, and Rust. |
